@@ -169,6 +169,43 @@ not say whether the one-request rule is per user or per app; a third
 party's README claims per user without a source. Ask Fiken at
 production-status time.
 
+## Security review (2026-09-22) and what changed
+
+A review of the design from the standpoint of a bank's security lead
+found one blocking issue and several hardening items. All were adopted
+except a WAF, which is deferred until abuse appears.
+
+- **Blocking: attacker-registered clients.** Open dynamic registration
+  plus no consent of our own let an attacker phish a code out of a real
+  Fiken login (confused deputy). Fixed with a redirect URI allowlist of
+  known MCP clients and a consent page on `/authorize`. The redirect URI
+  registered in the Fiken app does not help here; it only stops
+  impersonation of our server toward Fiken.
+- **Prompt injection via document content** driving write tools. Fixed
+  with an untrusted-content prefix on every context block and
+  confirmation-required descriptions plus `destructiveHint` on every
+  consequential tool.
+- **Administrator execution role in a shared account.** CDK's default
+  execution role is administrator, and byjoba hosts other products.
+  Fixed with a dedicated bootstrap qualifier, a scoped execution policy,
+  and a permissions boundary on all roles. A dedicated account remains
+  the end state.
+- **24-hour access tokens.** Now one hour, with refresh reusing the
+  wrapped Fiken access token while it is valid.
+- **One key for signing and encryption, no rotation.** Now a key ring
+  with HKDF-derived subkeys and a key id in every blob.
+- **Trivial denial of service** under concurrency 1. API Gateway stage
+  throttling; bearer check first.
+- **Unspecified logging.** 30-day retention, structured logs, explicit
+  no-token rule with tests, access logs without headers.
+- **Supply chain.** Actions pinned by SHA, CODEOWNERS, secret scanning
+  with push protection, Dependabot.
+- **Upload validation.** Magic bytes, not extensions.
+- **Smaller:** `no-store` on token responses, HSTS, widget DOM rules,
+  the note that code blobs are replayable only until Fiken's single-use
+  code is spent, and that disconnecting a client does not revoke the
+  Fiken grant.
+
 ## Things we decided not to do, on purpose
 
 - No inbox as a required step for users. It remains usable.

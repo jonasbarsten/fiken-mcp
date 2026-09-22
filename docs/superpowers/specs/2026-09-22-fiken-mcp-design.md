@@ -137,10 +137,27 @@ deployment rights are enforced by claims, not by trust:
 - The `production` GitHub Environment requires Jonas as reviewer and is
   restricted to the `main` branch. Every deploy job waits for that
   approval. Write access lets someone merge; it does not let them deploy.
-- The deploy role may only assume the CDK bootstrap roles.
+- **Blast radius inside byjoba is contained.** fiken-mcp has its own CDK
+  bootstrap qualifier `fikenmcp`, so its stacks use their own bootstrap
+  roles and asset bucket, not the ones jotufa and vigil use. The
+  CloudFormation execution role for that qualifier carries a scoped
+  policy (`fiken-mcp-cfn-exec`, defined in `iac/`) instead of
+  AdministratorAccess: it can only touch resources named `fiken-mcp-*`,
+  the `byjoba.com` hosted zone's records, API Gateway, ACM, and the
+  `/fiken_mcp/*` parameters. The same policy is the permissions boundary
+  on every role the stacks create, and the execution policy only allows
+  creating or changing roles that carry that boundary, so no stack change
+  can mint a role more powerful than the policy. The deploy role may only
+  assume the `cdk-fikenmcp-*` bootstrap roles.
+- A dedicated AWS account for fiken-mcp remains the preferred end state
+  and is a change of account id and bootstrap once it exists.
 - Repo settings: branch protection on `main` (PR required, review from
-  Jonas required, no direct pushes), Actions `GITHUB_TOKEN` read-only by
-  default, workflow runs from outside collaborators require approval.
+  Jonas required, no direct pushes), `CODEOWNERS` making Jonas a
+  required reviewer for `.github/`, `iac/` and `api/lib/`, Actions
+  `GITHUB_TOKEN` read-only by default, workflow runs from outside
+  collaborators require approval, secret scanning with push protection,
+  Dependabot for npm and GitHub Actions, 2FA required.
+- Workflow actions are pinned to commit SHAs, not tags.
 - PR workflow: typecheck and tests only, no AWS access.
 - Deploy workflow on push to `main`: `cdk deploy` of `iac` then `api`,
   in the `production` environment.
@@ -160,43 +177,83 @@ openapi-typescript. All Fiken calls go through one `fikenFetch` wrapper.
 
 We are an OAuth 2.1 authorization server toward the MCP client and an
 OAuth2 client toward Fiken. Nothing is stored; everything a server would
-normally remember travels in signed or encrypted blobs. Blobs are
-base64url(JSON) plus an HMAC-SHA256 tag with the signing key; blobs that
-carry Fiken tokens are AES-GCM encrypted with the same key material.
+normally remember travels in signed or encrypted blobs.
+
+**Keys.** `/fiken_mcp/signing_key` holds a key ring: `kid:hex[,kid:hex]`,
+first entry active. From each 32-byte master key we derive with HKDF a
+signing key (info `sign`) and an encryption key (info `enc`). Every blob
+carries its `kid`, so rotation is: add a new key first in the ring,
+deploy, wait for old blobs to expire, remove the old key. Signed blobs
+are `v1.<kid>.<base64url json>.<hmac-sha256>`; encrypted blobs are
+`v1e.<kid>.<iv>.<aes-256-gcm ciphertext+tag>`. Every payload carries a
+`k` discriminator (`c` client, `s` login state, `d` code, `a` access,
+`r` refresh) so a blob of one kind can never be read as another.
+
+**Allowed clients.** Dynamic registration only accepts redirect URIs
+that match a known MCP client: `https://claude.ai/api/mcp/auth_callback`,
+`https://chatgpt.com/connector_platform_oauth_redirect`,
+`https://chatgpt.com/connector/oauth/<id>`, and loopback
+`http://localhost` or `http://127.0.0.1` on any port for Claude Code.
+Anything else is rejected with `invalid_redirect_uri`. Adding a client
+is a code change in `api/src/auth/clients.ts` with a PR.
 
 1. **Discovery.** `/.well-known/oauth-protected-resource` and
    `/.well-known/oauth-authorization-server` are static JSON. PKCE S256
    required, `token_endpoint_auth_methods_supported: ["none"]`.
-2. **Registration.** `POST /register` returns a `client_id` that is a
-   signed blob of the registered `redirect_uris`. No storage.
-3. **Authorize.** Client sends its PKCE challenge, redirect URI and
-   state. We verify the client id and redirect URI, pack
+2. **Registration.** `POST /register` validates the redirect URIs
+   against the allowlist and returns a `client_id` that is a signed blob
+   of `{redirect_uris, client_name}`. No storage.
+3. **Consent.** `GET /authorize` validates the client id, redirect URI,
+   PKCE challenge and state, then renders a minimal consent page: which
+   client (registered name and redirect host) wants to connect to Fiken
+   through Fiken MCP, with "Fortsett til Fiken" and "Avbryt". The MCP
+   authorization spec requires this for proxies with a static upstream
+   client id; it is what stops an attacker-registered client from
+   phishing a code out of a real Fiken login. The page has no external
+   resources and a strict CSP.
+4. **Authorize.** "Fortsett" posts the same parameters back to
+   `POST /authorize`. We re-validate, pack
    `{redirect_uri, code_challenge, client_state, exp: +1h}` into a signed
    state, and redirect the browser to Fiken's authorize endpoint with our
    client id and `https://fiken-mcp.byjoba.com/callback`. Fiken handles
-   login, 2FA and consent. One hour so slow logins do not fail.
-4. **Callback.** We verify our state, wrap
+   login, 2FA and its own consent. One hour so slow logins do not fail.
+5. **Callback.** We verify our state, wrap
    `{fiken_code, fiken_state, code_challenge, redirect_uri, exp: +5min}`
    into a signed code blob, and redirect to the client's redirect URI
-   with that blob as `code` and the client's original state.
-5. **Token.** Client posts the code blob and its PKCE verifier. We check
-   the verifier against the challenge in the blob, exchange the Fiken
-   code with our client secret, call `GET /user` once, compute the
-   anonymous id `HMAC(salt, email)`, and return access and refresh
-   tokens that are **encrypted wrappers** of Fiken's tokens plus the
-   anonymous id. Refresh grants unwrap, forward to Fiken, and rewrap
-   with the same id. If the user revoked the app in Fiken, refresh fails
-   and the client restarts at step 3.
-6. **Every MCP request** carries our wrapped access token. We decrypt it,
-   forward the Fiken access token upstream, and use the anonymous id
-   for usage counting. A 401 from Fiken becomes a 401 to the client,
-   which triggers refresh.
+   with that blob as `code` and the client's original state. The blob is
+   replayable for five minutes on our side; Fiken's code is single-use,
+   which closes that.
+6. **Token.** Client posts the code blob and its PKCE verifier. We check
+   the verifier against the challenge in the blob, that the redirect URI
+   matches the blob and the client id, exchange the Fiken code with our
+   client secret, call `GET /user` once, compute the anonymous id
+   `HMAC(salt, email)`, and return **encrypted wrappers**:
+   - access token: `{fiken access token, anon id, exp: +1h}`. One hour,
+     not Fiken's 24, so a leaked token has a short life.
+   - refresh token: `{fiken refresh token, fiken access token, fiken
+     access expiry, anon id}`.
+   On `refresh_token` grant we unwrap; if the wrapped Fiken access token
+   still has more than an hour left we mint a new one-hour access
+   wrapper from it without calling Fiken; otherwise we call Fiken's
+   refresh and rewrap. If the user revoked the app in Fiken, refresh
+   fails and the client restarts at step 3. Token responses carry
+   `Cache-Control: no-store` and `Pragma: no-cache`.
+7. **Every MCP request** carries our wrapped access token. We decrypt it
+   before doing any other work, forward the Fiken access token upstream,
+   and use the anonymous id for usage counting. A 401 from Fiken becomes
+   a 401 to the client, which triggers refresh.
+
+**Revocation.** There is nothing to revoke on our side and Fiken has no
+revocation API. Disconnecting in Claude only forgets the tokens; the
+Fiken grant stays until the user revokes it in Fiken. The privacy
+statement says so.
 
 Security properties: blobs expire in minutes (an hour for the login
 state, which carries no code), are bound to redirect URI and PKCE
 challenge, and are useless if tampered with. A wrapped token leaked from
-a client cannot be used against Fiken without our key. We hold the
-client secret, the signing key and the salt, and nothing per user.
+a client cannot be used against Fiken without our key and dies within
+an hour. We hold the client secret, the key ring and the salt, and
+nothing per user.
 
 Company selection: `list_companies` returns the user's companies; every
 company-scoped tool takes `companySlug`. No stored default.
@@ -224,7 +281,7 @@ global rows with a cache header for the website. CloudWatch keeps
 structured request logs for 30 days for debugging only; never file
 content.
 
-## 7. Fiken concurrency
+## 7. Fiken concurrency and abuse limits
 
 Lambda reserved concurrency 1 plus an in-process promise queue with a
 300 ms gap in `fikenFetch`; retry once on 429. A second user's call
@@ -232,6 +289,46 @@ during another's in-flight call is throttled by Lambda and surfaces to
 the client as a tool error the model can retry. Acceptable under the
 5-user dev cap. When applying for production status, ask Fiken whether
 the limit is per user; if so, raise concurrency and queue per token.
+
+Concurrency 1 also means anyone can starve the service by hammering it.
+Controls: API Gateway stage throttling (20 requests per second, burst
+40) on all routes, the bearer check runs before any other work on
+`/mcp`, and unauthenticated routes do no upstream calls except `/token`,
+which only reaches Fiken with a validly signed code blob. CloudFront in
+front with rate rules is the upgrade path if abuse ever appears; it is
+not in scope now.
+
+## 7b. Security controls that cut across the design
+
+- **Prompt injection through documents.** Content from uploaded files
+  enters the model's context by design, and the tool set can send
+  invoices and register payments. Every context block the widget
+  produces is prefixed with a line stating that what follows is untrusted
+  document content, not instructions. Every consequential tool
+  (`send_invoice`, `create_invoice`, `create_credit_note`,
+  `register_payment`, `create_purchase`, `attach_inbox_document`)
+  carries `destructiveHint: true`, and its description requires the
+  model to restate the exact action and get explicit user confirmation
+  before calling it. The client's own per-tool approval prompts stay on.
+- **Logging.** Structured JSON logs with a request id, method, route,
+  status and duration. Never a header, body, token, parameter value,
+  Fiken response body or the `/user` response. Log groups are created
+  explicitly with 30-day retention for the Lambda and for API Gateway
+  access logs, whose format contains no headers. A test on each error
+  path asserts that no token material appears in the message.
+- **Transport headers.** `Strict-Transport-Security` on every response.
+  Token responses `Cache-Control: no-store`, `Pragma: no-cache`. The
+  consent page has a CSP allowing only inline styles and same-origin
+  form posts.
+- **Uploads.** The Lambda checks magic bytes (`%PDF`, PNG, JPEG, GIF)
+  and rejects anything else before forwarding, regardless of the
+  declared type or extension. Filenames are reduced to a safe basename.
+- **Widget.** No token, ticket or tool result is ever rendered into the
+  DOM in production; filenames are set with `textContent`. The upload
+  ticket is scoped to one company and expires in 15 minutes.
+- **Memory hygiene.** Request bodies are never kept in module scope, so
+  nothing survives an invocation in the Lambda container.
+- **Spike.** `spike/` is deleted before the first production deploy.
 
 ## 8. Tools
 
@@ -354,8 +451,10 @@ We hold Fiken app credentials and a signing key. We never store your
 Fiken tokens, your files or your accounting data; files pass through our
 server's memory on the way to Fiken and are not written or logged. We
 keep anonymous usage counters keyed by a salted hash of your email that
-we cannot reverse. Revoke access at any time in Fiken under Rediger
-konto, API.
+we cannot reverse. Disconnecting the connector in Claude or ChatGPT only
+makes that app forget its tokens; to end our access to your Fiken
+account, revoke "Fiken MCP" in Fiken under Rediger konto, API. Do that
+too if you suspect a device or account was compromised.
 
 ## 12. Error handling
 
