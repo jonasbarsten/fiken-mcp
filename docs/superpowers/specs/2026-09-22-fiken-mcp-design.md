@@ -109,6 +109,42 @@ Claude / ChatGPT client ──HTTPS──▶ API Gateway HTTP API
                                   api.fiken.no         DynamoDB (usage counters only)
 ```
 
+### Repository layout
+
+```
+iac/      CDK app, stack fiken-mcp-iac: the DynamoDB usage table. Exports
+          table name and ARN. Deployed rarely.
+api/      Lambda source (TypeScript) and CDK app, stack fiken-mcp-api:
+          function, HTTP API, custom domain, Parameter Store reads. Imports
+          the table from the iac exports. Deployed on every merge to main.
+docs/     specs and decision record.
+spike/    throwaway widget spike; deleted once api/ has its own widget.
+```
+
+No deployment stages for now: one account, one environment, one domain.
+
+### CI/CD and who can deploy
+
+GitHub Actions with OIDC federation into the byjoba account. No AWS keys
+in GitHub. The repo is public and will have outside contributors, so
+deployment rights are enforced by claims, not by trust:
+
+- The IAM deploy role's trust policy accepts a GitHub token only when
+  `aud` is `sts.amazonaws.com` and `sub` is exactly
+  `repo:jonasbarsten/fiken-mcp:environment:production`. Forks carry
+  their own repo name and pull requests carry a `pull_request` subject,
+  so neither can ever assume the role.
+- The `production` GitHub Environment requires Jonas as reviewer and is
+  restricted to the `main` branch. Every deploy job waits for that
+  approval. Write access lets someone merge; it does not let them deploy.
+- The deploy role may only assume the CDK bootstrap roles.
+- Repo settings: branch protection on `main` (PR required, review from
+  Jonas required, no direct pushes), Actions `GITHUB_TOKEN` read-only by
+  default, workflow runs from outside collaborators require approval.
+- PR workflow: typecheck and tests only, no AWS access.
+- Deploy workflow on push to `main`: `cdk deploy` of `iac` then `api`,
+  in the `production` environment.
+
 Secrets and config: Parameter Store SecureStrings `/fiken_mcp/client_id`,
 `/fiken_mcp/client_secret`, `/fiken_mcp/signing_key` (HMAC and
 encryption key for our blobs), `/fiken_mcp/user_salt` (for anonymous
@@ -167,8 +203,9 @@ company-scoped tool takes `companySlug`. No stored default.
 
 ## 6. Usage tracking
 
-One on-demand DynamoDB table in its own stack, byjoba account.
-Pseudonymous, no tokens, no accounting data.
+One on-demand DynamoDB table, defined in this repo's `iac/` stack and
+deployed from here, byjoba account. Pseudonymous, no tokens, no
+accounting data.
 
 | PK | SK | Attributes |
 |---|---|---|
