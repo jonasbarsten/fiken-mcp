@@ -1,7 +1,18 @@
 import * as iam from "aws-cdk-lib/aws-iam";
+import { QUALIFIER } from "./synthesizer.js";
 
 export const EXEC_POLICY_NAME = "fiken-mcp-cfn-exec";
 export const ZONE_ID = "Z04810525CNVQNP7ALNV";
+
+/**
+ * The only bootstrap roles a deploy needs: deploy-role to run CloudFormation
+ * and file-publishing-role to upload assets. The lookup role carries
+ * account-wide ReadOnlyAccess and neither stack uses context lookups, so it
+ * is deliberately not assumable.
+ */
+export function bootstrapRoleArns(account: string, region: string): string[] {
+  return ["deploy", "file-publishing"].map((kind) => `arn:aws:iam::${account}:role/cdk-${QUALIFIER}-${kind}-role-${account}-${region}`);
+}
 
 /**
  * What CloudFormation may do when deploying fiken-mcp stacks, and the
@@ -36,14 +47,17 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
     }),
     new iam.PolicyStatement({
       sid: "RolesWithBoundary",
-      actions: ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:UpdateRole"],
+      actions: ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy"],
       resources: [`arn:aws:iam::${account}:role/fiken-mcp-*`],
       conditions: { StringEquals: { "iam:PermissionsBoundary": boundaryArn } },
     }),
+    // iam:UpdateRole (description, session duration) does not carry the
+    // iam:PermissionsBoundary condition key, so it lives here unconditioned.
     new iam.PolicyStatement({
       sid: "RolesRead",
       actions: [
         "iam:GetRole",
+        "iam:UpdateRole",
         "iam:DeleteRole",
         "iam:DeleteRolePolicy",
         "iam:DetachRolePolicy",
@@ -56,6 +70,12 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
         "iam:UpdateAssumeRolePolicy",
       ],
       resources: [`arn:aws:iam::${account}:role/fiken-mcp-*`],
+    }),
+    new iam.PolicyStatement({
+      sid: "DenyBoundaryRemoval",
+      effect: iam.Effect.DENY,
+      actions: ["iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary"],
+      resources: ["*"],
     }),
     new iam.PolicyStatement({
       sid: "PassRoleToLambda",
@@ -148,7 +168,10 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
     new iam.PolicyStatement({
       sid: "Parameters",
       actions: ["ssm:GetParameter", "ssm:GetParameters", "ssm:DescribeParameters", "ssm:GetParameterHistory"],
-      resources: [`arn:aws:ssm:${region}:${account}:parameter/fiken_mcp/*`],
+      resources: [
+        `arn:aws:ssm:${region}:${account}:parameter/fiken_mcp/*`,
+        `arn:aws:ssm:${region}:${account}:parameter/cdk-bootstrap/${QUALIFIER}/*`,
+      ],
     }),
     new iam.PolicyStatement({
       sid: "ParameterDecrypt",
@@ -159,7 +182,7 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
     new iam.PolicyStatement({
       sid: "AssumeBootstrapRoles",
       actions: ["sts:AssumeRole"],
-      resources: [`arn:aws:iam::${account}:role/cdk-fikenmcp-*-role-${account}-${region}`],
+      resources: bootstrapRoleArns(account, region),
     }),
   ];
 }

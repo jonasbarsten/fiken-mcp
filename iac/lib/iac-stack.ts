@@ -2,7 +2,7 @@ import { Aspects, CfnOutput, CfnResource, RemovalPolicy, Stack, type IAspect, ty
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import type { Construct, IConstruct } from "constructs";
-import { EXEC_POLICY_NAME, execPolicyStatements } from "./exec-policy.js";
+import { EXEC_POLICY_NAME, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
 
 const PROJECT_TAG = { Key: "Project", Value: "fiken-mcp" };
 
@@ -69,7 +69,7 @@ export class IacStack extends Stack {
     deployRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ["sts:AssumeRole"],
-        resources: [`arn:aws:iam::${this.account}:role/cdk-fikenmcp-*-role-${this.account}-${this.region}`],
+        resources: bootstrapRoleArns(this.account, this.region),
       }),
     );
 

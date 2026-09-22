@@ -59,9 +59,78 @@ describe("IacStack", () => {
           {
             Action: "sts:AssumeRole",
             Effect: "Allow",
-            Resource: "arn:aws:iam::209479295726:role/cdk-fikenmcp-*-role-209479295726-eu-west-1",
+            Resource: [
+              "arn:aws:iam::209479295726:role/cdk-fikenmcp-deploy-role-209479295726-eu-west-1",
+              "arn:aws:iam::209479295726:role/cdk-fikenmcp-file-publishing-role-209479295726-eu-west-1",
+            ],
           },
         ],
+      },
+    });
+  });
+
+  it("never allows assuming the lookup role or a wildcard of bootstrap roles", () => {
+    const t = synth();
+    const policies = { ...t.findResources("AWS::IAM::Policy"), ...t.findResources("AWS::IAM::ManagedPolicy") };
+    expect(Object.keys(policies).length).toBeGreaterThan(1);
+    let assumeStatements = 0;
+    for (const policy of Object.values(policies)) {
+      for (const statement of policy.Properties.PolicyDocument.Statement as Array<{ Effect: string; Action: string | string[]; Resource?: string | string[] }>) {
+        const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+        if (statement.Effect !== "Allow" || !actions.includes("sts:AssumeRole")) continue;
+        assumeStatements++;
+        const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
+        for (const resource of resources) {
+          expect(resource).not.toContain("lookup-role");
+          expect(resource).not.toMatch(/cdk-fikenmcp-\*/);
+          expect(resource).toMatch(/^arn:aws:iam::209479295726:role\/cdk-fikenmcp-(deploy|file-publishing)-role-209479295726-eu-west-1$/);
+        }
+      }
+    }
+    expect(assumeStatements).toBe(2);
+  });
+
+  it("denies removing or replacing a permissions boundary", () => {
+    synth().hasResourceProperties("AWS::IAM::ManagedPolicy", {
+      ManagedPolicyName: "fiken-mcp-cfn-exec",
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          {
+            Sid: "DenyBoundaryRemoval",
+            Effect: "Deny",
+            Action: ["iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary"],
+            Resource: "*",
+          },
+        ]),
+      },
+    });
+  });
+
+  it("allows iam:UpdateRole without the boundary condition, which UpdateRole cannot satisfy", () => {
+    const t = synth();
+    const [policy] = Object.values(t.findResources("AWS::IAM::ManagedPolicy", { Properties: { ManagedPolicyName: "fiken-mcp-cfn-exec" } }));
+    const statements = policy!.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Action: string[]; Condition?: unknown }>;
+    const withUpdateRole = statements.filter((s) => s.Action.includes("iam:UpdateRole"));
+    expect(withUpdateRole).toHaveLength(1);
+    expect(withUpdateRole[0]!.Sid).toBe("RolesRead");
+    expect(withUpdateRole[0]!.Condition).toBeUndefined();
+    const boundaryConditioned = statements.find((s) => s.Sid === "RolesWithBoundary");
+    expect(boundaryConditioned!.Action).not.toContain("iam:UpdateRole");
+  });
+
+  it("lets the execution role read the bootstrap version parameter", () => {
+    synth().hasResourceProperties("AWS::IAM::ManagedPolicy", {
+      ManagedPolicyName: "fiken-mcp-cfn-exec",
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Sid: "Parameters",
+            Resource: Match.arrayWith([
+              "arn:aws:ssm:eu-west-1:209479295726:parameter/fiken_mcp/*",
+              "arn:aws:ssm:eu-west-1:209479295726:parameter/cdk-bootstrap/fikenmcp/*",
+            ]),
+          }),
+        ]),
       },
     });
   });
@@ -129,10 +198,12 @@ describe("IacStack", () => {
     for (const policy of Object.values(policies)) {
       const statements = policy.Properties.PolicyDocument.Statement as Array<{
         Sid?: string;
+        Effect: string;
         Resource?: string | string[];
         Condition?: unknown;
       }>;
       for (const statement of statements) {
+        if (statement.Effect === "Deny") continue;
         const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
         const hasWildcard = resources.includes("*");
         if (!hasWildcard) continue;
