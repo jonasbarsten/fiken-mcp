@@ -28,11 +28,17 @@ normal development.
 
 1. Settings, Environments, New environment `production`:
    required reviewers: jonasbarsten; deployment branches: `main` only.
+   Leave "Prevent self-review" off, so you can approve your own
+   deployments. This approval is the gate that decides what reaches AWS.
 2. Settings, Secrets and variables, Actions, Variables:
    `AWS_DEPLOY_ROLE_ARN` = the DeployRoleArn output.
-3. Settings, Branches, rule for `main`: require a pull request, require 1
-   approving review, require review from code owners, require status
-   check `check`, block direct pushes, include administrators.
+3. Settings, Branches, rule for `main`: require a pull request, require
+   status check `check`, block direct pushes, include administrators.
+   While you are the only maintainer, set required approvals to 0:
+   GitHub does not let an author approve their own pull request, so 1
+   would lock you out of merging. When a second contributor joins, set
+   required approvals to 1 and enable "require review from code owners";
+   the CODEOWNERS file then routes every change to you.
 4. Settings, Actions, General: workflow permissions read-only; "Require
    approval for all outside collaborators".
 5. Settings, Code security: enable secret scanning and push protection,
