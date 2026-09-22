@@ -1,9 +1,12 @@
 import { Hono } from "hono";
 import type { Config } from "../config.js";
 import { BlobError, signBlob, verifyBlob } from "../crypto/blob.js";
-import { fikenAuthorizeUrl } from "../fiken/oauth.js";
+import { verifyPkce } from "../crypto/pkce.js";
+import { FikenOAuthError, exchangeFikenCode, fetchFikenUser, fikenAuthorizeUrl } from "../fiken/oauth.js";
+import { anonymousId } from "./anon.js";
 import { clientLabel, isAllowedRedirectUri } from "./clients.js";
 import { consentPage } from "./consent.js";
+import { issueTokens, renewTokens } from "./tokens.js";
 
 interface ClientWire { k: "c"; ru: string[]; n: string }
 
@@ -135,6 +138,57 @@ export function authRoutes(cfg: Config): Hono {
     back.searchParams.set("code", signBlob(code, cfg.keys));
     back.searchParams.set("state", state.cs);
     return c.redirect(back.toString(), 302);
+  });
+
+  app.post("/token", async (c) => {
+    const contentType = c.req.header("content-type") ?? "";
+    const fields: Record<string, string> = contentType.includes("json")
+      ? ((await c.req.json().catch(() => ({}))) as Record<string, string>)
+      : Object.fromEntries(new URLSearchParams(await c.req.text()));
+    const noStore = { "Cache-Control": "no-store", Pragma: "no-cache" };
+    const oauthError = (error: string, description: string) => c.json({ error, error_description: description }, 400, noStore);
+
+    try {
+      if (fields.grant_type === "authorization_code") {
+        let code: CodeWire;
+        try {
+          const wire = verifyBlob<Partial<CodeWire>>(fields.code ?? "", cfg.keys);
+          if (wire.k !== "d" || !wire.fc || !wire.cc || !wire.ru) throw new BlobError("invalid");
+          code = wire as CodeWire;
+        } catch {
+          return oauthError("invalid_grant", "code invalid or expired");
+        }
+        let client: { redirectUris: string[] };
+        try {
+          client = readClientId(cfg, fields.client_id ?? "");
+        } catch {
+          return oauthError("invalid_client", "unknown client_id");
+        }
+        if (fields.redirect_uri !== code.ru || !client.redirectUris.includes(code.ru)) {
+          return oauthError("invalid_grant", "redirect_uri mismatch");
+        }
+        if (!fields.code_verifier || !verifyPkce(fields.code_verifier, code.cc)) {
+          return oauthError("invalid_grant", "PKCE verification failed");
+        }
+        const fiken = await exchangeFikenCode(cfg, code.fc, code.fs);
+        const user = await fetchFikenUser(cfg, fiken.access_token);
+        return c.json(issueTokens(cfg, fiken, anonymousId(user.email, cfg.userSalt)), 200, noStore);
+      }
+
+      if (fields.grant_type === "refresh_token") {
+        try {
+          return c.json(await renewTokens(cfg, fields.refresh_token ?? ""), 200, noStore);
+        } catch (err) {
+          if (err instanceof BlobError) return oauthError("invalid_grant", "refresh token invalid");
+          throw err;
+        }
+      }
+
+      return oauthError("unsupported_grant_type", "use authorization_code or refresh_token");
+    } catch (err) {
+      if (err instanceof FikenOAuthError) return oauthError("invalid_grant", err.description ?? err.error);
+      throw err;
+    }
   });
 
   return app;
