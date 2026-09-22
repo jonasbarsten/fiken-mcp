@@ -285,8 +285,15 @@ button. For each picked file it does two things:
 1. **Upload.** `POST /upload` with the ticket, filename and bytes. The
    Lambda validates the ticket, forwards the file as multipart to
    `POST /companies/{slug}/inbox`, and returns the inbox document id.
-   Bytes are never written anywhere. Limit about 4.5 MB per file (API
-   Gateway); the widget downscales images above that before upload.
+   Bytes are never written anywhere. Limit about 4.5 MB per file: Lambda
+   accepts 6 MB per request and API Gateway base64-encodes binary
+   bodies. Multipart framing does not change this. Images above the
+   limit are downscaled in the widget before upload. Any other file
+   above the limit is **not uploaded**: the widget shows a clear message
+   next to the file naming it and the limit, marks it as skipped in the
+   summary block it sends to the model, and continues with the other
+   files. Splitting large PDFs into several documents client-side is the
+   planned follow-up.
 2. **Context.** It builds content blocks for the model and calls
    `updateModelContext` with the **full accumulated set** every time,
    because each update replaces the previous one:
@@ -332,7 +339,9 @@ them itself. The Lambda forwards to Fiken as above.
 - Attaching files from a Claude.ai chat without the widget or a shell:
   no mechanism exists. See the decision record.
 - HEIC: Fiken rejects it; not converted in version one.
-- Files over about 4.5 MB that are not images.
+- Files over about 4.5 MB that are not images. The widget tells the user
+  which file was skipped and why; the model learns it from the summary
+  block.
 
 ## 10. Website
 
