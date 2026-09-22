@@ -98,11 +98,16 @@ export function authRoutes(cfg: Config): Hono {
       code_challenge_method: "S256",
       state: v.ok.clientState,
     };
+    const cancel = new URL(v.ok.redirectUri);
+    cancel.searchParams.set("error", "access_denied");
+    cancel.searchParams.set("error_description", "User cancelled");
+    cancel.searchParams.set("state", v.ok.clientState);
     const html = consentPage({
       clientLabel: clientLabel(v.ok.redirectUri),
       clientName: v.ok.clientName,
       redirectHost: new URL(v.ok.redirectUri).host,
       fields,
+      cancelUrl: cancel.toString(),
     });
     return c.html(html, 200, { "Content-Security-Policy": CONSENT_CSP, "Cache-Control": "no-store" });
   });

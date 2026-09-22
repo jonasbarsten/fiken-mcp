@@ -2,7 +2,7 @@ function esc(s: string): string {
   return s.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
 }
 
-export function consentPage(opts: { clientLabel: string; clientName: string; redirectHost: string; fields: Record<string, string> }): string {
+export function consentPage(opts: { clientLabel: string; clientName: string; redirectHost: string; fields: Record<string, string>; cancelUrl: string }): string {
   const hidden = Object.entries(opts.fields)
     .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`)
     .join("\n      ");
@@ -17,7 +17,7 @@ export function consentPage(opts: { clientLabel: string; clientName: string; red
     body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 3rem auto; padding: 0 1rem; color: #222; }
     .card { border: 1px solid #ddd; border-radius: 12px; padding: 1.5rem; }
     button { font-size: 1rem; padding: .75rem 1.25rem; border-radius: 8px; border: 0; background: #5b3df5; color: #fff; }
-    .cancel { background: #eee; color: #222; margin-left: .5rem; }
+    .cancel { display: inline-block; padding: .75rem 1.25rem; border-radius: 8px; background: #eee; color: #222; text-decoration: none; margin-left: .5rem; }
     .muted { color: #666; font-size: .9rem; }
   </style>
 </head>
@@ -29,7 +29,7 @@ export function consentPage(opts: { clientLabel: string; clientName: string; red
     <form method="post" action="/authorize">
       ${hidden}
       <button type="submit">Fortsett til Fiken</button>
-      <a class="cancel" href="javascript:history.back()"><button type="button" class="cancel">Avbryt</button></a>
+      <a class="cancel" href="${esc(opts.cancelUrl)}">Avbryt</a>
     </form>
   </div>
 </body>

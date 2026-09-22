@@ -46,6 +46,9 @@ describe("GET /authorize (consent)", () => {
     expect(html).toContain('name="code_challenge"');
     expect(html).toContain('action="/authorize"');
     expect(html).toContain("fiken.no");
+    expect(html).toContain("error=access_denied");
+    expect(html).toContain("state=client-state");
+    expect(html).not.toContain("javascript:");
   });
 
   it("rejects an unregistered redirect uri, a bad client id and a missing challenge", async () => {
