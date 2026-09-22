@@ -92,6 +92,41 @@ describe("POST /token authorization_code", () => {
     }
   });
 
+  it("refuses an expired code, a code without exp, and a state blob presented as code", async () => {
+    const { app, cfg, clientId } = await setup();
+    const base = { grant_type: "authorization_code", code_verifier: "verifier-123", redirect_uri: CLAUDE_CB, client_id: clientId };
+    const expired = signBlob({ k: "d", fc: "FIKENCODE", fs: "fs", cc: pkceChallenge("verifier-123"), ru: CLAUDE_CB, exp: Math.floor(Date.now() / 1000) - 1 }, cfg.keys);
+    const res = await app.request("/token", form({ ...base, code: expired }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid_grant");
+
+    const noExp = signBlob({ k: "d", fc: "FIKENCODE", fs: "fs", cc: pkceChallenge("verifier-123"), ru: CLAUDE_CB }, cfg.keys);
+    expect((await app.request("/token", form({ ...base, code: noExp }))).status).toBe(400);
+
+    const state = signBlob({ k: "s", ru: CLAUDE_CB, cc: pkceChallenge("verifier-123"), cs: "s", n: "n", exp: Math.floor(Date.now() / 1000) + 300 }, cfg.keys);
+    expect((await app.request("/token", form({ ...base, code: state }))).status).toBe(400);
+  });
+
+  it("refuses a code whose redirect uri belongs to another registered client", async () => {
+    const { app, codeBlob } = await setup();
+    const chatgpt = "https://chatgpt.com/connector_platform_oauth_redirect";
+    const reg = await app.request("/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uris: [chatgpt] }) });
+    const otherClient = (await reg.json()).client_id as string;
+    const res = await app.request("/token", form({ grant_type: "authorization_code", code: codeBlob, code_verifier: "verifier-123", redirect_uri: CLAUDE_CB, client_id: otherClient }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid_grant");
+  });
+
+  it("re-checks the allowlist, so a client signed for a redirect uri that is no longer allowed cannot redeem a code", async () => {
+    const { app, cfg } = await setup();
+    const evil = "https://evil.example/cb";
+    const evilClient = signBlob({ k: "c", ru: [evil], n: "Evil" }, cfg.keys);
+    const evilCode = signBlob({ k: "d", fc: "FIKENCODE", fs: "fs", cc: pkceChallenge("verifier-123"), ru: evil, exp: Math.floor(Date.now() / 1000) + 300 }, cfg.keys);
+    const res = await app.request("/token", form({ grant_type: "authorization_code", code: evilCode, code_verifier: "verifier-123", redirect_uri: evil, client_id: evilClient }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid_grant");
+  });
+
   it("relays Fiken's invalid_grant", async () => {
     const { app, cfg, clientId } = await setup();
     const bad = signBlob({ k: "d", fc: "BAD", fs: "s", cc: pkceChallenge("v"), ru: CLAUDE_CB, exp: Math.floor(Date.now() / 1000) + 300 }, cfg.keys);

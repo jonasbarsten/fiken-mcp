@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
 import { testConfig } from "../../src/config.js";
-import { signBlob, verifyBlob } from "../../src/crypto/blob.js";
+import { keyRingFromParameter, signBlob, verifyBlob } from "../../src/crypto/blob.js";
 import { pkceChallenge } from "../../src/crypto/pkce.js";
 
 const cfg = testConfig();
@@ -55,6 +55,19 @@ describe("GET /authorize (consent)", () => {
     expect((await get(params(await register(), { redirect_uri: "https://chatgpt.com/connector_platform_oauth_redirect" }))).status).toBe(400);
     expect((await get(params("garbage"))).status).toBe(400);
     expect((await get(params(await register(), { code_challenge_method: "plain" }))).status).toBe(400);
+  });
+
+  it("re-checks the allowlist, so a client id signed for a redirect uri that is no longer allowed is refused", async () => {
+    const evil = "https://evil.example/cb";
+    const clientId = signBlob({ k: "c", ru: [evil], n: "Evil" }, cfg.keys);
+    expect((await get(params(clientId, { redirect_uri: evil }))).status).toBe(400);
+    expect((await post(params(clientId, { redirect_uri: evil }))).status).toBe(400);
+  });
+
+  it("refuses a client id signed under a kid that is not in the ring", async () => {
+    const otherRing = keyRingFromParameter(`t9:${"9".repeat(64)}`);
+    const clientId = signBlob({ k: "c", ru: [CLAUDE_CB], n: "x" }, otherRing);
+    expect((await get(params(clientId))).status).toBe(400);
   });
 });
 
@@ -156,5 +169,19 @@ describe("GET /callback", () => {
   it("refuses a state signed without a nonce", async () => {
     const noNonce = signBlob({ k: "s", ru: CLAUDE_CB, cc: "c", cs: "s", exp: Math.floor(Date.now() / 1000) + 60 }, cfg.keys);
     expect((await callback(`code=x&state=${encodeURIComponent(noNonce)}`, `${LOGIN_COOKIE}=`)).status).toBe(400);
+  });
+
+  it("refuses a state signed without exp or with a non-string client state", async () => {
+    const noExp = signBlob({ k: "s", ru: CLAUDE_CB, cc: "c", cs: "s", n: "nonce" }, cfg.keys);
+    expect((await callback(`code=x&state=${encodeURIComponent(noExp)}`, `${LOGIN_COOKIE}=nonce`)).status).toBe(400);
+    const badCs = signBlob({ k: "s", ru: CLAUDE_CB, cc: "c", cs: 42, n: "nonce", exp: Math.floor(Date.now() / 1000) + 60 }, cfg.keys);
+    expect((await callback(`code=x&state=${encodeURIComponent(badCs)}`, `${LOGIN_COOKIE}=nonce`)).status).toBe(400);
+  });
+
+  it("refuses a client id blob presented as state", async () => {
+    const clientId = await register();
+    const res = await callback(`code=x&state=${encodeURIComponent(clientId)}`, `${LOGIN_COOKIE}=nonce`);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("Invalid login state");
   });
 });

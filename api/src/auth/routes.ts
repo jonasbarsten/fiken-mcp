@@ -54,6 +54,8 @@ function validateAuthorize(cfg: Config, q: Record<string, string | undefined>): 
   }
   const redirectUri = q.redirect_uri ?? "";
   if (!client.redirectUris.includes(redirectUri)) return { error: "redirect_uri not registered for this client" };
+  // Re-checked on every use so removing a client from clients.ts takes effect at once.
+  if (!isAllowedRedirectUri(redirectUri)) return { error: "redirect_uri is not a known MCP client" };
   if (q.code_challenge_method !== "S256" || !q.code_challenge) return { error: "PKCE S256 required" };
   return { ok: { redirectUri, codeChallenge: q.code_challenge, clientState: q.state ?? "", clientName: client.name } };
 }
@@ -154,7 +156,9 @@ export function authRoutes(cfg: Config): Hono {
     let state: StateWire;
     try {
       const wire = verifyBlob<Partial<StateWire>>(q.state ?? "", cfg.keys);
-      if (wire.k !== "s" || !wire.ru || !wire.cc || typeof wire.n !== "string") throw new BlobError("invalid");
+      if (wire.k !== "s" || !wire.ru || !wire.cc || typeof wire.cs !== "string" || typeof wire.n !== "string" || typeof wire.exp !== "number") {
+        throw new BlobError("invalid");
+      }
       if (!nonceMatches(getCookie(c, LOGIN_COOKIE), wire.n)) throw new BlobError("invalid");
       state = wire as StateWire;
     } catch (err) {
@@ -188,7 +192,7 @@ export function authRoutes(cfg: Config): Hono {
         let code: CodeWire;
         try {
           const wire = verifyBlob<Partial<CodeWire>>(fields.code, cfg.keys);
-          if (wire.k !== "d" || !wire.fc || !wire.cc || !wire.ru) throw new BlobError("invalid");
+          if (wire.k !== "d" || !wire.fc || !wire.cc || !wire.ru || typeof wire.exp !== "number") throw new BlobError("invalid");
           code = wire as CodeWire;
         } catch {
           return oauthError("invalid_grant", "code invalid or expired");
@@ -199,7 +203,7 @@ export function authRoutes(cfg: Config): Hono {
         } catch {
           return oauthError("invalid_client", "unknown client_id");
         }
-        if (fields.redirect_uri !== code.ru || !client.redirectUris.includes(code.ru)) {
+        if (fields.redirect_uri !== code.ru || !client.redirectUris.includes(code.ru) || !isAllowedRedirectUri(code.ru)) {
           return oauthError("invalid_grant", "redirect_uri mismatch");
         }
         if (!fields.code_verifier || !verifyPkce(fields.code_verifier, code.cc)) {
