@@ -34,3 +34,15 @@ claude mcp add --transport http fiken https://fiken-mcp.byjoba.com/mcp
 
 ChatGPT: Settings, Apps, Advanced settings, Developer mode, add the same
 URL. Needs Plus or higher.
+
+## Development
+
+```
+npm install
+npm test
+npm run typecheck
+```
+
+`api/` is the Lambda and its CDK stack; `iac/` is the shared
+infrastructure stack. Deployments run from GitHub Actions only; see
+`docs/setup.md` for the one-time setup.

@@ -1,0 +1,27 @@
+name: deploy
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  id-token: write
+concurrency: deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-1
+      - run: npx cdk deploy fiken-mcp-iac --require-approval never
+        working-directory: iac
+      - run: npx cdk deploy fiken-mcp-api --require-approval never
+        working-directory: api
