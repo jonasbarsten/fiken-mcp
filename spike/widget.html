@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Velg kvitteringer</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; color: #222; background: transparent; }
+    h3 { margin: 0 0 8px; }
+    .btn { display: inline-block; padding: 12px 16px; border-radius: 8px; background: #5b3df5; color: #fff; font-size: 16px; border: 0; cursor: pointer; }
+    .btn[disabled] { opacity: 0.5; }
+    ul { padding-left: 18px; }
+    pre { background: #f4f4f4; padding: 8px; font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
+    #status { color: #555; }
+  </style>
+</head>
+<body>
+  <h3>Velg kvitteringer <small style="font-weight:normal;color:#888">widget __WIDGET_VERSION__</small></h3>
+  <p id="status">Kobler til…</p>
+  <label class="btn">Velg filer
+    <input id="picker" type="file" multiple accept="image/*,application/pdf" style="display:none" />
+  </label>
+  <button id="camera-btn" class="btn" style="margin-left: 8px">Kamera</button>
+  <input id="camera" type="file" accept="image/*" capture="environment" style="display:none" />
+  <ul id="list"></ul>
+  <button id="done" class="btn" disabled>Ferdig</button>
+  <pre id="log"></pre>
+
+  <!-- Each inlined bundle gets its own module scope; module scripts run in order. -->
+  <script type="module">/*__PDFJS_WORKER__*/</script>
+  <script type="module">/*__PDFJS__*/</script>
+  <script type="module">/*__BUNDLE__*/</script>
+  <script type="module">
+    const { App } = globalThis.__mcpApps;
+    const $ = (id) => document.getElementById(id);
+    const logEl = $("log");
+    function log(...args) {
+      const line = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+      logEl.textContent += line + "\n";
+      console.log("[spike]", ...args);
+    }
+
+    let uploadUrl = "__PUBLIC_URL__/upload";
+    let ticket = null;
+    const done = [];
+    const contextBlocks = [];
+
+    const app = new App({ name: "Receipt upload spike", version: "0.0.1" });
+
+    app.ontoolresult = (params) => {
+      log("ontoolresult", params);
+      const sc = params.structuredContent;
+      if (sc?.uploadUrl) uploadUrl = sc.uploadUrl;
+      if (sc?.ticket) ticket = sc.ticket;
+      $("status").textContent = "Klar. Velg filer.";
+    };
+    app.onhostcontextchanged = (ctx) => log("hostcontextchanged", ctx);
+
+    let contextModalities = {};
+    try {
+      await app.connect();
+      log("connected to host");
+      log("host capabilities", app.getHostCapabilities());
+      contextModalities = app.getHostCapabilities()?.updateModelContext ?? {};
+      $("status").textContent = "Tilkoblet. Venter på tool result…";
+    } catch (e) {
+      log("connect failed", String(e));
+      $("status").textContent = "Connect failed: " + e;
+    }
+
+    // Downscale an image file to a JPEG data URL so we can test whether the
+    // host accepts image blocks in ui/update-model-context.
+    async function toSmallJpegBase64(file, maxSide = 1024) {
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      return dataUrl.slice(dataUrl.indexOf(",") + 1);
+    }
+    log("ua", navigator.userAgent);
+    log("origin", location.origin);
+    log("uploadUrl", uploadUrl);
+
+    // Rasterize page 1 of a PDF to a JPEG data URL. pdf.js runs on the main
+    // thread here: the worker module is inlined and sets globalThis.pdfjsWorker,
+    // which pdf.js picks up instead of spawning a web worker.
+    // Renders up to maxPages pages of a PDF as JPEGs. Claude prices an image by
+    // pixel count (about w*h/750 tokens), so 1024 px on the long side keeps an
+    // A4 page near 2k tokens while receipt print stays readable.
+    // Rebuild a page's text layer into lines: group items by their y position,
+    // order left to right within a line, top to bottom across lines.
+    function textItemsToLines(items) {
+      const rows = new Map();
+      for (const it of items) {
+        if (!it.str || !it.str.trim()) continue;
+        const y = Math.round(it.transform[5]);
+        const x = it.transform[4];
+        let row = null;
+        for (const [ry, r] of rows) {
+          if (Math.abs(ry - y) <= 2) { row = r; break; }
+        }
+        if (!row) { row = []; rows.set(y, row); }
+        row.push({ x, str: it.str });
+      }
+      return [...rows.entries()]
+        .sort((a, b) => b[0] - a[0])
+        .map(([, r]) => r.sort((a, b) => a.x - b.x).map((i) => i.str).join(" ").replace(/\s+/g, " ").trim())
+        .join("\n");
+    }
+
+    // Per page: text if the page has a real text layer (cheap, exact numbers),
+    // otherwise a rasterized image (scans, photos). Text is roughly a quarter
+    // of the tokens of an image of the same page.
+    async function pdfPagesToBlocks(file, { maxSide = 1024, maxPages = 300, minTextChars = 80 } = {}) {
+      const pdfjs = globalThis.__pdfjs;
+      const data = new Uint8Array(await file.arrayBuffer());
+      const doc = await pdfjs.getDocument({ data, isEvalSupported: false, useSystemFonts: true }).promise;
+      const blocks = [];
+      let textPages = 0, imagePages = 0;
+      for (let n = 1; n <= Math.min(doc.numPages, maxPages); n++) {
+        const page = await doc.getPage(n);
+        const text = textItemsToLines((await page.getTextContent()).items);
+        if (text.length >= minTextChars) {
+          blocks.push({ type: "text", text: `${file.name}, page ${n} of ${doc.numPages} (text):\n${text}` });
+          textPages++;
+          continue;
+        }
+        const base = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: maxSide / Math.max(base.width, base.height) });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        blocks.push({ type: "text", text: `${file.name}, page ${n} of ${doc.numPages} (image, no text layer):` });
+        blocks.push({ type: "image", data: dataUrl.slice(dataUrl.indexOf(",") + 1), mimeType: "image/jpeg" });
+        imagePages++;
+      }
+      if (doc.numPages > maxPages) {
+        blocks.push({ type: "text", text: `${file.name}: ${doc.numPages - maxPages} further page(s) not included.` });
+      }
+      return { blocks, totalPages: doc.numPages, textPages, imagePages };
+    }
+
+    function isPdf(f) {
+      return f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+    }
+
+    async function fileToBase64(file) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      }
+      return btoa(bin);
+    }
+
+    async function uploadFiles(files) {
+      for (const f of files) {
+        const li = document.createElement("li");
+        li.textContent = `${f.name} (${Math.round(f.size / 1024)} kB) … `;
+        $("list").appendChild(li);
+        try {
+          const t0 = Date.now();
+          const r = await fetch(uploadUrl, {
+            method: "POST",
+            headers: {
+              "content-type": f.type || "application/octet-stream",
+              "x-filename": encodeURIComponent(f.name),
+              "x-ticket": ticket ?? "",
+            },
+            body: f,
+          });
+          const j = await r.json();
+          done.push(j);
+          li.textContent += `OK id=${j.id} sha=${j.sha256} ${Date.now() - t0} ms`;
+          log("uploaded", j);
+        } catch (e) {
+          li.textContent += "FAILED " + e;
+          log("upload failed", String(e));
+        }
+      }
+      $("done").disabled = done.length === 0;
+      // A model-context update replaces the widget's previous context, so we
+      // keep every block ever produced and re-send the whole set each time.
+      // Modality-driven: hosts declare which block types they accept in
+      // updateModelContext. Send the document itself where `resource` is
+      // supported; rasterize where only `image` is.
+      for (const f of files) {
+        try {
+          if (isPdf(f) && contextModalities.resource) {
+            const blob = await fileToBase64(f);
+            contextBlocks.push({ type: "text", text: `${f.name}: full PDF attached as a resource below.` });
+            contextBlocks.push({ type: "resource", resource: { uri: "file:///" + encodeURIComponent(f.name), mimeType: "application/pdf", blob } });
+            log("pdf resource block prepared (host supports resource)", f.name, Math.round(blob.length / 1024) + " kB base64");
+          } else if (isPdf(f)) {
+            const t0 = Date.now();
+            const { blocks, totalPages, textPages, imagePages } = await pdfPagesToBlocks(f);
+            contextBlocks.push(...blocks);
+            const kb = Math.round(blocks.reduce((s, b) => s + (b.data?.length ?? b.text?.length ?? 0), 0) / 1024);
+            log("pdf processed", f.name, totalPages + " pages: " + textPages + " as text, " + imagePages + " as image", kb + " kB", Date.now() - t0 + " ms");
+            const firstText = blocks.find((b) => b.type === "text" && b.text.includes("(text):"));
+            if (firstText) log("text preview:", firstText.text.slice(0, 400));
+          } else if (f.type.startsWith("image/")) {
+            const data = await toSmallJpegBase64(f);
+            contextBlocks.push({ type: "text", text: `${f.name}: image rendered below.` });
+            contextBlocks.push({ type: "image", data, mimeType: "image/jpeg" });
+            log("image block prepared", f.name, Math.round(data.length / 1024) + " kB base64");
+          }
+        } catch (e) {
+          log("preparing image block failed", f.name, String(e));
+        }
+      }
+      const summary = {
+        type: "text",
+        text:
+          `Uploaded ${done.length} file(s): ` +
+          done.map((d) => `#${d.id} ${d.name} ${d.size} bytes`).join(", "),
+      };
+      try {
+        const r = await app.updateModelContext({ content: [summary, ...contextBlocks] });
+        const images = contextBlocks.filter((b) => b.type === "image").length;
+        const totalKb = Math.round(contextBlocks.reduce((s, b) => s + (b.data?.length ?? b.text?.length ?? 0), 0) / 1024);
+        log("updateModelContext sent with full context: " + done.length + " file(s), " + images + " image block(s), " + totalKb + " kB", r);
+      } catch (e) {
+        log("updateModelContext failed", String(e));
+      }
+      try {
+        await app.sendSizeChanged({ height: document.body.scrollHeight });
+      } catch (e) {
+        log("sendSizeChanged failed", String(e));
+      }
+    }
+
+    $("picker").addEventListener("change", (e) => {
+      log("picker change, files:", e.target.files.length);
+      uploadFiles([...e.target.files]);
+    });
+    $("camera-btn").addEventListener("click", () => $("camera").click());
+    $("camera").addEventListener("change", (e) => {
+      log("camera change, files:", e.target.files.length);
+      uploadFiles([...e.target.files]);
+    });
+    $("done").addEventListener("click", async () => {
+      try {
+        const r = await app.sendMessage({
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Jeg har lastet opp ${done.length} kvitteringer. Kall list_uploads og vis meg hva som kom inn.`,
+            },
+          ],
+        });
+        log("sendMessage result", r);
+      } catch (e) {
+        log("sendMessage failed", String(e));
+      }
+    });
+  </script>
+</body>
+</html>
