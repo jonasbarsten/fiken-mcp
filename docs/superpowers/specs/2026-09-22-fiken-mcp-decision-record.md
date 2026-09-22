@@ -206,6 +206,39 @@ except a WAF, which is deferred until abuse appears.
   code is spent, and that disconnecting a client does not revoke the
   Fiken grant.
 
+## Post-implementation review (2026-09-22)
+
+A whole-branch security review of the implemented foundation. What it
+changed, and what it left open:
+
+- **Lookup role excluded from the assumable bootstrap roles.** The
+  deploy role and the execution policy could assume any
+  `cdk-fikenmcp-*-role`, which included the lookup role and its
+  account-wide ReadOnlyAccess in a shared account. Neither stack uses
+  context lookups, so both now name exactly the deploy role and the
+  file-publishing role, and a test refuses `lookup-role` or a wildcard.
+- **Exec-policy self-modification accepted.** `iac/lib/exec-policy.ts`
+  and the deploy role's trust policy are applied by the execution role
+  they govern, so a merged change can widen it. The controls are the
+  `production` environment approval, CODEOWNERS over every file, and
+  review. A Deny on modifying the policy itself was considered and
+  rejected: the exec role runs every deploy, so such a Deny would freeze
+  the boundary until an administrator re-bootstraps by hand. The policy
+  does deny removing or replacing a permissions boundary.
+- **Login state bound to a `__Host-` cookie.** The signed state alone
+  let anyone who obtained a state blob complete `/callback` in their own
+  browser (RFC 6749 section 10.12), which also bypassed our consent
+  page. `POST /authorize` now sets a nonce in a `__Host-fmcp_login`
+  cookie and in the state; `/callback` requires both to match.
+- **Open question for Jonas: refresh reuse and Fiken-side revocation.**
+  The `refresh_token` grant reuses the wrapped Fiken access token while
+  it has more than an hour left, so a grant the user revokes in Fiken is
+  not noticed for up to about 23 hours, and a Fiken 401 during a tool
+  call is reported to the model as a tool error rather than as an HTTP
+  401 that would trigger a refresh. Decide whether to call Fiken's
+  refresh on every renewal instead (one extra upstream call per hour per
+  user, immediate revocation) or keep the reuse.
+
 ## Things we decided not to do, on purpose
 
 - No inbox as a required step for users. It remains usable.

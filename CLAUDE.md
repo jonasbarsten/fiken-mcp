@@ -32,4 +32,7 @@ Repo: `jonasbarsten/fiken-mcp` (public). AWS: byjoba account
 
 ## Process
 
-Design is approved. Next: writing-plans skill, then TDD implementation.
+Foundation plan executed 2026-09-22 (see
+`docs/superpowers/plans/2026-09-22-fiken-mcp-foundation.md`). Next:
+Task 15 first deployment, then plan 2 (tools, usage counters) and
+plan 3 (upload widget).

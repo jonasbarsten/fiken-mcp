@@ -23,6 +23,26 @@ normal development.
    The second bootstrap swaps the execution role's AdministratorAccess for
    the scoped policy the first deploy created. Note the `DeployRoleArn`
    output.
+3. Every future `cdk bootstrap` for qualifier `fikenmcp` (CDK upgrades,
+   re-bootstraps) must repeat
+   `--cloudformation-execution-policies arn:aws:iam::209479295726:policy/fiken-mcp-cfn-exec`.
+   Without the flag the bootstrap template's default puts
+   AdministratorAccess back on the execution role, silently.
+
+### First deploy: things that may bite
+
+- The execution role reads `/cdk-bootstrap/fikenmcp/version` in SSM
+  when CloudFormation checks the bootstrap version. The `Parameters`
+  statement in `iac/lib/exec-policy.ts` covers
+  `parameter/cdk-bootstrap/fikenmcp/*`; a test pins it.
+- The execution policy can only request an ACM certificate that carries
+  the `Project=fiken-mcp` tag. The api app tags everything it creates,
+  so the certificate should be tagged; if certificate creation fails
+  with AccessDenied, check that tag first.
+- Changes to `iac/lib/exec-policy.ts` or to the deploy role's trust
+  policy are applied by the same CloudFormation execution role they
+  govern. Review such pull requests with extra care: the `production`
+  approval and CODEOWNERS are the controls.
 
 ## GitHub (jonasbarsten/fiken-mcp)
 
@@ -38,7 +58,8 @@ normal development.
    GitHub does not let an author approve their own pull request, so 1
    would lock you out of merging. When a second contributor joins, set
    required approvals to 1 and enable "require review from code owners";
-   the CODEOWNERS file then routes every change to you.
+   the CODEOWNERS file covers every file in the repository (`*`), so it
+   then routes every change to you.
 4. Settings, Actions, General: workflow permissions read-only; "Require
    approval for all outside collaborators".
 5. Settings, Code security: enable secret scanning and push protection,

@@ -5,7 +5,8 @@ accounting from Claude and ChatGPT, on their own AI subscription, after
 logging into Fiken themselves. Read and write, including sending
 invoices, and booking receipts picked straight from a phone.
 
-Status: design approved, implementation not started.
+Status: the foundation (OAuth flow, `list_companies`, infrastructure and
+CI) is implemented and awaiting its first deployment.
 
 - Design: [docs/superpowers/specs/2026-09-22-fiken-mcp-design.md](docs/superpowers/specs/2026-09-22-fiken-mcp-design.md)
 - Decision record (what we ruled out and why): [docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md](docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md)
