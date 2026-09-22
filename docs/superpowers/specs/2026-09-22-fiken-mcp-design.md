@@ -95,7 +95,7 @@ Claude / ChatGPT client ──HTTPS──▶ API Gateway HTTP API
                                     fiken-mcp.byjoba.com (Route 53 zone byjoba.com)
                                         │
                                         ▼
-                                  Lambda (Node 22, arm64, reserved concurrency 1)
+                                  Lambda (Node 24, arm64, reserved concurrency 1)
                                     /.well-known/*   OAuth discovery
                                     /register        dynamic client registration
                                     /authorize       → redirects to fiken.no/oauth/authorize
