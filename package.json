@@ -1,0 +1,11 @@
+{
+  "name": "fiken-mcp",
+  "private": true,
+  "workspaces": ["api", "iac"],
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm test --workspaces",
+    "synth": "npm run synth --workspaces"
+  }
+}
