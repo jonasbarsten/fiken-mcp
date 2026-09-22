@@ -58,8 +58,17 @@ describe("GET /authorize (consent)", () => {
   });
 });
 
+const LOGIN_COOKIE = "__Host-fmcp_login";
+
+/** Parses the login cookie's value out of a Set-Cookie header. */
+function loginCookieValue(res: Response): string {
+  const header = res.headers.get("set-cookie") ?? "";
+  const m = new RegExp(`(?:^|, ?)${LOGIN_COOKIE}=([^;]*)`).exec(header);
+  return m?.[1] ?? "";
+}
+
 describe("POST /authorize", () => {
-  it("redirects to Fiken with a signed one-hour state", async () => {
+  it("redirects to Fiken with a signed one-hour state bound to a __Host- cookie", async () => {
     const res = await post(params(await register()));
     expect(res.status).toBe(302);
     const loc = new URL(res.headers.get("location")!);
@@ -69,6 +78,17 @@ describe("POST /authorize", () => {
     const state = verifyBlob<Record<string, unknown>>(loc.searchParams.get("state")!, cfg.keys);
     expect(state).toMatchObject({ k: "s", ru: CLAUDE_CB, cc: pkceChallenge("verifier-123"), cs: "client-state" });
     expect(state.exp as number).toBeGreaterThan(Date.now() / 1000 + 3500);
+
+    const cookie = res.headers.get("set-cookie") ?? "";
+    expect(cookie).toMatch(new RegExp(`^${LOGIN_COOKIE}=[A-Za-z0-9_-]{22}; `));
+    for (const attr of ["Max-Age=3600", "Path=/", "HttpOnly", "Secure", "SameSite=Lax"]) expect(cookie).toContain(attr);
+    expect(cookie).not.toMatch(/Domain=/i);
+    expect(state.n).toBe(loginCookieValue(res));
+  });
+
+  it("uses a fresh nonce per login", async () => {
+    const [a, b] = await Promise.all([post(params(await register())), post(params(await register()))]);
+    expect(loginCookieValue(a)).not.toBe(loginCookieValue(b));
   });
 
   it("re-validates everything", async () => {
@@ -78,14 +98,16 @@ describe("POST /authorize", () => {
 });
 
 describe("GET /callback", () => {
-  async function fikenState() {
+  /** Runs POST /authorize and returns what the browser carries to /callback: Fiken's state and our login cookie. */
+  async function login() {
     const res = await post(params(await register()));
-    return new URL(res.headers.get("location")!).searchParams.get("state")!;
+    return { fs: new URL(res.headers.get("location")!).searchParams.get("state")!, cookie: `${LOGIN_COOKIE}=${loginCookieValue(res)}` };
   }
+  const callback = (query: string, cookie?: string) => app.request(`/callback?${query}`, { headers: cookie ? { cookie } : {} });
 
-  it("wraps Fiken's code and returns the user to the client", async () => {
-    const fs = await fikenState();
-    const res = await app.request(`/callback?code=FIKENCODE&state=${encodeURIComponent(fs)}`);
+  it("wraps Fiken's code, returns the user to the client and clears the login cookie", async () => {
+    const { fs, cookie } = await login();
+    const res = await callback(`code=FIKENCODE&state=${encodeURIComponent(fs)}`, cookie);
     expect(res.status).toBe(302);
     const loc = new URL(res.headers.get("location")!);
     expect(loc.origin + loc.pathname).toBe(CLAUDE_CB);
@@ -93,21 +115,46 @@ describe("GET /callback", () => {
     const code = verifyBlob<Record<string, unknown>>(loc.searchParams.get("code")!, cfg.keys);
     expect(code).toMatchObject({ k: "d", fc: "FIKENCODE", fs, cc: pkceChallenge("verifier-123"), ru: CLAUDE_CB });
     expect(code.exp as number).toBeLessThan(Date.now() / 1000 + 301);
+    const cleared = res.headers.get("set-cookie") ?? "";
+    expect(cleared).toMatch(new RegExp(`^${LOGIN_COOKIE}=; `));
+    expect(cleared).toContain("Max-Age=0");
   });
 
   it("passes Fiken's error back to the client", async () => {
-    const fs = await fikenState();
-    const res = await app.request(`/callback?error=access_denied&state=${encodeURIComponent(fs)}`);
+    const { fs, cookie } = await login();
+    const res = await callback(`error=access_denied&state=${encodeURIComponent(fs)}`, cookie);
     const loc = new URL(res.headers.get("location")!);
     expect(loc.searchParams.get("error")).toBe("access_denied");
     expect(loc.searchParams.get("state")).toBe("client-state");
   });
 
   it("shows an error page for a tampered or expired state", async () => {
-    expect((await app.request("/callback?code=x&state=bad")).status).toBe(400);
-    const expired = signBlob({ k: "s", ru: CLAUDE_CB, cc: "c", cs: "s", exp: 1 }, cfg.keys);
-    const res = await app.request(`/callback?code=x&state=${encodeURIComponent(expired)}`);
+    expect((await callback("code=x&state=bad")).status).toBe(400);
+    const expired = signBlob({ k: "s", ru: CLAUDE_CB, cc: "c", cs: "s", n: "x", exp: 1 }, cfg.keys);
+    const res = await callback(`code=x&state=${encodeURIComponent(expired)}`, `${LOGIN_COOKIE}=x`);
     expect(res.status).toBe(400);
     expect(await res.text()).toMatch(/expired/i);
+  });
+
+  it("refuses a callback without the login cookie", async () => {
+    const { fs } = await login();
+    const res = await callback(`code=FIKENCODE&state=${encodeURIComponent(fs)}`);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("Invalid login state");
+  });
+
+  it("refuses a callback whose cookie does not match the state", async () => {
+    const { fs } = await login();
+    const other = await login();
+    const wrong = await callback(`code=FIKENCODE&state=${encodeURIComponent(fs)}`, other.cookie);
+    expect(wrong.status).toBe(400);
+    expect(await wrong.text()).toContain("Invalid login state");
+    const shortValue = await callback(`code=FIKENCODE&state=${encodeURIComponent(fs)}`, `${LOGIN_COOKIE}=abc`);
+    expect(shortValue.status).toBe(400);
+  });
+
+  it("refuses a state signed without a nonce", async () => {
+    const noNonce = signBlob({ k: "s", ru: CLAUDE_CB, cc: "c", cs: "s", exp: Math.floor(Date.now() / 1000) + 60 }, cfg.keys);
+    expect((await callback(`code=x&state=${encodeURIComponent(noNonce)}`, `${LOGIN_COOKIE}=`)).status).toBe(400);
   });
 });

@@ -1,4 +1,6 @@
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { Config } from "../config.js";
 import { BlobError, signBlob, verifyBlob } from "../crypto/blob.js";
 import { verifyPkce } from "../crypto/pkce.js";
@@ -16,12 +18,28 @@ export function readClientId(cfg: Config, clientId: string): { redirectUris: str
   return { redirectUris: wire.ru, name: typeof wire.n === "string" ? wire.n : "" };
 }
 
-interface StateWire { k: "s"; ru: string; cc: string; cs: string; exp: number }
+/** Login state; `n` is a nonce that must match the browser's login cookie at /callback. */
+interface StateWire { k: "s"; ru: string; cc: string; cs: string; n: string; exp: number }
 export interface CodeWire { k: "d"; fc: string; fs: string; cc: string; ru: string; exp: number }
 
 const LOGIN_WINDOW_SECONDS = 60 * 60;
 const CODE_WINDOW_SECONDS = 5 * 60;
 const now = () => Math.floor(Date.now() / 1000);
+
+/**
+ * Binds the login to the browser that pressed "Fortsett": a state blob
+ * pasted into another browser's /callback is refused (RFC 6749 section
+ * 10.12, and it would let an attacker skip our consent page).
+ */
+const LOGIN_COOKIE = "__Host-fmcp_login";
+const LOGIN_COOKIE_ATTRS = { path: "/", secure: true, httpOnly: true, sameSite: "Lax" } as const;
+
+function nonceMatches(cookie: string | undefined, expected: string): boolean {
+  if (!cookie) return false;
+  const a = Buffer.from(cookie);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 interface AuthorizeRequest { redirectUri: string; codeChallenge: string; clientState: string; clientName: string }
 
@@ -116,7 +134,9 @@ export function authRoutes(cfg: Config): Hono {
     const q = Object.fromEntries(new URLSearchParams(await c.req.text())) as Record<string, string>;
     const v = validateAuthorize(cfg, q);
     if ("error" in v) return c.text(v.error, 400);
-    const state: StateWire = { k: "s", ru: v.ok.redirectUri, cc: v.ok.codeChallenge, cs: v.ok.clientState, exp: now() + LOGIN_WINDOW_SECONDS };
+    const nonce = randomBytes(16).toString("base64url");
+    const state: StateWire = { k: "s", ru: v.ok.redirectUri, cc: v.ok.codeChallenge, cs: v.ok.clientState, n: nonce, exp: now() + LOGIN_WINDOW_SECONDS };
+    setCookie(c, LOGIN_COOKIE, nonce, { ...LOGIN_COOKIE_ATTRS, maxAge: LOGIN_WINDOW_SECONDS });
     return c.redirect(fikenAuthorizeUrl(cfg, signBlob(state, cfg.keys)), 302);
   });
 
@@ -125,7 +145,8 @@ export function authRoutes(cfg: Config): Hono {
     let state: StateWire;
     try {
       const wire = verifyBlob<Partial<StateWire>>(q.state ?? "", cfg.keys);
-      if (wire.k !== "s" || !wire.ru || !wire.cc) throw new BlobError("invalid");
+      if (wire.k !== "s" || !wire.ru || !wire.cc || typeof wire.n !== "string") throw new BlobError("invalid");
+      if (!nonceMatches(getCookie(c, LOGIN_COOKIE), wire.n)) throw new BlobError("invalid");
       state = wire as StateWire;
     } catch (err) {
       const why = err instanceof BlobError && err.code === "expired" ? "The login took too long and expired." : "Invalid login state.";
@@ -142,6 +163,7 @@ export function authRoutes(cfg: Config): Hono {
     const code: CodeWire = { k: "d", fc: q.code, fs: q.state ?? "", cc: state.cc, ru: state.ru, exp: now() + CODE_WINDOW_SECONDS };
     back.searchParams.set("code", signBlob(code, cfg.keys));
     back.searchParams.set("state", state.cs);
+    deleteCookie(c, LOGIN_COOKIE, LOGIN_COOKIE_ATTRS);
     return c.redirect(back.toString(), 302);
   });
 
