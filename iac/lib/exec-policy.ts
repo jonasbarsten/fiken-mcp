@@ -54,9 +54,14 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
         "iam:TagRole",
         "iam:UntagRole",
         "iam:UpdateAssumeRolePolicy",
-        "iam:PassRole",
       ],
       resources: [`arn:aws:iam::${account}:role/fiken-mcp-*`],
+    }),
+    new iam.PolicyStatement({
+      sid: "PassRoleToLambda",
+      actions: ["iam:PassRole"],
+      resources: [`arn:aws:iam::${account}:role/fiken-mcp-*`],
+      conditions: { StringEquals: { "iam:PassedToService": "lambda.amazonaws.com" } },
     }),
     new iam.PolicyStatement({
       sid: "Policies",
@@ -91,12 +96,23 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
     new iam.PolicyStatement({
       sid: "ApiGateway",
       actions: ["apigateway:*"],
-      resources: [`arn:aws:apigateway:${region}::/*`],
+      resources: [
+        `arn:aws:apigateway:${region}::/apis`,
+        `arn:aws:apigateway:${region}::/apis/*`,
+        `arn:aws:apigateway:${region}::/domainnames`,
+        `arn:aws:apigateway:${region}::/domainnames/*`,
+        `arn:aws:apigateway:${region}::/tags/*`,
+      ],
     }),
     new iam.PolicyStatement({
-      sid: "Certificates",
+      sid: "CertificatesRequest",
+      actions: ["acm:RequestCertificate"],
+      resources: ["*"],
+      conditions: { StringEquals: { "aws:RequestTag/Project": "fiken-mcp" } },
+    }),
+    new iam.PolicyStatement({
+      sid: "CertificatesManage",
       actions: [
-        "acm:RequestCertificate",
         "acm:DeleteCertificate",
         "acm:DescribeCertificate",
         "acm:AddTagsToCertificate",
@@ -104,6 +120,7 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
         "acm:ListTagsForCertificate",
       ],
       resources: ["*"],
+      conditions: { StringEquals: { "aws:ResourceTag/Project": "fiken-mcp" } },
     }),
     new iam.PolicyStatement({
       sid: "DnsZone",

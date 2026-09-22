@@ -1,4 +1,4 @@
-import { App } from "aws-cdk-lib";
+import { App, Tags } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
 import { IacStack } from "../lib/iac-stack.js";
@@ -96,5 +96,49 @@ describe("IacStack", () => {
     t.hasOutput("UsageTableArn", { Export: { Name: "fiken-mcp-usage-table-arn" } });
     t.hasOutput("DeployRoleArn", {});
     t.hasOutput("ExecPolicyArn", {});
+  });
+
+  it("tags every taggable resource with Project=fiken-mcp", () => {
+    const app = new App();
+    const stack = new IacStack(app, "fiken-mcp-iac", {
+      env: { account: "209479295726", region: "eu-west-1" },
+      synthesizer: synthesizer(),
+    });
+    Tags.of(app).add("Project", "fiken-mcp");
+    const t = Template.fromStack(stack);
+
+    // TableV2 synthesizes to AWS::DynamoDB::GlobalTable, which carries tags
+    // per replica (Replicas[].Tags), not as a top-level Tags property.
+    t.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      Replicas: Match.arrayWith([
+        Match.objectLike({ Tags: Match.arrayWith([{ Key: "Project", Value: "fiken-mcp" }]) }),
+      ]),
+    });
+
+    const roles = t.findResources("AWS::IAM::Role");
+    expect(Object.keys(roles).length).toBeGreaterThan(0);
+    for (const role of Object.values(roles)) {
+      expect(role.Properties.Tags).toEqual(expect.arrayContaining([{ Key: "Project", Value: "fiken-mcp" }]));
+    }
+  });
+
+  it("never grants an unconditioned wildcard resource except known read-only actions", () => {
+    const t = synth();
+    const policies = t.findResources("AWS::IAM::ManagedPolicy");
+    expect(Object.keys(policies).length).toBeGreaterThan(0);
+    for (const policy of Object.values(policies)) {
+      const statements = policy.Properties.PolicyDocument.Statement as Array<{
+        Sid?: string;
+        Resource?: string | string[];
+        Condition?: unknown;
+      }>;
+      for (const statement of statements) {
+        const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
+        const hasWildcard = resources.includes("*");
+        if (!hasWildcard) continue;
+        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead"].includes(statement.Sid);
+        expect(statement.Condition !== undefined || isKnownReadOnly).toBe(true);
+      }
+    }
   });
 });
