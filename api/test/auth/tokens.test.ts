@@ -11,7 +11,9 @@ describe("issueTokens", () => {
     const issued = issueTokens(cfg, fiken, "anon1", 1000);
     expect(issued.token_type).toBe("bearer");
     expect(issued.expires_in).toBe(ACCESS_TOKEN_SECONDS);
-    expect(issued.access_token).not.toContain("FA");
+    // A two-letter sentinel can appear by chance in base64url ciphertext; use a long one.
+    const leaky = issueTokens(cfg, { ...fiken, access_token: "PLAINTEXT-FIKEN-ACCESS-TOKEN" }, "anon1", 1000);
+    expect(leaky.access_token).not.toContain("PLAINTEXT-FIKEN-ACCESS-TOKEN");
     expect(readAccessToken(cfg, issued.access_token, 1050)).toEqual({ fikenAccessToken: "FA", anonId: "anon1", exp: 1000 + ACCESS_TOKEN_SECONDS });
     expect(readRefreshToken(cfg, issued.refresh_token)).toEqual({ fikenRefreshToken: "FR", fikenAccessToken: "FA", fikenAccessExp: 1000 + 86157, anonId: "anon1" });
   });
