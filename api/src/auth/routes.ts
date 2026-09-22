@@ -60,6 +60,15 @@ function validateAuthorize(cfg: Config, q: Record<string, string | undefined>): 
 
 const CONSENT_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
+/** A JSON body can carry anything; every field the token endpoint reads is a string or "". */
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
+
+const TOKEN_FIELDS = ["grant_type", "code", "code_verifier", "redirect_uri", "client_id", "refresh_token"] as const;
+
+function tokenFields(raw: Record<string, unknown>): Record<(typeof TOKEN_FIELDS)[number], string> {
+  return Object.fromEntries(TOKEN_FIELDS.map((f) => [f, str(raw[f])])) as Record<(typeof TOKEN_FIELDS)[number], string>;
+}
+
 export function authRoutes(cfg: Config): Hono {
   const app = new Hono();
 
@@ -169,9 +178,8 @@ export function authRoutes(cfg: Config): Hono {
 
   app.post("/token", async (c) => {
     const contentType = c.req.header("content-type") ?? "";
-    const fields: Record<string, string> = contentType.includes("json")
-      ? ((await c.req.json().catch(() => ({}))) as Record<string, string>)
-      : Object.fromEntries(new URLSearchParams(await c.req.text()));
+    const raw: unknown = contentType.includes("json") ? await c.req.json().catch(() => ({})) : Object.fromEntries(new URLSearchParams(await c.req.text()));
+    const fields = tokenFields(raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {});
     const noStore = { "Cache-Control": "no-store", Pragma: "no-cache" };
     const oauthError = (error: string, description: string) => c.json({ error, error_description: description }, 400, noStore);
 
@@ -179,7 +187,7 @@ export function authRoutes(cfg: Config): Hono {
       if (fields.grant_type === "authorization_code") {
         let code: CodeWire;
         try {
-          const wire = verifyBlob<Partial<CodeWire>>(fields.code ?? "", cfg.keys);
+          const wire = verifyBlob<Partial<CodeWire>>(fields.code, cfg.keys);
           if (wire.k !== "d" || !wire.fc || !wire.cc || !wire.ru) throw new BlobError("invalid");
           code = wire as CodeWire;
         } catch {
@@ -187,7 +195,7 @@ export function authRoutes(cfg: Config): Hono {
         }
         let client: { redirectUris: string[] };
         try {
-          client = readClientId(cfg, fields.client_id ?? "");
+          client = readClientId(cfg, fields.client_id);
         } catch {
           return oauthError("invalid_client", "unknown client_id");
         }
@@ -204,7 +212,7 @@ export function authRoutes(cfg: Config): Hono {
 
       if (fields.grant_type === "refresh_token") {
         try {
-          return c.json(await renewTokens(cfg, fields.refresh_token ?? ""), 200, noStore);
+          return c.json(await renewTokens(cfg, fields.refresh_token), 200, noStore);
         } catch (err) {
           if (err instanceof BlobError) return oauthError("invalid_grant", "refresh token invalid");
           throw err;

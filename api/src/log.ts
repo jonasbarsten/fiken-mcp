@@ -1,6 +1,6 @@
 export type LogFields = Record<string, string | number | boolean | undefined>;
 
-const FORBIDDEN = [/^bearer\s/i, /^basic\s/i, /^v1e?\.[A-Za-z0-9_-]+\./, /[^\s@]+@[^\s@]+\.[^\s@]+/];
+const FORBIDDEN = [/^bearer\s/i, /^basic\s/i, /v1e?\.[A-Za-z0-9_-]+\./, /[^\s@]+@[^\s@]+\.[^\s@]+/];
 
 function assertSafe(fields: LogFields): void {
   for (const [key, value] of Object.entries(fields)) {

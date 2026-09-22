@@ -76,6 +76,22 @@ describe("POST /token authorization_code", () => {
     expect((await app.request("/token", form({ ...base, code_verifier: "verifier-123", code: "garbage" }))).status).toBe(400);
   });
 
+  it("answers a JSON body with non-string fields with an OAuth error, not a crash", async () => {
+    const { app, codeBlob, clientId } = await setup();
+    const res = await app.request("/token", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ grant_type: "authorization_code", code: codeBlob, code_verifier: 123, redirect_uri: CLAUDE_CB, client_id: clientId }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid_grant");
+    for (const body of ["null", "[]", '"x"', "{bad json"]) {
+      const odd = await app.request("/token", { method: "POST", headers: { "content-type": "application/json" }, body });
+      expect(odd.status).toBe(400);
+      expect((await odd.json()).error).toBe("unsupported_grant_type");
+    }
+  });
+
   it("relays Fiken's invalid_grant", async () => {
     const { app, cfg, clientId } = await setup();
     const bad = signBlob({ k: "d", fc: "BAD", fs: "s", cc: pkceChallenge("v"), ru: CLAUDE_CB, exp: Math.floor(Date.now() / 1000) + 300 }, cfg.keys);

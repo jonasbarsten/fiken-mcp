@@ -23,7 +23,9 @@ describe("log", () => {
     expect(() => log("x", { h: "Bearer abc.def" })).toThrow(/refusing/);
     expect(() => log("x", { b: "v1e.k1.aaaa.bbbb" })).toThrow(/refusing/);
     expect(() => log("x", { b: "v1.k1.aaaa.bbbb" })).toThrow(/refusing/);
+    expect(() => log("x", { b: "code=v1.k1.aaaa.bbbb" })).toThrow(/refusing/);
     expect(() => log("x", { e: "jonas@example.com" })).toThrow(/refusing/);
     expect(() => log("x", { ok: "fiken 401" })).not.toThrow();
+    expect(() => log("x", { ok: "v2 stage" })).not.toThrow();
   });
 });

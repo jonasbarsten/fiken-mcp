@@ -27,7 +27,7 @@ describe("POST /mcp", () => {
     const before = fikenCalls;
     const missing = await rpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_companies", arguments: {} } }, "");
     expect(missing.status).toBe(401);
-    expect(missing.headers.get("www-authenticate")).toBe('Bearer resource_metadata="https://fiken-mcp.test/.well-known/oauth-protected-resource"');
+    expect(missing.headers.get("www-authenticate")).toBe('Bearer error="invalid_token", resource_metadata="https://fiken-mcp.test/.well-known/oauth-protected-resource"');
     const bad = await rpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_companies", arguments: {} } }, "Bearer nope");
     expect(bad.status).toBe(401);
     expect(fikenCalls).toBe(before);

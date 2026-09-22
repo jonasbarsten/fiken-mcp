@@ -7,7 +7,7 @@ import { createMcpServer } from "./server.js";
 
 export function mcpRoutes(cfg: Config): Hono {
   const app = new Hono();
-  const challenge = `Bearer resource_metadata="${cfg.publicUrl}/.well-known/oauth-protected-resource"`;
+  const challenge = `Bearer error="invalid_token", resource_metadata="${cfg.publicUrl}/.well-known/oauth-protected-resource"`;
 
   app.post("/mcp", async (c) => {
     const auth = c.req.header("authorization") ?? "";

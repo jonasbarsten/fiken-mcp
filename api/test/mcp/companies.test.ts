@@ -42,4 +42,12 @@ describe("list_companies", () => {
     expect(text).toMatch(/403/);
     expect(text).not.toMatch(/Bearer/);
   });
+
+  it("tells the model to reconnect when Fiken answers 401", async () => {
+    const client = await connected(async () => new Response("expired tok", { status: 401 }));
+    const result = await client.callTool({ name: "list_companies", arguments: {} });
+    expect(result.isError).toBe(true);
+    const text = (result.content as Array<{ text: string }>)[0]?.text ?? "";
+    expect(text).toBe("Fiken rejected the login (401). Ask the user to disconnect and reconnect the Fiken connector, then retry.");
+  });
 });
