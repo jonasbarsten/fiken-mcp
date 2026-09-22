@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(aws *)",
+      "Bash(npx aws *)",
+      "Bash(cdk deploy*)",
+      "Bash(npx cdk deploy*)",
+      "Bash(cdk bootstrap*)",
+      "Bash(npx cdk bootstrap*)",
+      "Bash(cdk destroy*)",
+      "Bash(npx cdk destroy*)",
+      "mcp__aws-mcp__aws___run_script"
+    ]
+  }
+}
