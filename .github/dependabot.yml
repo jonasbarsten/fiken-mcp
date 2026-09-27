@@ -4,7 +4,21 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Every merge to main deploys, so bundle the routine bumps into one PR.
+    # Majors stay separate: they need a look at the changelog.
+    groups:
+      npm-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # The Lambda runs Node 24; its types follow the runtime, not npm.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
