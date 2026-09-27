@@ -62,8 +62,9 @@ Fiken API (from the OpenAPI spec, verified 2026-09-22):
 - **No CORS.** `api.fiken.no` sends no `Access-Control-Allow-Origin`, and
   a preflight returns 500. Browsers cannot call Fiken directly.
 
-Claude clients (verified by the spike in `spike/`, Claude Desktop
-2.2553.1 and Claude iOS 1.260911.19):
+Claude clients (verified by the spike, kept in git history at commit
+`c8dd493` under `spike/`, on Claude Desktop 2.2553.1 and Claude iOS
+1.260911.19):
 
 - Custom connectors are remote MCP servers over Streamable HTTP with
   OAuth 2.1 and dynamic client registration. They can be added on web,
@@ -118,8 +119,10 @@ api/      Lambda source (TypeScript) and CDK app, stack fiken-mcp-api:
           function, HTTP API, custom domain, Parameter Store reads. Imports
           the table from the iac exports. Deployed on every merge to main.
 docs/     specs and decision record.
-spike/    throwaway widget spike; deleted once api/ has its own widget.
 ```
+
+The throwaway widget spike was deleted before the first deploy; it is in
+git history at commit `c8dd493` under `spike/`.
 
 No deployment stages for now: one account, one environment, one domain.
 
@@ -230,14 +233,12 @@ is a code change in `api/src/auth/clients.ts` with a PR.
    `HMAC(salt, email)`, and return **encrypted wrappers**:
    - access token: `{fiken access token, anon id, exp: +1h}`. One hour,
      not Fiken's 24, so a leaked token has a short life.
-   - refresh token: `{fiken refresh token, fiken access token, fiken
-     access expiry, anon id}`.
-   On `refresh_token` grant we unwrap; if the wrapped Fiken access token
-   still has more than an hour left we mint a new one-hour access
-   wrapper from it without calling Fiken; otherwise we call Fiken's
-   refresh and rewrap. If the user revoked the app in Fiken, refresh
-   fails and the client restarts at step 3. Token responses carry
-   `Cache-Control: no-store` and `Pragma: no-cache`.
+   - refresh token: `{fiken refresh token, anon id}`.
+   On `refresh_token` grant we unwrap, call Fiken's refresh every time
+   (one upstream call per user per hour) and rewrap. If the user revoked
+   the app in Fiken, that refresh fails within the hour and the client
+   restarts at step 3. Token responses carry `Cache-Control: no-store`
+   and `Pragma: no-cache`.
 7. **Every MCP request** carries our wrapped access token. We decrypt it
    before doing any other work, forward the Fiken access token upstream,
    and use the anonymous id for usage counting. A 401 from Fiken becomes
@@ -328,7 +329,7 @@ not in scope now.
   ticket is scoped to one company and expires in 15 minutes.
 - **Memory hygiene.** Request bodies are never kept in module scope, so
   nothing survives an invocation in the Lambda container.
-- **Spike.** `spike/` is deleted before the first production deploy.
+- **Spike.** `spike/` was deleted before the first production deploy.
 
 ## 8. Tools
 
@@ -472,8 +473,9 @@ too if you suspect a device or account was compromised.
   the request queue, tool handlers against recorded Fiken responses,
   usage counter updates against DynamoDB Local.
 - Integration: a Fiken test company under the dev app.
-- Widget: manual protocol from `spike/README.md` on Claude Desktop and
-  iOS after each widget change; ChatGPT once, to record what works.
+- Widget: manual protocol from the spike's README (git history, commit
+  `c8dd493`, `spike/README.md`) on Claude Desktop and iOS after each
+  widget change; ChatGPT once, to record what works.
 - CI: PR runs typecheck and tests; merge to main deploys with `cdk deploy`.
 
 ## 14. Open items
@@ -481,4 +483,3 @@ too if you suspect a device or account was compromised.
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.
 - Custom domain and certificate for `fiken-mcp.byjoba.com`.
-- Delete `spike/` once implementation has its own widget.

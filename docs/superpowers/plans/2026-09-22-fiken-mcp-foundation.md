@@ -3269,3 +3269,34 @@ Expected: `{"error":"invalid_redirect_uri", ...}`.
 **Placeholders:** none. Every step has its code or its exact command.
 
 **Type consistency:** `KeyRing` and `cfg.keys` replace the earlier single key everywhere; `readClientId` returns `{ redirectUris, name }` and Task 10 uses `client.name`; `renewTokens` is used by Task 11; `issueTokens(cfg, fiken, anonId, now)` signature is the same in Tasks 8, 11 and 12; `synthesizer()` exists in both workspaces; `CodeWire` fields `fc, fs, cc, ru, exp` match between Tasks 10 and 11.
+
+## Rulings applied during execution (2026-09-22)
+
+The code in the repository is authoritative where it differs from the
+task text above. These are the deliberate differences:
+
+- **Task 2, execution policy.** The plan's `ApiGateway` statement
+  (`apigateway:*` on every API in the region) and `Certificates`
+  statement (six ACM actions on `*`) were too broad for a shared account.
+  `iac/lib/exec-policy.ts` pins API Gateway to `/apis`, `/apis/*`,
+  `/domainnames`, `/domainnames/*` and `/tags/*`; splits ACM into
+  `acm:RequestCertificate` gated on `aws:RequestTag/Project = fiken-mcp`
+  and the management actions gated on `aws:ResourceTag/Project =
+  fiken-mcp`; and moves `iam:PassRole` into its own statement conditioned
+  on `iam:PassedToService = lambda.amazonaws.com`. A test asserts that
+  every `Resource: "*"` statement carries a condition, except the
+  read-only `DnsRead` and `DynamoRead`.
+- **Tasks 2 and 13, tagging.** Both apps call
+  `Tags.of(app).add("Project", "fiken-mcp")` so the tag conditions above
+  hold; tests assert the tag on the table, the roles, the function and
+  the certificate. The iac stack carries a small Aspect to tag the OIDC
+  provider's custom-resource role, which `Tags.of()` does not reach.
+- **Task 8, test.** `expect(issued.access_token).not.toContain("FA")`
+  was flaky (a two-letter sentinel can occur in base64url ciphertext);
+  the test issues a token with a long sentinel instead.
+- **Task 10, consent page.** The `javascript:history.back()` cancel link
+  is blocked by the page's own CSP. Cancel is now a plain link back to
+  the client's registered redirect URI with `error=access_denied` and the
+  client's `state`, which is also the OAuth-correct way to cancel.
+- **Task 13, SSM grant test.** CDK emits four single-resource statements
+  for the four `grantRead` calls; the test asserts that shape.

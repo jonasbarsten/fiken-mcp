@@ -12,8 +12,9 @@ Repo: `jonasbarsten/fiken-mcp` (public). AWS: byjoba account
 - `docs/superpowers/specs/2026-09-22-fiken-mcp-design.md` is the design.
 - `docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md` lists
   every alternative we ruled out and why. Do not re-propose those.
-- `spike/` is a throwaway spike that verified the widget upload flow on
-  Claude Desktop and iOS. Its README has the manual test protocol.
+- The throwaway spike that verified the widget upload flow on Claude
+  Desktop and iOS was deleted before the first deploy. Its code and manual
+  test protocol are in git history: `git show c8dd493:spike/README.md`.
 
 ## Hard rules
 
@@ -32,4 +33,7 @@ Repo: `jonasbarsten/fiken-mcp` (public). AWS: byjoba account
 
 ## Process
 
-Design is approved. Next: writing-plans skill, then TDD implementation.
+Foundation plan executed 2026-09-22 (see
+`docs/superpowers/plans/2026-09-22-fiken-mcp-foundation.md`). Next:
+Task 15 first deployment, then plan 2 (tools, usage counters) and
+plan 3 (upload widget).

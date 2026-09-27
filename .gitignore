@@ -1,5 +1,8 @@
 node_modules/
 cdk.out/
+dist/
 .env
 *.log
 .DS_Store
+.superpowers/
+.claude/worktrees/

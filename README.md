@@ -5,11 +5,13 @@ accounting from Claude and ChatGPT, on their own AI subscription, after
 logging into Fiken themselves. Read and write, including sending
 invoices, and booking receipts picked straight from a phone.
 
-Status: design approved, implementation not started.
+Status: the foundation (OAuth flow, `list_companies`, infrastructure and
+CI) is implemented and awaiting its first deployment.
 
 - Design: [docs/superpowers/specs/2026-09-22-fiken-mcp-design.md](docs/superpowers/specs/2026-09-22-fiken-mcp-design.md)
 - Decision record (what we ruled out and why): [docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md](docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md)
-- Spike that verified the widget flow (throwaway): [spike/](spike/README.md)
+- The throwaway spike that verified the widget flow lives in git history
+  (`git show c8dd493:spike/README.md`).
 
 ## Privacy
 
@@ -34,3 +36,15 @@ claude mcp add --transport http fiken https://fiken-mcp.byjoba.com/mcp
 
 ChatGPT: Settings, Apps, Advanced settings, Developer mode, add the same
 URL. Needs Plus or higher.
+
+## Development
+
+```
+npm install
+npm test
+npm run typecheck
+```
+
+`api/` is the Lambda and its CDK stack; `iac/` is the shared
+infrastructure stack. Deployments run from GitHub Actions only; see
+`docs/setup.md` for the one-time setup.
