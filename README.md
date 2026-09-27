@@ -10,7 +10,8 @@ CI) is implemented and awaiting its first deployment.
 
 - Design: [docs/superpowers/specs/2026-09-22-fiken-mcp-design.md](docs/superpowers/specs/2026-09-22-fiken-mcp-design.md)
 - Decision record (what we ruled out and why): [docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md](docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md)
-- Spike that verified the widget flow (throwaway): [spike/](spike/README.md)
+- The throwaway spike that verified the widget flow lives in git history
+  (`git show c8dd493:spike/README.md`).
 
 ## Privacy
 

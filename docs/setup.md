@@ -74,7 +74,8 @@ under "Godkjente brukere" while the app is in development status.
 
 ## Before the first production deploy
 
-- Delete `spike/` in the same PR that ships the real widget, or earlier.
+- `spike/` was deleted in the foundation pull request. Its code and
+  manual test protocol remain in git history at commit `c8dd493`.
 
 ## First deploy
 
