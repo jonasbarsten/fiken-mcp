@@ -60,7 +60,16 @@ function validateAuthorize(cfg: Config, q: Record<string, string | undefined>): 
   return { ok: { redirectUri, codeChallenge: q.code_challenge, clientState: q.state ?? "", clientName: client.name } };
 }
 
-const CONSENT_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+/**
+ * The consent form posts to /authorize, which answers with a redirect to
+ * Fiken. Chrome applies form-action to the whole redirect chain of a form
+ * submission, so Fiken's origin must be allowed or the redirect is
+ * silently blocked and the button appears to do nothing.
+ */
+function consentCsp(cfg: Config): string {
+  const fikenOrigin = new URL(cfg.fikenOAuthBaseUrl).origin;
+  return `default-src 'none'; style-src 'unsafe-inline'; form-action 'self' ${fikenOrigin}; base-uri 'none'; frame-ancestors 'none'`;
+}
 
 /** A JSON body can carry anything; every field the token endpoint reads is a string or "". */
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -138,7 +147,7 @@ export function authRoutes(cfg: Config): Hono {
       fields,
       cancelUrl: cancel.toString(),
     });
-    return c.html(html, 200, { "Content-Security-Policy": CONSENT_CSP, "Cache-Control": "no-store" });
+    return c.html(html, 200, { "Content-Security-Policy": consentCsp(cfg), "Cache-Control": "no-store" });
   });
 
   app.post("/authorize", async (c) => {
