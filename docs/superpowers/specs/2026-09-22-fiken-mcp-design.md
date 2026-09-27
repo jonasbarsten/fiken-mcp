@@ -490,6 +490,22 @@ too if you suspect a device or account was compromised.
 
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.
+- **Plan 2: Client ID Metadata Documents (CIMD).** Claude offers "Use
+  Claude's published identity": the client id is an `https://` URL on
+  an Anthropic host and the server fetches a metadata document from it
+  instead of taking redirect URIs at registration. Accept such client
+  ids only when the URL's host is on the redirect allowlist, fetch the
+  document once per cold start and cache it, and require the redirect
+  URI to be in both the document and our allowlist. The allowlist stays
+  the control; DCR keeps working. Claude Desktop 2026-09 detects DCR
+  and works without this, so it is not blocking.
+- **Plan 2: connector icon.** Clients show a letter placeholder until
+  the server declares `icons` on its `serverInfo` (MCP `Implementation`
+  supports `icons: [{ src, mimeType, sizes }]`, present in SDK 2.1).
+  Serve a square PNG (256 and 512 px) and an SVG from an unauthenticated
+  `GET /icon.*` route on the api, and reference them by absolute URL.
+  The icon must not use Fiken's logo or colours; we are a third-party
+  integration, and the connector is already named "Fiken MCP".
 - The API lives at `api.fiken-mcp.byjoba.com` (certificate in eu-west-1,
   requested by hand). `fiken-mcp.byjoba.com` is reserved for a CloudFront
   site, which needs its own certificate in us-east-1.
