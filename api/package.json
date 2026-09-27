@@ -15,7 +15,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/client": "2.1.0",
     "@types/aws-lambda": "8.10.163",
     "@types/node": "24.13.6",
     "aws-cdk": "2.1142.0",
