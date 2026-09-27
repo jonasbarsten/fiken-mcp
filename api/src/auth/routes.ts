@@ -7,7 +7,7 @@ import { verifyPkce } from "../crypto/pkce.js";
 import { FikenOAuthError, exchangeFikenCode, fetchFikenUser, fikenAuthorizeUrl } from "../fiken/oauth.js";
 import { anonymousId } from "./anon.js";
 import { clientLabel, isAllowedRedirectUri } from "./clients.js";
-import { consentPage } from "./consent.js";
+import { consentPage, continuePage } from "./consent.js";
 import { issueTokens, renewTokens } from "./tokens.js";
 
 interface ClientWire { k: "c"; ru: string[]; n: string }
@@ -61,15 +61,12 @@ function validateAuthorize(cfg: Config, q: Record<string, string | undefined>): 
 }
 
 /**
- * The consent form posts to /authorize, which answers with a redirect to
- * Fiken. Chrome applies form-action to the whole redirect chain of a form
- * submission, so Fiken's origin must be allowed or the redirect is
- * silently blocked and the button appears to do nothing.
+ * form-action stays 'self': the consent form posts to /authorize and the
+ * answer is a page, never a redirect. Chrome checks form-action against
+ * every hop of a redirect chain after a form post, and Fiken's own login
+ * redirects are not ours to allowlist.
  */
-function consentCsp(cfg: Config): string {
-  const fikenOrigin = new URL(cfg.fikenOAuthBaseUrl).origin;
-  return `default-src 'none'; style-src 'unsafe-inline'; form-action 'self' ${fikenOrigin}; base-uri 'none'; frame-ancestors 'none'`;
-}
+const CONSENT_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
 /** A JSON body can carry anything; every field the token endpoint reads is a string or "". */
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -147,7 +144,7 @@ export function authRoutes(cfg: Config): Hono {
       fields,
       cancelUrl: cancel.toString(),
     });
-    return c.html(html, 200, { "Content-Security-Policy": consentCsp(cfg), "Cache-Control": "no-store" });
+    return c.html(html, 200, { "Content-Security-Policy": CONSENT_CSP, "Cache-Control": "no-store" });
   });
 
   app.post("/authorize", async (c) => {
@@ -157,7 +154,8 @@ export function authRoutes(cfg: Config): Hono {
     const nonce = randomBytes(16).toString("base64url");
     const state: StateWire = { k: "s", ru: v.ok.redirectUri, cc: v.ok.codeChallenge, cs: v.ok.clientState, n: nonce, exp: now() + LOGIN_WINDOW_SECONDS };
     setCookie(c, LOGIN_COOKIE, nonce, { ...LOGIN_COOKIE_ATTRS, maxAge: LOGIN_WINDOW_SECONDS });
-    return c.redirect(fikenAuthorizeUrl(cfg, signBlob(state, cfg.keys)), 302);
+    const fikenUrl = fikenAuthorizeUrl(cfg, signBlob(state, cfg.keys));
+    return c.html(continuePage(fikenUrl), 200, { "Content-Security-Policy": CONSENT_CSP, "Cache-Control": "no-store" });
   });
 
   app.get("/callback", (c) => {
