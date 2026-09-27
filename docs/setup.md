@@ -71,10 +71,13 @@ normal development.
   policy are applied by the same CloudFormation execution role they
   govern. Review such pull requests with extra care: the `production`
   approval and CODEOWNERS are the controls.
-- The API Gateway stage's access-log destination is a log group Arn,
-  which CloudFormation resolves with `logs:DescribeLogGroups` on `*`.
-  The `LogsRead` statement grants exactly that; without it the stage
-  fails with "Unable to retrieve Arn attribute for AWS::Logs::LogGroup".
+- API Gateway access logging uses CloudWatch Logs "log delivery", which
+  has no resource scoping: `logs:CreateLogDelivery`, `PutResourcePolicy`
+  and friends must be granted on `*`. The `LogDelivery` statement holds
+  the documented set. Two first deploys failed here, first with "Unable
+  to retrieve Arn attribute for AWS::Logs::LogGroup" (needs
+  `DescribeLogGroups` on `*`), then with "Insufficient permissions to
+  enable logging ... logs:CreateLogDelivery".
 - Lambda reserved concurrency needs an account quota above the default
   10 (Lambda keeps 10 unreserved, so nothing can be reserved). The first
   deploy failed on this with the unhelpful message "Resource of type
