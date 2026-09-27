@@ -44,10 +44,14 @@ normal development.
   when CloudFormation checks the bootstrap version. The `Parameters`
   statement in `iac/lib/exec-policy.ts` covers
   `parameter/cdk-bootstrap/fikenmcp/*`; a test pins it.
-- The execution policy can only request an ACM certificate that carries
-  the `Project=fiken-mcp` tag. The api app tags everything it creates,
-  so the certificate should be tagged; if certificate creation fails
-  with AccessDenied, check that tag first.
+- The execution policy can only request an ACM certificate whose domain
+  names are exactly `fiken-mcp.byjoba.com`, and can only tag it with
+  `Project=fiken-mcp`. CloudFormation's certificate handler requests
+  first and tags afterwards, which is why the request is gated on the
+  domain and not on a tag (the first deploy on 2026-09-27 failed on a
+  tag gate). If certificate creation fails with AccessDenied, compare
+  the domain in `api/lib/api-stack.ts` with `DOMAIN` in
+  `iac/lib/exec-policy.ts`.
 - Changes to `iac/lib/exec-policy.ts` or to the deploy role's trust
   policy are applied by the same CloudFormation execution role they
   govern. Review such pull requests with extra care: the `production`
@@ -89,5 +93,6 @@ under "Godkjente brukere" while the app is in development status.
 ## First deploy
 
 Merge the first PR to `main`, approve the `production` deployment when
-GitHub asks, and watch the `deploy` workflow. Certificate validation can
-take a few minutes on the first run.
+GitHub asks, and watch the `deploy` workflow. The certificate lives in
+the iac stack, so its DNS validation (a few minutes) happens during the
+hand-run `cdk deploy fiken-mcp-iac`, not in the workflow.

@@ -1,21 +1,23 @@
-import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { CfnOutput, Duration, Fn, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import { AccessLogFormat } from "aws-cdk-lib/aws-apigateway";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
-import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
-import * as route53 from "aws-cdk-lib/aws-route53";
-import * as targets from "aws-cdk-lib/aws-route53-targets";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import { fileURLToPath } from "node:url";
 
+// The certificate, the API Gateway custom domain and the DNS record are
+// static and live in the iac stack; this stack only maps its API onto them.
 const DOMAIN = "fiken-mcp.byjoba.com";
-const ZONE_NAME = "byjoba.com";
-const ZONE_ID = "Z04810525CNVQNP7ALNV";
+const DOMAIN_EXPORTS = {
+  name: "fiken-mcp-api-domain-name",
+  regionalDomainName: "fiken-mcp-api-domain-regional-domain-name",
+  regionalHostedZoneId: "fiken-mcp-api-domain-regional-hosted-zone-id",
+};
 const PARAM_PREFIX = "/fiken_mcp";
 const PARAM_NAMES = ["client_id", "client_secret", "signing_key", "user_salt"];
 const FUNCTION_NAME = "fiken-mcp-api";
@@ -59,9 +61,11 @@ export class ApiStack extends Stack {
       ssm.StringParameter.fromSecureStringParameterAttributes(this, `Param-${name}`, { parameterName: `${PARAM_PREFIX}/${name}` }).grantRead(fn);
     }
 
-    const zone = route53.HostedZone.fromHostedZoneAttributes(this, "Zone", { hostedZoneId: ZONE_ID, zoneName: ZONE_NAME });
-    const certificate = new acm.Certificate(this, "Certificate", { domainName: DOMAIN, validation: acm.CertificateValidation.fromDns(zone) });
-    const domainName = new apigwv2.DomainName(this, "Domain", { domainName: DOMAIN, certificate });
+    const domainName = apigwv2.DomainName.fromDomainNameAttributes(this, "Domain", {
+      name: Fn.importValue(DOMAIN_EXPORTS.name),
+      regionalDomainName: Fn.importValue(DOMAIN_EXPORTS.regionalDomainName),
+      regionalHostedZoneId: Fn.importValue(DOMAIN_EXPORTS.regionalHostedZoneId),
+    });
 
     const api = new apigwv2.HttpApi(this, "HttpApi", {
       apiName: "fiken-mcp",
@@ -97,12 +101,6 @@ export class ApiStack extends Stack {
       domainMapping: { domainName },
       throttle: { rateLimit: 20, burstLimit: 40 },
       accessLogSettings: { destination: new apigwv2.LogGroupLogDestination(accessLogs), format: accessLogFormat },
-    });
-
-    new route53.ARecord(this, "AliasRecord", {
-      zone,
-      recordName: "fiken-mcp",
-      target: route53.RecordTarget.fromAlias(new targets.ApiGatewayv2DomainProperties(domainName.regionalDomainName, domainName.regionalHostedZoneId)),
     });
 
     new CfnOutput(this, "ApiUrl", { value: `https://${DOMAIN}` });

@@ -113,11 +113,14 @@ Claude / ChatGPT client ──HTTPS──▶ API Gateway HTTP API
 ### Repository layout
 
 ```
-iac/      CDK app, stack fiken-mcp-iac: the DynamoDB usage table. Exports
-          table name and ARN. Deployed rarely.
+iac/      CDK app, stack fiken-mcp-iac: everything static. The DynamoDB
+          usage table, the GitHub OIDC provider and deploy role, the scoped
+          execution policy, the ACM certificate, the API Gateway custom
+          domain and its DNS record. Exports the table and the domain.
+          Deployed rarely, by hand when it changes the deploy role.
 api/      Lambda source (TypeScript) and CDK app, stack fiken-mcp-api:
-          function, HTTP API, custom domain, Parameter Store reads. Imports
-          the table from the iac exports. Deployed on every merge to main.
+          function, HTTP API mapped onto the exported domain, Parameter
+          Store reads. Only dynamic parts. Deployed on every merge to main.
 docs/     specs and decision record.
 ```
 

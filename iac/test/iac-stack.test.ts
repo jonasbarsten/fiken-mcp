@@ -167,6 +167,24 @@ describe("IacStack", () => {
     t.hasOutput("ExecPolicyArn", {});
   });
 
+  it("owns the certificate, the custom domain and the alias record for fiken-mcp.byjoba.com and exports the domain", () => {
+    const t = synth();
+    t.hasResourceProperties("AWS::CertificateManager::Certificate", {
+      DomainName: "fiken-mcp.byjoba.com",
+      ValidationMethod: "DNS",
+      DomainValidationOptions: [{ DomainName: "fiken-mcp.byjoba.com", HostedZoneId: "Z04810525CNVQNP7ALNV" }],
+    });
+    t.hasResourceProperties("AWS::ApiGatewayV2::DomainName", { DomainName: "fiken-mcp.byjoba.com" });
+    t.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "fiken-mcp.byjoba.com.",
+      Type: "A",
+      HostedZoneId: "Z04810525CNVQNP7ALNV",
+    });
+    t.hasOutput("ApiDomainName", { Export: { Name: "fiken-mcp-api-domain-name" } });
+    t.hasOutput("ApiDomainRegionalDomainName", { Export: { Name: "fiken-mcp-api-domain-regional-domain-name" } });
+    t.hasOutput("ApiDomainRegionalHostedZoneId", { Export: { Name: "fiken-mcp-api-domain-regional-hosted-zone-id" } });
+  });
+
   it("tags every taggable resource with Project=fiken-mcp", () => {
     const app = new App();
     const stack = new IacStack(app, "fiken-mcp-iac", {
@@ -189,6 +207,10 @@ describe("IacStack", () => {
     for (const role of Object.values(roles)) {
       expect(role.Properties.Tags).toEqual(expect.arrayContaining([{ Key: "Project", Value: "fiken-mcp" }]));
     }
+
+    t.hasResourceProperties("AWS::CertificateManager::Certificate", {
+      Tags: Match.arrayWith([{ Key: "Project", Value: "fiken-mcp" }]),
+    });
   });
 
   it("never grants an unconditioned wildcard resource except known read-only actions", () => {
@@ -207,9 +229,34 @@ describe("IacStack", () => {
         const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
         const hasWildcard = resources.includes("*");
         if (!hasWildcard) continue;
-        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead"].includes(statement.Sid);
+        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead", "CertificatesRead"].includes(statement.Sid);
         expect(statement.Condition !== undefined || isKnownReadOnly).toBe(true);
       }
     }
+  });
+
+  it("lets CloudFormation request a certificate only for our domain, and tag it, without a request-tag gate", () => {
+    const t = synth();
+    const policy = Object.values(t.findResources("AWS::IAM::ManagedPolicy"))[0]!;
+    const statements = policy.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Action: string | string[]; Condition?: Record<string, unknown> }>;
+    const bySid = (sid: string) => statements.find((s) => s.Sid === sid)!;
+    expect(bySid("CertificatesRequest")).toMatchObject({
+      Action: "acm:RequestCertificate",
+      Condition: {
+        "ForAllValues:StringEquals": { "acm:DomainNames": ["fiken-mcp.byjoba.com"] },
+        Null: { "acm:DomainNames": "false" },
+      },
+    });
+    expect(bySid("CertificatesRequest").Condition).not.toHaveProperty("StringEquals");
+    expect(bySid("CertificatesTag")).toMatchObject({
+      Action: "acm:AddTagsToCertificate",
+      Condition: { StringEquals: { "aws:RequestTag/Project": "fiken-mcp" } },
+    });
+    expect(bySid("CertificatesRead")).toMatchObject({ Action: ["acm:DescribeCertificate", "acm:ListTagsForCertificate"] });
+    expect(bySid("CertificatesRead").Condition).toBeUndefined();
+    expect(bySid("CertificatesManage")).toMatchObject({
+      Action: ["acm:DeleteCertificate", "acm:RemoveTagsFromCertificate"],
+      Condition: { StringEquals: { "aws:ResourceTag/Project": "fiken-mcp" } },
+    });
   });
 });

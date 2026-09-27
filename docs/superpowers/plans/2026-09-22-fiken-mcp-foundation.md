@@ -3280,12 +3280,17 @@ task text above. These are the deliberate differences:
   statement (six ACM actions on `*`) were too broad for a shared account.
   `iac/lib/exec-policy.ts` pins API Gateway to `/apis`, `/apis/*`,
   `/domainnames`, `/domainnames/*` and `/tags/*`; splits ACM into
-  `acm:RequestCertificate` gated on `aws:RequestTag/Project = fiken-mcp`
-  and the management actions gated on `aws:ResourceTag/Project =
-  fiken-mcp`; and moves `iam:PassRole` into its own statement conditioned
-  on `iam:PassedToService = lambda.amazonaws.com`. A test asserts that
-  every `Resource: "*"` statement carries a condition, except the
-  read-only `DnsRead` and `DynamoRead`.
+  `acm:RequestCertificate` gated on `acm:DomainNames =
+  fiken-mcp.byjoba.com` (a request-tag gate was tried first and failed
+  on 2026-09-27, because CloudFormation requests the certificate
+  without tags and tags it afterwards), `acm:AddTagsToCertificate` gated
+  on `aws:RequestTag/Project = fiken-mcp`, unconditioned read-only
+  describe/list-tags, and delete/remove-tags gated on
+  `aws:ResourceTag/Project = fiken-mcp`; and moves `iam:PassRole` into
+  its own statement conditioned on `iam:PassedToService =
+  lambda.amazonaws.com`. A test asserts that every `Resource: "*"`
+  statement carries a condition, except the read-only `DnsRead`,
+  `DynamoRead` and `CertificatesRead`.
 - **Tasks 2 and 13, tagging.** Both apps call
   `Tags.of(app).add("Project", "fiken-mcp")` so the tag conditions above
   hold; tests assert the tag on the table, the roles, the function and
