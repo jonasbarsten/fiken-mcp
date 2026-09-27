@@ -45,11 +45,10 @@ export class ApiStack extends Stack {
       architecture: lambda.Architecture.ARM_64,
       memorySize: 512,
       timeout: Duration.seconds(30),
-      // reservedConcurrentExecutions: 1 is the designed setting (spec section 7).
-      // Temporarily absent: the byjoba account's Lambda concurrency quota is too
-      // low to reserve any (Lambda keeps 10 unreserved), so CloudFormation
-      // failed the first deploy. Re-add once the quota increase (L-B99A9384)
-      // is approved; tracked in the GitHub issue "Re-add reserved concurrency 1".
+      // One container at a time: Fiken allows one concurrent request, and this
+      // is the abuse ceiling (spec section 7). Needs the account's Lambda
+      // concurrency quota above the default 10.
+      reservedConcurrentExecutions: 1,
       logGroup,
       environment: { PUBLIC_URL: `https://${DOMAIN}`, PARAM_PREFIX },
       bundling: {
