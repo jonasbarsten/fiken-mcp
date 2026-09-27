@@ -93,7 +93,7 @@ One CDK stack on the byjoba AWS account, region eu-west-1, repo
 
 ```
 Claude / ChatGPT client ──HTTPS──▶ API Gateway HTTP API
-                                    fiken-mcp.byjoba.com (Route 53 zone byjoba.com)
+                                    api.fiken-mcp.byjoba.com (Route 53 zone byjoba.com)
                                         │
                                         ▼
                                   Lambda (Node 24, arm64, reserved concurrency 1)
@@ -224,7 +224,7 @@ is a code change in `api/src/auth/clients.ts` with a PR.
    `POST /authorize`. We re-validate, pack
    `{redirect_uri, code_challenge, client_state, exp: +1h}` into a signed
    state, and redirect the browser to Fiken's authorize endpoint with our
-   client id and `https://fiken-mcp.byjoba.com/callback`. Fiken handles
+   client id and `https://api.fiken-mcp.byjoba.com/callback`. Fiken handles
    login, 2FA and its own consent. One hour so slow logins do not fail.
 5. **Callback.** We verify our state, wrap
    `{fiken_code, fiken_state, code_challenge, redirect_uri, exp: +5min}`
@@ -373,7 +373,7 @@ confirmations, recurring invoices, time tracking, deletes, EHF.
 
 `upload_receipts` is an MCP App tool. Its resource is one stable URI,
 `ui://fiken-mcp/upload.html`, served with
-`_meta.ui.csp.connectDomains: ["https://fiken-mcp.byjoba.com"]`. The
+`_meta.ui.csp.connectDomains: ["https://api.fiken-mcp.byjoba.com"]`. The
 HTML inlines the ext-apps browser bundle and pdf.js (main and worker),
 each in its own `<script type="module">`, with each bundle's trailing
 `export{}` rewritten to a global. pdf.js runs on the main thread. The
@@ -488,4 +488,6 @@ too if you suspect a device or account was compromised.
 
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.
-- Custom domain and certificate for `fiken-mcp.byjoba.com`.
+- The API lives at `api.fiken-mcp.byjoba.com` (certificate in eu-west-1,
+  requested by hand). `fiken-mcp.byjoba.com` is reserved for a CloudFront
+  site, which needs its own certificate in us-east-1.

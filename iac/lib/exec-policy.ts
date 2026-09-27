@@ -3,7 +3,8 @@ import { QUALIFIER } from "./synthesizer.js";
 
 export const EXEC_POLICY_NAME = "fiken-mcp-cfn-exec";
 export const ZONE_ID = "Z04810525CNVQNP7ALNV";
-export const DOMAIN = "fiken-mcp.byjoba.com";
+/** The API's hostname. The apex fiken-mcp.byjoba.com is kept free for a CloudFront site. */
+export const DOMAIN = "api.fiken-mcp.byjoba.com";
 
 /**
  * The only bootstrap roles a deploy needs: deploy-role to run CloudFormation
@@ -126,35 +127,12 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       ],
     }),
     new iam.PolicyStatement({
-      // CloudFormation's certificate handler calls RequestCertificate without
-      // tags and tags afterwards, so a request-tag gate can never pass. Pin the
-      // request to our domain instead; ACM certificate ARNs are generated, so
-      // the domain is the only scope RequestCertificate offers.
-      sid: "CertificatesRequest",
-      actions: ["acm:RequestCertificate"],
-      resources: ["*"],
-      conditions: {
-        "ForAllValues:StringEquals": { "acm:DomainNames": [DOMAIN] },
-        Null: { "acm:DomainNames": "false" },
-      },
-    }),
-    new iam.PolicyStatement({
-      sid: "CertificatesTag",
-      actions: ["acm:AddTagsToCertificate"],
-      resources: ["*"],
-      conditions: { StringEquals: { "aws:RequestTag/Project": "fiken-mcp" } },
-    }),
-    new iam.PolicyStatement({
-      // Read-only; the handler describes the certificate before it is tagged.
+      // The certificate is requested once by hand (docs/setup.md) and imported
+      // by ARN, so CloudFormation never requests, tags or deletes certificates.
+      // Read-only, for the API Gateway custom domain that references it.
       sid: "CertificatesRead",
       actions: ["acm:DescribeCertificate", "acm:ListTagsForCertificate"],
       resources: ["*"],
-    }),
-    new iam.PolicyStatement({
-      sid: "CertificatesManage",
-      actions: ["acm:DeleteCertificate", "acm:RemoveTagsFromCertificate"],
-      resources: ["*"],
-      conditions: { StringEquals: { "aws:ResourceTag/Project": "fiken-mcp" } },
     }),
     new iam.PolicyStatement({
       sid: "DnsZone",

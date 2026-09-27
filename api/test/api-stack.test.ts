@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import { ApiStack } from "../lib/api-stack.js";
 import { synthesizer } from "../lib/synthesizer.js";
 
+// The first synth bundles the Lambda with esbuild; on a loaded machine or CI runner it exceeds vitest's 5 s default.
+const STACK_TEST_TIMEOUT_MS = 60_000;
+
 function synth() {
   const app = new App();
   const stack = new ApiStack(app, "fiken-mcp-api", { env: { account: "209479295726", region: "eu-west-1" }, synthesizer: synthesizer() });
@@ -18,7 +21,7 @@ describe("ApiStack", () => {
       Runtime: "nodejs24.x",
       Architectures: ["arm64"],
       ReservedConcurrentExecutions: 1,
-      Environment: { Variables: { PUBLIC_URL: "https://fiken-mcp.byjoba.com", PARAM_PREFIX: "/fiken_mcp" } },
+      Environment: { Variables: { PUBLIC_URL: "https://api.fiken-mcp.byjoba.com", PARAM_PREFIX: "/fiken_mcp" } },
     });
     t.hasResourceProperties("AWS::Logs::LogGroup", { LogGroupName: "/aws/lambda/fiken-mcp-api", RetentionInDays: 30 });
     t.hasResourceProperties("AWS::Logs::LogGroup", { LogGroupName: "/aws/apigateway/fiken-mcp-api", RetentionInDays: 30 });
@@ -98,4 +101,4 @@ describe("ApiStack", () => {
       Tags: Match.arrayWith([{ Key: "Project", Value: "fiken-mcp" }]),
     });
   });
-});
+}, STACK_TEST_TIMEOUT_MS);

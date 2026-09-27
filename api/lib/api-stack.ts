@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 // The certificate, the API Gateway custom domain and the DNS record are
 // static and live in the iac stack; this stack only maps its API onto them.
-const DOMAIN = "fiken-mcp.byjoba.com";
+const DOMAIN = "api.fiken-mcp.byjoba.com";
 const DOMAIN_EXPORTS = {
   name: "fiken-mcp-api-domain-name",
   regionalDomainName: "fiken-mcp-api-domain-regional-domain-name",

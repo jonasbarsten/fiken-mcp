@@ -9,6 +9,8 @@ import type { Construct, IConstruct } from "constructs";
 import { DOMAIN, EXEC_POLICY_NAME, ZONE_ID, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
 
 const ZONE_NAME = "byjoba.com";
+/** Requested once by hand and DNS-validated; see docs/setup.md. Auto-renews while the validation CNAME exists. */
+export const CERTIFICATE_ARN = "arn:aws:acm:eu-west-1:209479295726:certificate/bd57a6d8-38c1-4876-bfa8-238d64d1c057";
 
 const PROJECT_TAG = { Key: "Project", Value: "fiken-mcp" };
 
@@ -83,11 +85,11 @@ export class IacStack extends Stack {
       }),
     );
 
-    // The public name is static infrastructure: certificate (DNS validated),
-    // API Gateway custom domain and the alias record. The api stack only maps
-    // its HTTP API onto the domain, so api deploys never wait for validation.
+    // The public name is static infrastructure: the hand-requested certificate,
+    // the API Gateway custom domain and the alias record. The api stack only
+    // maps its HTTP API onto the domain.
     const zone = route53.HostedZone.fromHostedZoneAttributes(this, "Zone", { hostedZoneId: ZONE_ID, zoneName: ZONE_NAME });
-    const certificate = new acm.Certificate(this, "Certificate", { domainName: DOMAIN, validation: acm.CertificateValidation.fromDns(zone) });
+    const certificate = acm.Certificate.fromCertificateArn(this, "Certificate", CERTIFICATE_ARN);
     const domainName = new apigwv2.DomainName(this, "Domain", { domainName: DOMAIN, certificate });
     new route53.ARecord(this, "AliasRecord", {
       zone,

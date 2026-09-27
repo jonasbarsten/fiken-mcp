@@ -230,6 +230,15 @@ changed, and what it left open:
   browser (RFC 6749 section 10.12), which also bypassed our consent
   page. `POST /authorize` now sets a nonce in a `__Host-fmcp_login`
   cookie and in the state; `/callback` requires both to match.
+- **Certificate made by hand, static domain in iac (2026-09-27).** Two
+  first deploys failed on `acm:RequestCertificate`: a request-tag gate
+  cannot pass (CloudFormation requests first, tags afterwards) and a
+  domain-name gate raced the policy update within the same deploy. The
+  certificate is now requested once by hand and imported by ARN, so the
+  execution policy has no certificate-write rights at all. The
+  certificate, the API Gateway custom domain and the alias record live
+  in the iac stack (static); the api stack only maps its API onto the
+  exported domain, so api deploys never wait for validation.
 - **Refresh reuse dropped (decided 2026-09-27).** The `refresh_token`
   grant used to reuse the wrapped Fiken access token while it had more
   than an hour left, so a grant the user revoked in Fiken was not

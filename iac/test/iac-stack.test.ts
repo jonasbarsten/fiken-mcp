@@ -1,8 +1,11 @@
 import { App, Tags } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
-import { IacStack } from "../lib/iac-stack.js";
+import { CERTIFICATE_ARN, IacStack } from "../lib/iac-stack.js";
 import { synthesizer } from "../lib/synthesizer.js";
+
+// The first synth in a file is the slow one; on a loaded machine or CI runner it exceeds vitest's 5 s default.
+const STACK_TEST_TIMEOUT_MS = 60_000;
 
 function synth() {
   const app = new App();
@@ -167,16 +170,16 @@ describe("IacStack", () => {
     t.hasOutput("ExecPolicyArn", {});
   });
 
-  it("owns the certificate, the custom domain and the alias record for fiken-mcp.byjoba.com and exports the domain", () => {
+  it("owns the custom domain and the alias record for api.fiken-mcp.byjoba.com, imports the hand-made certificate, and exports the domain", () => {
     const t = synth();
-    t.hasResourceProperties("AWS::CertificateManager::Certificate", {
-      DomainName: "fiken-mcp.byjoba.com",
-      ValidationMethod: "DNS",
-      DomainValidationOptions: [{ DomainName: "fiken-mcp.byjoba.com", HostedZoneId: "Z04810525CNVQNP7ALNV" }],
+    t.resourceCountIs("AWS::CertificateManager::Certificate", 0);
+    expect(CERTIFICATE_ARN).toMatch(/^arn:aws:acm:eu-west-1:209479295726:certificate\/[0-9a-f-]{36}$/);
+    t.hasResourceProperties("AWS::ApiGatewayV2::DomainName", {
+      DomainName: "api.fiken-mcp.byjoba.com",
+      DomainNameConfigurations: [Match.objectLike({ CertificateArn: CERTIFICATE_ARN })],
     });
-    t.hasResourceProperties("AWS::ApiGatewayV2::DomainName", { DomainName: "fiken-mcp.byjoba.com" });
     t.hasResourceProperties("AWS::Route53::RecordSet", {
-      Name: "fiken-mcp.byjoba.com.",
+      Name: "api.fiken-mcp.byjoba.com.",
       Type: "A",
       HostedZoneId: "Z04810525CNVQNP7ALNV",
     });
@@ -207,10 +210,6 @@ describe("IacStack", () => {
     for (const role of Object.values(roles)) {
       expect(role.Properties.Tags).toEqual(expect.arrayContaining([{ Key: "Project", Value: "fiken-mcp" }]));
     }
-
-    t.hasResourceProperties("AWS::CertificateManager::Certificate", {
-      Tags: Match.arrayWith([{ Key: "Project", Value: "fiken-mcp" }]),
-    });
   });
 
   it("never grants an unconditioned wildcard resource except known read-only actions", () => {
@@ -235,28 +234,14 @@ describe("IacStack", () => {
     }
   });
 
-  it("lets CloudFormation request a certificate only for our domain, and tag it, without a request-tag gate", () => {
+  it("grants CloudFormation only read access to certificates: the certificate is made by hand and imported", () => {
     const t = synth();
     const policy = Object.values(t.findResources("AWS::IAM::ManagedPolicy"))[0]!;
-    const statements = policy.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Action: string | string[]; Condition?: Record<string, unknown> }>;
-    const bySid = (sid: string) => statements.find((s) => s.Sid === sid)!;
-    expect(bySid("CertificatesRequest")).toMatchObject({
-      Action: "acm:RequestCertificate",
-      Condition: {
-        "ForAllValues:StringEquals": { "acm:DomainNames": ["fiken-mcp.byjoba.com"] },
-        Null: { "acm:DomainNames": "false" },
-      },
-    });
-    expect(bySid("CertificatesRequest").Condition).not.toHaveProperty("StringEquals");
-    expect(bySid("CertificatesTag")).toMatchObject({
-      Action: "acm:AddTagsToCertificate",
-      Condition: { StringEquals: { "aws:RequestTag/Project": "fiken-mcp" } },
-    });
-    expect(bySid("CertificatesRead")).toMatchObject({ Action: ["acm:DescribeCertificate", "acm:ListTagsForCertificate"] });
-    expect(bySid("CertificatesRead").Condition).toBeUndefined();
-    expect(bySid("CertificatesManage")).toMatchObject({
-      Action: ["acm:DeleteCertificate", "acm:RemoveTagsFromCertificate"],
-      Condition: { StringEquals: { "aws:ResourceTag/Project": "fiken-mcp" } },
-    });
+    const statements = policy.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Effect: string; Action: string | string[] }>;
+    const acmActions = statements
+      .filter((s) => s.Effect === "Allow")
+      .flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action]))
+      .filter((a) => a.startsWith("acm:"));
+    expect(acmActions.sort()).toEqual(["acm:DescribeCertificate", "acm:ListTagsForCertificate"]);
   });
-});
+}, STACK_TEST_TIMEOUT_MS);
