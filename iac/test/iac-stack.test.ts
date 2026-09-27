@@ -228,18 +228,35 @@ describe("IacStack", () => {
         const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
         const hasWildcard = resources.includes("*");
         if (!hasWildcard) continue;
-        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead", "CertificatesRead", "LogsRead"].includes(statement.Sid);
+        // LogDelivery is not read-only, but CloudWatch Logs delivery has no resource scoping at all.
+        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead", "CertificatesRead", "LogDelivery"].includes(statement.Sid);
         expect(statement.Condition !== undefined || isKnownReadOnly).toBe(true);
       }
     }
   });
 
-  it("lets CloudFormation describe log groups, which resolving a log group Arn needs", () => {
+  it("grants exactly the CloudWatch Logs delivery set API Gateway access logging needs, and nothing that reads log events", () => {
     const t = synth();
     const policy = Object.values(t.findResources("AWS::IAM::ManagedPolicy"))[0]!;
     const statements = policy.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Action: string | string[]; Resource: string | string[] }>;
-    const logsRead = statements.find((s) => s.Sid === "LogsRead")!;
-    expect(logsRead).toMatchObject({ Action: "logs:DescribeLogGroups", Resource: "*" });
+    const delivery = statements.find((s) => s.Sid === "LogDelivery")!;
+    expect(delivery.Resource).toBe("*");
+    expect([...(delivery.Action as string[])].sort()).toEqual([
+      "logs:CreateLogDelivery",
+      "logs:DeleteLogDelivery",
+      "logs:DescribeLogGroups",
+      "logs:DescribeResourcePolicies",
+      "logs:GetLogDelivery",
+      "logs:ListLogDeliveries",
+      "logs:PutResourcePolicy",
+      "logs:UpdateLogDelivery",
+    ]);
+    // Log events stay readable only through the fiken-mcp log-group ARNs in the Logs statement.
+    const wildcardLogActions = statements
+      .filter((s) => s.Sid !== "LogDelivery" && (Array.isArray(s.Resource) ? s.Resource : [s.Resource]).includes("*"))
+      .flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action]))
+      .filter((a) => a.startsWith("logs:"));
+    expect(wildcardLogActions).toEqual([]);
   });
 
   it("grants CloudFormation only read access to certificates: the certificate is made by hand and imported", () => {

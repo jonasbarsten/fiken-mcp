@@ -48,11 +48,23 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       ],
     }),
     new iam.PolicyStatement({
-      // CloudFormation resolves a log group's Arn attribute (used by the API
-      // Gateway stage's access-log destination) with DescribeLogGroups, which
-      // only works on "*". Read-only: log group names and settings, no events.
-      sid: "LogsRead",
-      actions: ["logs:DescribeLogGroups"],
+      // API Gateway delivers HTTP API access logs through CloudWatch Logs
+      // "log delivery", which is account-level plumbing with no resource
+      // scoping: the documented set below must be granted on "*". It creates
+      // delivery subscriptions and the Logs resource policy that lets API
+      // Gateway write; it cannot read or delete log events. DescribeLogGroups
+      // is also how CloudFormation resolves a log group's Arn attribute.
+      sid: "LogDelivery",
+      actions: [
+        "logs:CreateLogDelivery",
+        "logs:GetLogDelivery",
+        "logs:UpdateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:ListLogDeliveries",
+        "logs:PutResourcePolicy",
+        "logs:DescribeResourcePolicies",
+        "logs:DescribeLogGroups",
+      ],
       resources: ["*"],
     }),
     new iam.PolicyStatement({
