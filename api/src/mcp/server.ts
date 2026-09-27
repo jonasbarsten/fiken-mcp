@@ -23,8 +23,13 @@ export function toolError(err: unknown): CallToolResult {
   return { content: [{ type: "text", text: errorText(err) }], isError: true };
 }
 
-export function createMcpServer(ctx: ToolContext): McpServer {
-  const server = new McpServer({ name: "fiken-mcp", version: "0.1.0" });
+/** `publicUrl` makes serverInfo advertise the connector icon at `<publicUrl>/icon.png`. */
+export function createMcpServer(ctx: ToolContext, publicUrl?: string): McpServer {
+  const server = new McpServer({
+    name: "fiken-mcp",
+    version: "0.1.0",
+    ...(publicUrl ? { icons: [{ src: `${publicUrl}/icon.png`, mimeType: "image/png", sizes: ["512x512"] }] } : {}),
+  });
   registerCompanies(server, ctx);
   return server;
 }
