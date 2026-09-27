@@ -71,6 +71,10 @@ normal development.
   policy are applied by the same CloudFormation execution role they
   govern. Review such pull requests with extra care: the `production`
   approval and CODEOWNERS are the controls.
+- The API Gateway stage's access-log destination is a log group Arn,
+  which CloudFormation resolves with `logs:DescribeLogGroups` on `*`.
+  The `LogsRead` statement grants exactly that; without it the stage
+  fails with "Unable to retrieve Arn attribute for AWS::Logs::LogGroup".
 - Lambda reserved concurrency needs an account quota above the default
   10 (Lambda keeps 10 unreserved, so nothing can be reserved). The first
   deploy failed on this with the unhelpful message "Resource of type

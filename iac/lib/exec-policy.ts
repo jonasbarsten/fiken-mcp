@@ -48,6 +48,14 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       ],
     }),
     new iam.PolicyStatement({
+      // CloudFormation resolves a log group's Arn attribute (used by the API
+      // Gateway stage's access-log destination) with DescribeLogGroups, which
+      // only works on "*". Read-only: log group names and settings, no events.
+      sid: "LogsRead",
+      actions: ["logs:DescribeLogGroups"],
+      resources: ["*"],
+    }),
+    new iam.PolicyStatement({
       sid: "RolesWithBoundary",
       actions: ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy"],
       resources: [`arn:aws:iam::${account}:role/fiken-mcp-*`],
