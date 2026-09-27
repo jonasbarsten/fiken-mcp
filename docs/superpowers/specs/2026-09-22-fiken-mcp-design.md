@@ -291,7 +291,11 @@ content.
 ## 7. Fiken concurrency and abuse limits
 
 Lambda reserved concurrency 1 plus an in-process promise queue with a
-300 ms gap in `fikenFetch`; retry once on 429. A second user's call
+300 ms gap in `fikenFetch`; retry once on 429. (Reserved concurrency is
+temporarily not set: the account's Lambda concurrency quota was too low
+to reserve any at the first deploy on 2026-09-27. Until the quota
+increase is approved and the setting is re-added, only the in-process
+queue serializes Fiken calls, per container.) A second user's call
 during another's in-flight call is throttled by Lambda and surfaces to
 the client as a tool error the model can retry. Acceptable under the
 5-user dev cap. When applying for production status, ask Fiken whether
