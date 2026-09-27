@@ -28,6 +28,15 @@ normal development.
    `--cloudformation-execution-policies arn:aws:iam::209479295726:policy/fiken-mcp-cfn-exec`.
    Without the flag the bootstrap template's default puts
    AdministratorAccess back on the execution role, silently.
+4. If the deploy workflow fails at "Assuming role with OIDC" with "Not
+   authorized to perform sts:AssumeRoleWithWebIdentity", the token's
+   subject does not match the trust policy. Compare
+   `gh api repos/jonasbarsten/fiken-mcp/actions/oidc/customization/sub`
+   with `GITHUB_SUBJECT_PREFIX` in `iac/lib/iac-stack.ts`; GitHub's
+   immutable subject carries the owner and repo ids. After changing the
+   trust policy, deploy the iac stack once by hand
+   (`cd iac && npx cdk deploy fiken-mcp-iac --profile byjoba`), because
+   the workflow cannot assume the role until the trust policy matches.
 
 ### First deploy: things that may bite
 

@@ -134,8 +134,11 @@ deployment rights are enforced by claims, not by trust:
 
 - The IAM deploy role's trust policy accepts a GitHub token only when
   `aud` is `sts.amazonaws.com` and `sub` is exactly
-  `repo:jonasbarsten/fiken-mcp:environment:production`. Forks carry
-  their own repo name and pull requests carry a `pull_request` subject,
+  `repo:jonasbarsten@6729295/fiken-mcp@1381698499:environment:production`.
+  That is GitHub's immutable subject form (owner and repo with their
+  numeric ids; the repo has `use_immutable_subject` on), so a rename or
+  a re-created repo with the same name cannot assume the role. Forks
+  carry their own ids and pull requests carry a `pull_request` subject,
   so neither can ever assume the role.
 - The `production` GitHub Environment requires Jonas as reviewer and is
   restricted to the `main` branch. Every deploy job waits for that

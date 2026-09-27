@@ -27,6 +27,10 @@ class TagUntaggableRoles implements IAspect {
 }
 
 const GITHUB_REPO = "jonasbarsten/fiken-mcp";
+// GitHub's immutable subject claim: owner and repo carry their numeric ids,
+// so a rename or a re-created repo with the same name cannot assume the role.
+// Read from `gh api repos/jonasbarsten/fiken-mcp/actions/oidc/customization/sub`.
+const GITHUB_SUBJECT_PREFIX = "repo:jonasbarsten@6729295/fiken-mcp@1381698499";
 const GITHUB_ENVIRONMENT = "production";
 
 export class IacStack extends Stack {
@@ -62,7 +66,7 @@ export class IacStack extends Stack {
       assumedBy: new iam.OpenIdConnectPrincipal(githubProvider, {
         StringEquals: {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": `repo:${GITHUB_REPO}:environment:${GITHUB_ENVIRONMENT}`,
+          "token.actions.githubusercontent.com:sub": `${GITHUB_SUBJECT_PREFIX}:environment:${GITHUB_ENVIRONMENT}`,
         },
       }),
     });
