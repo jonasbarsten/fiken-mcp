@@ -6,7 +6,9 @@ export function consentPage(opts: { clientLabel: string; clientName: string; red
   const hidden = Object.entries(opts.fields)
     .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`)
     .join("\n      ");
-  const who = opts.clientName ? `${esc(opts.clientName)} via ${esc(opts.clientLabel)}` : esc(opts.clientLabel);
+  // "Claude via Claude (claude.ai)" reads badly; only add the name when it says something the label does not.
+  const nameAddsInformation = opts.clientName !== "" && !opts.clientLabel.toLowerCase().startsWith(opts.clientName.toLowerCase());
+  const who = nameAddsInformation ? `${esc(opts.clientName)} via ${esc(opts.clientLabel)}` : esc(opts.clientLabel);
   return `<!doctype html>
 <html lang="no">
 <head>

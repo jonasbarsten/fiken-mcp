@@ -39,6 +39,8 @@ describe("GET /authorize (consent)", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
     expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
+    // Chrome checks form-action against the redirect target of the form post, which is Fiken.
+    expect(res.headers.get("content-security-policy")).toContain("form-action 'self' https://fiken.test;");
     const html = await res.text();
     expect(html).toContain("Claude (claude.ai)");
     expect(html).toContain("Claude &lt;b&gt;x&lt;/b&gt;");
@@ -49,6 +51,12 @@ describe("GET /authorize (consent)", () => {
     expect(html).toContain("error=access_denied");
     expect(html).toContain("state=client-state");
     expect(html).not.toContain("javascript:");
+  });
+
+  it("does not repeat the client name when the label already says it", async () => {
+    const html = await (await get(params(await register("Claude")))).text();
+    expect(html).toContain("<strong>Claude (claude.ai)</strong>");
+    expect(html).not.toContain("via");
   });
 
   it("rejects an unregistered redirect uri, a bad client id and a missing challenge", async () => {
