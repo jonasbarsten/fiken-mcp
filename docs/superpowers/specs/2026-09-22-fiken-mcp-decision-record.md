@@ -239,12 +239,13 @@ changed, and what it left open:
   certificate, the API Gateway custom domain and the alias record live
   in the iac stack (static); the api stack only maps its API onto the
   exported domain, so api deploys never wait for validation.
-- **Reserved concurrency deferred (2026-09-27).** The account's Lambda
-  concurrency quota is the default 10, of which Lambda keeps 10
-  unreserved, so `ReservedConcurrentExecutions: 1` cannot be applied and
-  the first deploy failed. The setting is removed until the quota
-  increase (L-B99A9384) is approved, then re-added; the in-process queue
-  still serializes Fiken calls within a container meanwhile.
+- **Reserved concurrency and the account quota (2026-09-27).** The
+  account's Lambda concurrency quota was the default 10, of which Lambda
+  keeps 10 unreserved, so `ReservedConcurrentExecutions: 1` could not be
+  applied and the first deploy failed with the unhelpful "not updatable
+  with parameters provided". The setting was dropped for a few hours,
+  the quota (L-B99A9384) raised to 1000, and the setting restored. A new
+  account needs that quota increase before this stack deploys.
 - **Refresh reuse dropped (decided 2026-09-27).** The `refresh_token`
   grant used to reuse the wrapped Fiken access token while it had more
   than an hour left, so a grant the user revoked in Fiken was not

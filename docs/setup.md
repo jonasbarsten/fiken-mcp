@@ -82,15 +82,14 @@ normal development.
   10 (Lambda keeps 10 unreserved, so nothing can be reserved). The first
   deploy failed on this with the unhelpful message "Resource of type
   'AWS::Lambda::Function' ... is not updatable with parameters
-  provided". Request the increase once:
+  provided". The byjoba quota was raised to 1000 on 2026-09-27; a new
+  account needs the same request once, before the first deploy:
   ```
   aws service-quotas request-service-quota-increase --service-code lambda \
     --quota-code L-B99A9384 --desired-value 1000 --region eu-west-1 --profile byjoba
   ```
-  When approved (`aws lambda get-account-settings` shows it), re-add
-  `reservedConcurrentExecutions: 1` in `api/lib/api-stack.ts` and flip
-  the assertion in `api/test/api-stack.test.ts`. Tracked in the GitHub
-  issue "Re-add reserved concurrency 1".
+  `aws lambda get-account-settings --query AccountLimit` shows when it
+  is in.
 
 ## GitHub (jonasbarsten/fiken-mcp)
 
