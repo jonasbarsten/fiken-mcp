@@ -91,6 +91,10 @@ export class IacStack extends Stack {
     const zone = route53.HostedZone.fromHostedZoneAttributes(this, "Zone", { hostedZoneId: ZONE_ID, zoneName: ZONE_NAME });
     const certificate = acm.Certificate.fromCertificateArn(this, "Certificate", CERTIFICATE_ARN);
     const domainName = new apigwv2.DomainName(this, "Domain", { domainName: DOMAIN, certificate });
+    // CloudFormation creates independent resources in parallel; make the domain
+    // wait for the execution-policy update in the same deploy so a new
+    // permission it relies on is in place before it is used.
+    domainName.node.addDependency(execPolicy);
     new route53.ARecord(this, "AliasRecord", {
       zone,
       recordName: DOMAIN.slice(0, -(ZONE_NAME.length + 1)),
