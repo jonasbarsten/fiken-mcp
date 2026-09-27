@@ -1,8 +1,11 @@
 import { App, Tags } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
-import { IacStack } from "../lib/iac-stack.js";
+import { CERTIFICATE_ARN, IacStack } from "../lib/iac-stack.js";
 import { synthesizer } from "../lib/synthesizer.js";
+
+// The first synth in a file is the slow one; on a loaded machine or CI runner it exceeds vitest's 5 s default.
+const STACK_TEST_TIMEOUT_MS = 60_000;
 
 function synth() {
   const app = new App();
@@ -167,6 +170,24 @@ describe("IacStack", () => {
     t.hasOutput("ExecPolicyArn", {});
   });
 
+  it("owns the custom domain and the alias record for api.fiken-mcp.byjoba.com, imports the hand-made certificate, and exports the domain", () => {
+    const t = synth();
+    t.resourceCountIs("AWS::CertificateManager::Certificate", 0);
+    expect(CERTIFICATE_ARN).toMatch(/^arn:aws:acm:eu-west-1:209479295726:certificate\/[0-9a-f-]{36}$/);
+    t.hasResourceProperties("AWS::ApiGatewayV2::DomainName", {
+      DomainName: "api.fiken-mcp.byjoba.com",
+      DomainNameConfigurations: [Match.objectLike({ CertificateArn: CERTIFICATE_ARN })],
+    });
+    t.hasResourceProperties("AWS::Route53::RecordSet", {
+      Name: "api.fiken-mcp.byjoba.com.",
+      Type: "A",
+      HostedZoneId: "Z04810525CNVQNP7ALNV",
+    });
+    t.hasOutput("ApiDomainName", { Export: { Name: "fiken-mcp-api-domain-name" } });
+    t.hasOutput("ApiDomainRegionalDomainName", { Export: { Name: "fiken-mcp-api-domain-regional-domain-name" } });
+    t.hasOutput("ApiDomainRegionalHostedZoneId", { Export: { Name: "fiken-mcp-api-domain-regional-hosted-zone-id" } });
+  });
+
   it("tags every taggable resource with Project=fiken-mcp", () => {
     const app = new App();
     const stack = new IacStack(app, "fiken-mcp-iac", {
@@ -207,9 +228,20 @@ describe("IacStack", () => {
         const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
         const hasWildcard = resources.includes("*");
         if (!hasWildcard) continue;
-        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead"].includes(statement.Sid);
+        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead", "CertificatesRead"].includes(statement.Sid);
         expect(statement.Condition !== undefined || isKnownReadOnly).toBe(true);
       }
     }
   });
-});
+
+  it("grants CloudFormation only read access to certificates: the certificate is made by hand and imported", () => {
+    const t = synth();
+    const policy = Object.values(t.findResources("AWS::IAM::ManagedPolicy"))[0]!;
+    const statements = policy.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Effect: string; Action: string | string[] }>;
+    const acmActions = statements
+      .filter((s) => s.Effect === "Allow")
+      .flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action]))
+      .filter((a) => a.startsWith("acm:"));
+    expect(acmActions.sort()).toEqual(["acm:DescribeCertificate", "acm:ListTagsForCertificate"]);
+  });
+}, STACK_TEST_TIMEOUT_MS);

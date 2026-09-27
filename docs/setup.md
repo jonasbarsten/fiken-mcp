@@ -12,7 +12,23 @@ normal development.
    - `/fiken_mcp/user_salt`: 64 hex characters from `openssl rand -hex 32`.
    Use the console or `aws ssm put-parameter --type SecureString`. Never
    paste the values anywhere else.
-2. Bootstrap and first deploy, from `iac/`, in this order:
+2. Certificate for `api.fiken-mcp.byjoba.com`, requested once by hand so
+   that CloudFormation never needs certificate-request rights. It must be
+   in eu-west-1, the API's region; `fiken-mcp.byjoba.com` itself stays
+   free for a future CloudFront site, whose certificate would have to be
+   in us-east-1 and cannot be shared with the API anyway.
+   ```
+   aws acm request-certificate --domain-name api.fiken-mcp.byjoba.com \
+     --validation-method DNS --tags Key=Project,Value=fiken-mcp \
+     --region eu-west-1 --profile byjoba
+   ```
+   In the ACM console open the certificate and use "Create records in
+   Route 53" to add the validation CNAME to the byjoba.com zone (or add
+   the CNAME from `aws acm describe-certificate` by hand). Wait for
+   status ISSUED, then put the ARN in `CERTIFICATE_ARN` in
+   `iac/lib/iac-stack.ts`. The certificate renews itself as long as the
+   CNAME stays in the zone.
+3. Bootstrap and first deploy, from `iac/`, in this order:
    ```
    npx cdk bootstrap aws://209479295726/eu-west-1 --qualifier fikenmcp --profile byjoba
    npx cdk deploy fiken-mcp-iac --profile byjoba
@@ -23,12 +39,12 @@ normal development.
    The second bootstrap swaps the execution role's AdministratorAccess for
    the scoped policy the first deploy created. Note the `DeployRoleArn`
    output.
-3. Every future `cdk bootstrap` for qualifier `fikenmcp` (CDK upgrades,
+4. Every future `cdk bootstrap` for qualifier `fikenmcp` (CDK upgrades,
    re-bootstraps) must repeat
    `--cloudformation-execution-policies arn:aws:iam::209479295726:policy/fiken-mcp-cfn-exec`.
    Without the flag the bootstrap template's default puts
    AdministratorAccess back on the execution role, silently.
-4. If the deploy workflow fails at "Assuming role with OIDC" with "Not
+5. If the deploy workflow fails at "Assuming role with OIDC" with "Not
    authorized to perform sts:AssumeRoleWithWebIdentity", the token's
    subject does not match the trust policy. Compare
    `gh api repos/jonasbarsten/fiken-mcp/actions/oidc/customization/sub`
@@ -44,10 +60,13 @@ normal development.
   when CloudFormation checks the bootstrap version. The `Parameters`
   statement in `iac/lib/exec-policy.ts` covers
   `parameter/cdk-bootstrap/fikenmcp/*`; a test pins it.
-- The execution policy can only request an ACM certificate that carries
-  the `Project=fiken-mcp` tag. The api app tags everything it creates,
-  so the certificate should be tagged; if certificate creation fails
-  with AccessDenied, check that tag first.
+- The execution policy grants no certificate-request rights at all; the
+  certificate is made by hand (step 2) and imported by ARN. Two first
+  deploys on 2026-09-27 failed on `acm:RequestCertificate`: a
+  request-tag gate cannot pass because CloudFormation requests first and
+  tags afterwards, and a policy change and a certificate request in the
+  same iac deploy race each other. If the custom domain fails to create,
+  check that `CERTIFICATE_ARN` names an ISSUED certificate in eu-west-1.
 - Changes to `iac/lib/exec-policy.ts` or to the deploy role's trust
   policy are applied by the same CloudFormation execution role they
   govern. Review such pull requests with extra care: the `production`
@@ -78,7 +97,7 @@ normal development.
 ## Fiken
 
 In the "Fiken MCP" app under Rediger konto, API: add redirect URI
-`https://fiken-mcp.byjoba.com/callback`. Add each tester's Fiken login
+`https://api.fiken-mcp.byjoba.com/callback`. Add each tester's Fiken login
 under "Godkjente brukere" while the app is in development status.
 
 ## Before the first production deploy
@@ -89,5 +108,6 @@ under "Godkjente brukere" while the app is in development status.
 ## First deploy
 
 Merge the first PR to `main`, approve the `production` deployment when
-GitHub asks, and watch the `deploy` workflow. Certificate validation can
-take a few minutes on the first run.
+GitHub asks, and watch the `deploy` workflow. The certificate lives in
+the iac stack, so its DNS validation (a few minutes) happens during the
+hand-run `cdk deploy fiken-mcp-iac`, not in the workflow.

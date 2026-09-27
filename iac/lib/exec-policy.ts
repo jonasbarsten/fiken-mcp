@@ -3,6 +3,8 @@ import { QUALIFIER } from "./synthesizer.js";
 
 export const EXEC_POLICY_NAME = "fiken-mcp-cfn-exec";
 export const ZONE_ID = "Z04810525CNVQNP7ALNV";
+/** The API's hostname. The apex fiken-mcp.byjoba.com is kept free for a CloudFront site. */
+export const DOMAIN = "api.fiken-mcp.byjoba.com";
 
 /**
  * The only bootstrap roles a deploy needs: deploy-role to run CloudFormation
@@ -125,22 +127,12 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       ],
     }),
     new iam.PolicyStatement({
-      sid: "CertificatesRequest",
-      actions: ["acm:RequestCertificate"],
+      // The certificate is requested once by hand (docs/setup.md) and imported
+      // by ARN, so CloudFormation never requests, tags or deletes certificates.
+      // Read-only, for the API Gateway custom domain that references it.
+      sid: "CertificatesRead",
+      actions: ["acm:DescribeCertificate", "acm:ListTagsForCertificate"],
       resources: ["*"],
-      conditions: { StringEquals: { "aws:RequestTag/Project": "fiken-mcp" } },
-    }),
-    new iam.PolicyStatement({
-      sid: "CertificatesManage",
-      actions: [
-        "acm:DeleteCertificate",
-        "acm:DescribeCertificate",
-        "acm:AddTagsToCertificate",
-        "acm:RemoveTagsFromCertificate",
-        "acm:ListTagsForCertificate",
-      ],
-      resources: ["*"],
-      conditions: { StringEquals: { "aws:ResourceTag/Project": "fiken-mcp" } },
     }),
     new iam.PolicyStatement({
       sid: "DnsZone",

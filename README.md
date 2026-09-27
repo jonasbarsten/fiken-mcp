@@ -25,13 +25,13 @@ konto, API.
 ## Adding the connector
 
 Claude (web, Desktop, iOS): Settings, Connectors, Add custom connector,
-URL `https://fiken-mcp.byjoba.com/mcp`, sign-in required. Log in with
+URL `https://api.fiken-mcp.byjoba.com/mcp`, sign-in required. Log in with
 Fiken when asked.
 
 Claude Code:
 
 ```
-claude mcp add --transport http fiken https://fiken-mcp.byjoba.com/mcp
+claude mcp add --transport http fiken https://api.fiken-mcp.byjoba.com/mcp
 ```
 
 ChatGPT: Settings, Apps, Advanced settings, Developer mode, add the same

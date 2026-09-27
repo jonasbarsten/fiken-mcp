@@ -1,8 +1,16 @@
 import { Aspects, CfnOutput, CfnResource, RemovalPolicy, Stack, type IAspect, type StackProps } from "aws-cdk-lib";
+import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as route53 from "aws-cdk-lib/aws-route53";
+import * as targets from "aws-cdk-lib/aws-route53-targets";
 import type { Construct, IConstruct } from "constructs";
-import { EXEC_POLICY_NAME, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
+import { DOMAIN, EXEC_POLICY_NAME, ZONE_ID, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
+
+const ZONE_NAME = "byjoba.com";
+/** Requested once by hand and DNS-validated; see docs/setup.md. Auto-renews while the validation CNAME exists. */
+export const CERTIFICATE_ARN = "arn:aws:acm:eu-west-1:209479295726:certificate/bd57a6d8-38c1-4876-bfa8-238d64d1c057";
 
 const PROJECT_TAG = { Key: "Project", Value: "fiken-mcp" };
 
@@ -77,8 +85,27 @@ export class IacStack extends Stack {
       }),
     );
 
+    // The public name is static infrastructure: the hand-requested certificate,
+    // the API Gateway custom domain and the alias record. The api stack only
+    // maps its HTTP API onto the domain.
+    const zone = route53.HostedZone.fromHostedZoneAttributes(this, "Zone", { hostedZoneId: ZONE_ID, zoneName: ZONE_NAME });
+    const certificate = acm.Certificate.fromCertificateArn(this, "Certificate", CERTIFICATE_ARN);
+    const domainName = new apigwv2.DomainName(this, "Domain", { domainName: DOMAIN, certificate });
+    // CloudFormation creates independent resources in parallel; make the domain
+    // wait for the execution-policy update in the same deploy so a new
+    // permission it relies on is in place before it is used.
+    domainName.node.addDependency(execPolicy);
+    new route53.ARecord(this, "AliasRecord", {
+      zone,
+      recordName: DOMAIN.slice(0, -(ZONE_NAME.length + 1)),
+      target: route53.RecordTarget.fromAlias(new targets.ApiGatewayv2DomainProperties(domainName.regionalDomainName, domainName.regionalHostedZoneId)),
+    });
+
     new CfnOutput(this, "UsageTableName", { value: table.tableName, exportName: "fiken-mcp-usage-table-name" });
     new CfnOutput(this, "UsageTableArn", { value: table.tableArn, exportName: "fiken-mcp-usage-table-arn" });
+    new CfnOutput(this, "ApiDomainName", { value: domainName.name, exportName: "fiken-mcp-api-domain-name" });
+    new CfnOutput(this, "ApiDomainRegionalDomainName", { value: domainName.regionalDomainName, exportName: "fiken-mcp-api-domain-regional-domain-name" });
+    new CfnOutput(this, "ApiDomainRegionalHostedZoneId", { value: domainName.regionalHostedZoneId, exportName: "fiken-mcp-api-domain-regional-hosted-zone-id" });
     new CfnOutput(this, "DeployRoleArn", { value: deployRole.roleArn });
     new CfnOutput(this, "ExecPolicyArn", { value: execPolicy.managedPolicyArn });
   }

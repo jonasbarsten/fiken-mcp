@@ -3279,13 +3279,15 @@ task text above. These are the deliberate differences:
   (`apigateway:*` on every API in the region) and `Certificates`
   statement (six ACM actions on `*`) were too broad for a shared account.
   `iac/lib/exec-policy.ts` pins API Gateway to `/apis`, `/apis/*`,
-  `/domainnames`, `/domainnames/*` and `/tags/*`; splits ACM into
-  `acm:RequestCertificate` gated on `aws:RequestTag/Project = fiken-mcp`
-  and the management actions gated on `aws:ResourceTag/Project =
-  fiken-mcp`; and moves `iam:PassRole` into its own statement conditioned
-  on `iam:PassedToService = lambda.amazonaws.com`. A test asserts that
+  `/domainnames`, `/domainnames/*` and `/tags/*`; grants ACM read-only
+  (describe, list-tags) because the certificate is requested once by
+  hand and imported by ARN (on 2026-09-27 a request-tag gate failed,
+  since CloudFormation requests first and tags afterwards, and a
+  domain-name gate raced the policy update in the same deploy); and
+  moves `iam:PassRole` into its own statement conditioned on
+  `iam:PassedToService = lambda.amazonaws.com`. A test asserts that
   every `Resource: "*"` statement carries a condition, except the
-  read-only `DnsRead` and `DynamoRead`.
+  read-only `DnsRead`, `DynamoRead` and `CertificatesRead`.
 - **Tasks 2 and 13, tagging.** Both apps call
   `Tags.of(app).add("Project", "fiken-mcp")` so the tag conditions above
   hold; tests assert the tag on the table, the roles, the function and
@@ -3300,3 +3302,10 @@ task text above. These are the deliberate differences:
   client's `state`, which is also the OAuth-correct way to cancel.
 - **Task 13, SSM grant test.** CDK emits four single-resource statements
   for the four `grantRead` calls; the test asserts that shape.
+- **Hostname (2026-09-27).** The API is at `api.fiken-mcp.byjoba.com`,
+  not `fiken-mcp.byjoba.com` as the tasks say. The apex is reserved for a
+  CloudFront site, whose certificate must be in us-east-1 and cannot be
+  shared with the regional API anyway. The certificate is requested by
+  hand and imported; the certificate, custom domain and alias record
+  live in the iac stack, and the api stack only maps onto the exported
+  domain.

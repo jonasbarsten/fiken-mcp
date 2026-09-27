@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import { ApiStack } from "../lib/api-stack.js";
 import { synthesizer } from "../lib/synthesizer.js";
 
+// The first synth bundles the Lambda with esbuild; on a loaded machine or CI runner it exceeds vitest's 5 s default.
+const STACK_TEST_TIMEOUT_MS = 60_000;
+
 function synth() {
   const app = new App();
   const stack = new ApiStack(app, "fiken-mcp-api", { env: { account: "209479295726", region: "eu-west-1" }, synthesizer: synthesizer() });
@@ -18,7 +21,7 @@ describe("ApiStack", () => {
       Runtime: "nodejs24.x",
       Architectures: ["arm64"],
       ReservedConcurrentExecutions: 1,
-      Environment: { Variables: { PUBLIC_URL: "https://fiken-mcp.byjoba.com", PARAM_PREFIX: "/fiken_mcp" } },
+      Environment: { Variables: { PUBLIC_URL: "https://api.fiken-mcp.byjoba.com", PARAM_PREFIX: "/fiken_mcp" } },
     });
     t.hasResourceProperties("AWS::Logs::LogGroup", { LogGroupName: "/aws/lambda/fiken-mcp-api", RetentionInDays: 30 });
     t.hasResourceProperties("AWS::Logs::LogGroup", { LogGroupName: "/aws/apigateway/fiken-mcp-api", RetentionInDays: 30 });
@@ -73,28 +76,29 @@ describe("ApiStack", () => {
     expect(String(stage.Properties.AccessLogSettings.Format)).not.toMatch(/authorization|header/i);
   });
 
-  it("puts the api on fiken-mcp.byjoba.com", () => {
+  it("maps the api onto the domain exported by the iac stack and owns no certificate or DNS", () => {
     const t = synth();
-    t.hasResourceProperties("AWS::ApiGatewayV2::DomainName", { DomainName: "fiken-mcp.byjoba.com" });
-    t.hasResourceProperties("AWS::CertificateManager::Certificate", { DomainName: "fiken-mcp.byjoba.com", ValidationMethod: "DNS" });
-    t.hasResourceProperties("AWS::Route53::RecordSet", { Name: "fiken-mcp.byjoba.com.", Type: "A" });
+    t.hasResourceProperties("AWS::ApiGatewayV2::ApiMapping", {
+      DomainName: { "Fn::ImportValue": "fiken-mcp-api-domain-name" },
+      Stage: "$default",
+    });
+    t.resourceCountIs("AWS::ApiGatewayV2::DomainName", 0);
+    t.resourceCountIs("AWS::CertificateManager::Certificate", 0);
+    t.resourceCountIs("AWS::Route53::RecordSet", 0);
     t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "ANY /{proxy+}" });
     t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "ANY /" });
     t.hasResourceProperties("AWS::ApiGatewayV2::Api", { DisableExecuteApiEndpoint: true });
     expect(Object.keys(t.findOutputs("ApiUrl")).length).toBe(1);
   });
 
-  it("tags the certificate and the function with Project=fiken-mcp", () => {
+  it("tags the function with Project=fiken-mcp", () => {
     const app = new App();
     const stack = new ApiStack(app, "fiken-mcp-api", { env: { account: "209479295726", region: "eu-west-1" }, synthesizer: synthesizer() });
     Tags.of(app).add("Project", "fiken-mcp");
     const t = Template.fromStack(stack);
 
-    t.hasResourceProperties("AWS::CertificateManager::Certificate", {
-      Tags: Match.arrayWith([{ Key: "Project", Value: "fiken-mcp" }]),
-    });
     t.hasResourceProperties("AWS::Lambda::Function", {
       Tags: Match.arrayWith([{ Key: "Project", Value: "fiken-mcp" }]),
     });
   });
-});
+}, STACK_TEST_TIMEOUT_MS);

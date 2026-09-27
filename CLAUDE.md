@@ -5,7 +5,8 @@ with Fiken themselves and use it from Claude (web, Desktop, iOS, Claude
 Code) and ChatGPT on their own plan. Full read and write access.
 
 Repo: `jonasbarsten/fiken-mcp` (public). AWS: byjoba account
-(`--profile byjoba`), region eu-west-1, domain `fiken-mcp.byjoba.com`.
+(`--profile byjoba`), region eu-west-1, API at `api.fiken-mcp.byjoba.com`
+(`fiken-mcp.byjoba.com` itself is reserved for a future CloudFront site).
 
 ## Read these first
 
