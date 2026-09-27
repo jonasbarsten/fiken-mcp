@@ -60,7 +60,7 @@ describe("POST /token authorization_code", () => {
     const access = readAccessToken(cfg, body.access_token);
     expect(access.fikenAccessToken).toBe("FA1");
     expect(access.anonId).toMatch(/^[0-9a-f]{32}$/);
-    expect(readRefreshToken(cfg, body.refresh_token)).toMatchObject({ fikenRefreshToken: "FR1", fikenAccessToken: "FA1", anonId: access.anonId });
+    expect(readRefreshToken(cfg, body.refresh_token)).toEqual({ fikenRefreshToken: "FR1", anonId: access.anonId });
     const tokenCall = fiken.calls.find((c) => c.url.endsWith("/oauth/token"));
     expect(tokenCall?.body?.get("code")).toBe("FIKENCODE");
     expect(tokenCall?.body?.get("state")).toBe("fstate");
@@ -137,24 +137,21 @@ describe("POST /token authorization_code", () => {
 });
 
 describe("POST /token refresh_token", () => {
-  it("renews without calling Fiken while the wrapped token is fresh", async () => {
+  it("refreshes with Fiken on every renewal and keeps the anonymous id", async () => {
     const { app, cfg, clientId, codeBlob, fiken } = await setup();
     const first = await (await app.request("/token", form({ grant_type: "authorization_code", code: codeBlob, code_verifier: "verifier-123", redirect_uri: CLAUDE_CB, client_id: clientId }))).json();
     const before = fiken.calls.length;
     const res = await app.request("/token", form({ grant_type: "refresh_token", refresh_token: first.refresh_token, client_id: clientId }));
     expect(res.status).toBe(200);
-    expect(fiken.calls.length).toBe(before);
+    const refreshCall = fiken.calls.slice(before).find((c) => c.body?.get("grant_type") === "refresh_token");
+    expect(refreshCall?.body?.get("refresh_token")).toBe("FR1");
     const body = await res.json();
-    expect(readAccessToken(cfg, body.access_token)).toMatchObject({ fikenAccessToken: "FA1", anonId: readAccessToken(cfg, first.access_token).anonId });
+    expect(readAccessToken(cfg, body.access_token)).toMatchObject({ fikenAccessToken: "FA2", anonId: readAccessToken(cfg, first.access_token).anonId });
+    expect(readRefreshToken(cfg, body.refresh_token).fikenRefreshToken).toBe("FR2");
   });
 
-  it("calls Fiken when the wrapped token is old, and relays invalid_grant when revoked", async () => {
+  it("relays invalid_grant when Fiken has revoked the grant", async () => {
     const { app, cfg } = await setup();
-    const old = issueTokens(cfg, { access_token: "FA0", refresh_token: "FR0", expires_in: 100 }, "anon", Math.floor(Date.now() / 1000) - 50);
-    const res = await app.request("/token", form({ grant_type: "refresh_token", refresh_token: old.refresh_token }));
-    expect(res.status).toBe(200);
-    expect(readAccessToken(cfg, (await res.json()).access_token).fikenAccessToken).toBe("FA2");
-
     const revoked = issueTokens(cfg, { access_token: "x", refresh_token: "REVOKED", expires_in: 1 }, "anon", 0);
     const bad = await app.request("/token", form({ grant_type: "refresh_token", refresh_token: revoked.refresh_token }));
     expect(bad.status).toBe(400);

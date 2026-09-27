@@ -230,14 +230,16 @@ changed, and what it left open:
   browser (RFC 6749 section 10.12), which also bypassed our consent
   page. `POST /authorize` now sets a nonce in a `__Host-fmcp_login`
   cookie and in the state; `/callback` requires both to match.
-- **Open question for Jonas: refresh reuse and Fiken-side revocation.**
-  The `refresh_token` grant reuses the wrapped Fiken access token while
-  it has more than an hour left, so a grant the user revokes in Fiken is
-  not noticed for up to about 23 hours, and a Fiken 401 during a tool
-  call is reported to the model as a tool error rather than as an HTTP
-  401 that would trigger a refresh. Decide whether to call Fiken's
-  refresh on every renewal instead (one extra upstream call per hour per
-  user, immediate revocation) or keep the reuse.
+- **Refresh reuse dropped (decided 2026-09-27).** The `refresh_token`
+  grant used to reuse the wrapped Fiken access token while it had more
+  than an hour left, so a grant the user revoked in Fiken was not
+  noticed for up to about 23 hours. Every renewal now calls Fiken's
+  refresh: one upstream call per user per hour, and a revocation is
+  refused within the hour, which sends the client back through login.
+  The refresh wrapper carries only Fiken's refresh token and the
+  anonymous id. A Fiken 401 during a tool call is still reported to the
+  model as a tool error that tells the user to reconnect; mapping it to
+  an HTTP 401 remains a follow-up.
 
 ## Things we decided not to do, on purpose
 

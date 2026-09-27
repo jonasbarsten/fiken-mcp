@@ -15,7 +15,7 @@ describe("issueTokens", () => {
     const leaky = issueTokens(cfg, { ...fiken, access_token: "PLAINTEXT-FIKEN-ACCESS-TOKEN" }, "anon1", 1000);
     expect(leaky.access_token).not.toContain("PLAINTEXT-FIKEN-ACCESS-TOKEN");
     expect(readAccessToken(cfg, issued.access_token, 1050)).toEqual({ fikenAccessToken: "FA", anonId: "anon1", exp: 1000 + ACCESS_TOKEN_SECONDS });
-    expect(readRefreshToken(cfg, issued.refresh_token)).toEqual({ fikenRefreshToken: "FR", fikenAccessToken: "FA", fikenAccessExp: 1000 + 86157, anonId: "anon1" });
+    expect(readRefreshToken(cfg, issued.refresh_token)).toEqual({ fikenRefreshToken: "FR", anonId: "anon1" });
   });
 
   it("never issues longer than Fiken's own expiry", () => {
@@ -33,22 +33,19 @@ describe("issueTokens", () => {
 });
 
 describe("renewTokens", () => {
-  it("reuses the wrapped Fiken access token while it has more than an hour left", async () => {
-    let fikenCalls = 0;
-    const c = testConfig({ fetch: async () => { fikenCalls++; return Response.json({}); } });
+  it("calls Fiken's refresh on every renewal, even when the previous Fiken token is fresh", async () => {
+    const sent: string[] = [];
+    const c = testConfig({
+      fetch: async (_input, init) => {
+        sent.push(new URLSearchParams(String(init?.body)).get("refresh_token") ?? "");
+        return Response.json({ access_token: "FA2", refresh_token: "FR2", expires_in: 86157 });
+      },
+    });
     const issued = issueTokens(c, fiken, "anon1", 1000);
-    const renewed = await renewTokens(c, issued.refresh_token, 5000);
-    expect(fikenCalls).toBe(0);
-    expect(readAccessToken(c, renewed.access_token, 5000)).toEqual({ fikenAccessToken: "FA", anonId: "anon1", exp: 5000 + ACCESS_TOKEN_SECONDS });
-    expect(readRefreshToken(c, renewed.refresh_token).fikenRefreshToken).toBe("FR");
-  });
-
-  it("calls Fiken when the wrapped access token is about to expire", async () => {
-    const c = testConfig({ fetch: async () => Response.json({ access_token: "FA2", refresh_token: "FR2", expires_in: 86157 }) });
-    const issued = issueTokens(c, { ...fiken, expires_in: 4000 }, "anon1", 1000);
-    const renewed = await renewTokens(c, issued.refresh_token, 2000);
-    expect(readAccessToken(c, renewed.access_token, 2000).fikenAccessToken).toBe("FA2");
-    expect(readRefreshToken(c, renewed.refresh_token)).toMatchObject({ fikenRefreshToken: "FR2", fikenAccessToken: "FA2", anonId: "anon1" });
+    const renewed = await renewTokens(c, issued.refresh_token, 1010);
+    expect(sent).toEqual(["FR"]);
+    expect(readAccessToken(c, renewed.access_token, 1010)).toEqual({ fikenAccessToken: "FA2", anonId: "anon1", exp: 1010 + ACCESS_TOKEN_SECONDS });
+    expect(readRefreshToken(c, renewed.refresh_token)).toEqual({ fikenRefreshToken: "FR2", anonId: "anon1" });
   });
 
   it("rejects garbage", async () => {

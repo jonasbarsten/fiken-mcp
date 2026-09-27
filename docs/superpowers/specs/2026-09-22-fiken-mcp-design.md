@@ -230,14 +230,12 @@ is a code change in `api/src/auth/clients.ts` with a PR.
    `HMAC(salt, email)`, and return **encrypted wrappers**:
    - access token: `{fiken access token, anon id, exp: +1h}`. One hour,
      not Fiken's 24, so a leaked token has a short life.
-   - refresh token: `{fiken refresh token, fiken access token, fiken
-     access expiry, anon id}`.
-   On `refresh_token` grant we unwrap; if the wrapped Fiken access token
-   still has more than an hour left we mint a new one-hour access
-   wrapper from it without calling Fiken; otherwise we call Fiken's
-   refresh and rewrap. If the user revoked the app in Fiken, refresh
-   fails and the client restarts at step 3. Token responses carry
-   `Cache-Control: no-store` and `Pragma: no-cache`.
+   - refresh token: `{fiken refresh token, anon id}`.
+   On `refresh_token` grant we unwrap, call Fiken's refresh every time
+   (one upstream call per user per hour) and rewrap. If the user revoked
+   the app in Fiken, that refresh fails within the hour and the client
+   restarts at step 3. Token responses carry `Cache-Control: no-store`
+   and `Pragma: no-cache`.
 7. **Every MCP request** carries our wrapped access token. We decrypt it
    before doing any other work, forward the Fiken access token upstream,
    and use the anonymous id for usage counting. A 401 from Fiken becomes
