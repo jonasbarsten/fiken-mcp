@@ -228,10 +228,18 @@ describe("IacStack", () => {
         const resources = Array.isArray(statement.Resource) ? statement.Resource : [statement.Resource];
         const hasWildcard = resources.includes("*");
         if (!hasWildcard) continue;
-        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead", "CertificatesRead"].includes(statement.Sid);
+        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead", "CertificatesRead", "LogsRead"].includes(statement.Sid);
         expect(statement.Condition !== undefined || isKnownReadOnly).toBe(true);
       }
     }
+  });
+
+  it("lets CloudFormation describe log groups, which resolving a log group Arn needs", () => {
+    const t = synth();
+    const policy = Object.values(t.findResources("AWS::IAM::ManagedPolicy"))[0]!;
+    const statements = policy.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Action: string | string[]; Resource: string | string[] }>;
+    const logsRead = statements.find((s) => s.Sid === "LogsRead")!;
+    expect(logsRead).toMatchObject({ Action: "logs:DescribeLogGroups", Resource: "*" });
   });
 
   it("grants CloudFormation only read access to certificates: the certificate is made by hand and imported", () => {
