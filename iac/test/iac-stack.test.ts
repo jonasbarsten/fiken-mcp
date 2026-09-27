@@ -46,7 +46,7 @@ describe("IacStack", () => {
             Condition: {
               StringEquals: {
                 "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-                "token.actions.githubusercontent.com:sub": "repo:jonasbarsten/fiken-mcp:environment:production",
+                "token.actions.githubusercontent.com:sub": "repo:jonasbarsten@6729295/fiken-mcp@1381698499:environment:production",
               },
             },
           },
