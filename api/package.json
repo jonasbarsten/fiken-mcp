@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-ssm": "3.1137.0",
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "2.1.0",
     "hono": "4.13.8",
     "zod": "4.6.5"
   },
