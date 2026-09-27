@@ -9,7 +9,7 @@
     "gen:fiken-types": "openapi-typescript https://api.fiken.no/api/v2/docs/swagger.yaml -o src/fiken/types.d.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-ssm": "3.1137.0",
+    "@aws-sdk/client-ssm": "3.1139.0",
     "@modelcontextprotocol/server": "2.0.0",
     "hono": "4.13.8",
     "zod": "4.6.5"
