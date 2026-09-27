@@ -71,6 +71,19 @@ normal development.
   policy are applied by the same CloudFormation execution role they
   govern. Review such pull requests with extra care: the `production`
   approval and CODEOWNERS are the controls.
+- Lambda reserved concurrency needs an account quota above the default
+  10 (Lambda keeps 10 unreserved, so nothing can be reserved). The first
+  deploy failed on this with the unhelpful message "Resource of type
+  'AWS::Lambda::Function' ... is not updatable with parameters
+  provided". Request the increase once:
+  ```
+  aws service-quotas request-service-quota-increase --service-code lambda \
+    --quota-code L-B99A9384 --desired-value 1000 --region eu-west-1 --profile byjoba
+  ```
+  When approved (`aws lambda get-account-settings` shows it), re-add
+  `reservedConcurrentExecutions: 1` in `api/lib/api-stack.ts` and flip
+  the assertion in `api/test/api-stack.test.ts`. Tracked in the GitHub
+  issue "Re-add reserved concurrency 1".
 
 ## GitHub (jonasbarsten/fiken-mcp)
 

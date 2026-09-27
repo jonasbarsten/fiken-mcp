@@ -14,13 +14,14 @@ function synth() {
 }
 
 describe("ApiStack", () => {
-  it("creates the function with reserved concurrency 1 on Node 24 arm64 and a 30-day log group", () => {
+  it("creates the function on Node 24 arm64 with a 30-day log group; reserved concurrency is off until the account quota allows it", () => {
     const t = synth();
     t.hasResourceProperties("AWS::Lambda::Function", {
       FunctionName: "fiken-mcp-api",
       Runtime: "nodejs24.x",
       Architectures: ["arm64"],
-      ReservedConcurrentExecutions: 1,
+      // Flip to 1 when the Lambda concurrency quota increase is approved (see api-stack.ts).
+      ReservedConcurrentExecutions: Match.absent(),
       Environment: { Variables: { PUBLIC_URL: "https://api.fiken-mcp.byjoba.com", PARAM_PREFIX: "/fiken_mcp" } },
     });
     t.hasResourceProperties("AWS::Logs::LogGroup", { LogGroupName: "/aws/lambda/fiken-mcp-api", RetentionInDays: 30 });
