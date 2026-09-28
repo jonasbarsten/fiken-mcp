@@ -488,6 +488,22 @@ too if you suspect a device or account was compromised.
 
 ## 14. Open items
 
+Done by the receipts-flow plan (2026-09-28,
+`docs/superpowers/plans/2026-09-28-fiken-mcp-receipts-flow.md`): the
+widget, the upload ticket and `/upload`, `get_upload_url`, and the tools
+`list_projects`, `list_accounts`, `list_bank_accounts`,
+`search_contacts`, `get_contact`, `create_contact`, `list_purchases`,
+`get_purchase`, `create_purchase`, `attach_inbox_document`, `list_inbox`.
+`attach_inbox_document` covers purchases only so far.
+
+Still to build from section 8: invoices (`list_invoices`, `get_invoice`,
+`create_invoice_draft`, `create_invoice_from_draft`, `create_invoice`,
+`send_invoice`), `list_sales`, `list_products`, `account_balances`,
+`bank_balances`, `get_journal_entries`, `get_inbox_document`,
+`get_attachments`, `create_credit_note`, `register_payment`,
+attachments to sales, invoices and journal entries; from section 6 the
+usage counters, `my_usage` and `GET /stats`.
+
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.
 - **Plan 2: Client ID Metadata Documents (CIMD).** Claude offers "Use
