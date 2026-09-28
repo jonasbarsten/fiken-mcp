@@ -19,7 +19,8 @@ describe("built widget", () => {
   it("prefixes the summary block and gates image blocks on the host's declared modality", () => {
     // The summary names user-supplied file names, so it is untrusted like the rest.
     expect(html).toContain("${PREFIX}Uploaded to Fiken inbox of");
-    expect(html).toContain("updateModelContext?.image");
+    // Fail open: text-only context only when the host lists modalities and leaves out image.
+    expect(html).toContain('"image" in contextModalities');
     // A dead ticket must name every file of the batch, not just the one that hit the 401.
     expect(html).toContain("opplastingen utløp");
     expect(html).toContain("Bokfør den.");

@@ -89,7 +89,10 @@
     try {
       await app.connect();
       const capabilities = app.getHostCapabilities();
-      acceptsImages = Boolean(capabilities?.updateModelContext?.image);
+      // Fail open: only a host that lists modalities and leaves out `image` gets text-only context.
+      // Claude Desktop and iOS list { text, image }; a host that says nothing ignores blocks it cannot use.
+      const contextModalities = capabilities?.updateModelContext;
+      acceptsImages = !contextModalities || Object.keys(contextModalities).length === 0 || "image" in contextModalities;
       debug("connected", capabilities, "images:", acceptsImages);
       setStatus("Tilkoblet. Venter på tool result…");
     } catch (e) {
