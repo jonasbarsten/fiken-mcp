@@ -40,6 +40,8 @@ describe("cimd", () => {
     await expect(fetchClientMetadata(cfgServing("<html>").cfg, DOC_URL)).rejects.toThrow();
     await expect(fetchClientMetadata(cfgServing(doc, 404).cfg, DOC_URL)).rejects.toThrow();
     await expect(fetchClientMetadata(cfgServing({ ...doc, pad: "x".repeat(20_000) }).cfg, DOC_URL)).rejects.toThrow();
+    // The cap counts bytes: 9,000 two-byte characters are 18,000 bytes but only 9,000 UTF-16 units.
+    await expect(fetchClientMetadata(cfgServing({ ...doc, pad: "æ".repeat(9_000) }).cfg, DOC_URL)).rejects.toThrow("too large");
     const { cfg, calls } = cfgServing(doc);
     await expect(fetchClientMetadata(cfg, "https://evil.example/x.json")).rejects.toThrow();
     expect(calls).toHaveLength(0);
