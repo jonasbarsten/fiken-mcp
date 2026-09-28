@@ -499,13 +499,13 @@ too if you suspect a device or account was compromised.
   URI to be in both the document and our allowlist. The allowlist stays
   the control; DCR keeps working. Claude Desktop 2026-09 detects DCR
   and works without this, so it is not blocking.
-- **Plan 2: connector icon.** Clients show a letter placeholder until
-  the server declares `icons` on its `serverInfo` (MCP `Implementation`
-  supports `icons: [{ src, mimeType, sizes }]`, present in SDK 2.1).
-  Serve a square PNG (256 and 512 px) and an SVG from an unauthenticated
-  `GET /icon.*` route on the api, and reference them by absolute URL.
-  The icon must not use Fiken's logo or colours; we are a third-party
-  integration, and the connector is already named "Fiken MCP".
+- **Connector icon (done 2026-09-27).** Clients show a letter placeholder
+  until the server declares `icons` on its `serverInfo` (MCP
+  `Implementation` supports `icons: [{ src, mimeType, sizes }]`). The api
+  serves a 512 px PNG from the unauthenticated `GET /icon.png` and
+  references it by absolute URL. The icon uses no Fiken logo or colours;
+  we are a third-party integration, and the connector is already named
+  "Fiken MCP".
 - The API lives at `api.fiken-mcp.byjoba.com` (certificate in eu-west-1,
   requested by hand). `fiken-mcp.byjoba.com` is reserved for a CloudFront
   site, which needs its own certificate in us-east-1.
