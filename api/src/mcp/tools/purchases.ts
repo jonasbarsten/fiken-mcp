@@ -47,13 +47,14 @@ function trimPurchase(p: FikenPurchase) {
  * The purchase POST already succeeded when this is called: attaching the receipt or reading the purchase back failed.
  * Names the created purchaseId so the model doesn't retry create_purchase and book the receipt twice.
  */
-function createdPurchaseFollowUpFailed(id: number, inboxDocumentId: number | undefined, err: unknown): CallToolResult {
+function createdPurchaseFollowUpFailed(id: number, pendingInboxDocumentId: number | undefined, err: unknown): CallToolResult {
   const message = (toolError(err).content[0] as { text: string }).text;
   const text =
-    inboxDocumentId !== undefined
-      ? `Purchase ${id} was created, but the receipt (inboxDocumentId ${inboxDocumentId}) could not be attached: ${message}. ` +
-        `Do not create the purchase again; call attach_inbox_document with purchaseId ${id} and inboxDocumentId ${inboxDocumentId}.`
-      : `Purchase ${id} was created; fetching it back failed: ${message}. Do not create it again; use get_purchase with purchaseId ${id}.`;
+    pendingInboxDocumentId !== undefined
+      ? `Purchase ${id} was created, but the receipt (inboxDocumentId ${pendingInboxDocumentId}) could not be attached: ${message}. ` +
+        `Do not create the purchase again; call attach_inbox_document with purchaseId ${id} and inboxDocumentId ${pendingInboxDocumentId}.`
+      : `Purchase ${id} was created (and its receipt attached, if one was given); fetching it back failed: ${message}. ` +
+        `Do not create it again; use get_purchase with purchaseId ${id}.`;
   return { content: [{ type: "text", text }], isError: true };
 }
 
@@ -160,9 +161,12 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
         if (projectId !== undefined) body.projectId = projectId;
         body.lines = lines;
         const { id } = await ctx.fiken.create(`/companies/${slug}/purchases`, body);
+        // Set while the receipt still has to be attached; cleared once Fiken confirmed it.
+        let pendingInboxDocumentId = inboxDocumentId;
         try {
           if (inboxDocumentId !== undefined) {
             await ctx.fiken.upload(`/companies/${slug}/purchases/${id}/attachments`, new FormData(), { inboxDocumentId });
+            pendingInboxDocumentId = undefined;
           }
           const purchase = await ctx.fiken.json<FikenPurchase>(`/companies/${slug}/purchases/${id}`);
           return toolJson({
@@ -171,7 +175,7 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
             attachedInboxDocumentId: inboxDocumentId,
           });
         } catch (err) {
-          return createdPurchaseFollowUpFailed(id, inboxDocumentId, err);
+          return createdPurchaseFollowUpFailed(id, pendingInboxDocumentId, err);
         }
       });
     },
