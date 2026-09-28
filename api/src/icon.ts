@@ -1,9 +1,5 @@
-import { readFileSync } from "node:fs";
 import { Hono } from "hono";
-
-// In source the PNG sits in src/assets; the api stack copies that folder next to
-// the bundled index.mjs, so the same relative URL resolves in both places.
-const ICON_PNG = new Uint8Array(readFileSync(new URL("./assets/icon.png", import.meta.url)));
+import { ICON_PNG } from "./assets.js";
 
 /** The connector icon that serverInfo.icons points at. Public: clients fetch it before any login. */
 export function iconRoutes(): Hono {

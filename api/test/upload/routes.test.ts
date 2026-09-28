@@ -34,6 +34,23 @@ describe("POST /upload", () => {
     expect(new Headers(calls[0]?.init?.headers).get("authorization")).toBe("Bearer FA");
   });
 
+  it("decodes the percent-encoded filename the widget sends before sanitising it", async () => {
+    const { app, ticket } = setup();
+    const res = await upload(app, PNG, { "x-ticket": ticket, "x-filename": "kvittering%20(1).png", "content-type": "image/png" });
+    expect(res.status).toBe(201);
+    const name = (await res.json()).name;
+    expect(name).toBe("kvittering1.png");
+    expect(name).not.toContain("%20");
+    expect(name).not.toContain("20");
+  });
+
+  it("keeps a filename that is not valid percent-encoding instead of rejecting the upload", async () => {
+    const { app, ticket } = setup();
+    const res = await upload(app, PNG, { "x-ticket": ticket, "x-filename": "100%-kvittering.png", "content-type": "image/png" });
+    expect(res.status).toBe(201);
+    expect((await res.json()).name).toBe("100-kvittering.png");
+  });
+
   it("answers the CORS preflight for the widget origin only", async () => {
     const { app } = setup();
     const ok = await app.request("/upload", { method: "OPTIONS", headers: { origin: "https://abc123.claudemcpcontent.com", "access-control-request-method": "POST", "access-control-request-headers": "x-ticket,x-filename" } });

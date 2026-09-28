@@ -10,6 +10,21 @@ const MAX_BYTES = 4.5 * 1024 * 1024;
 const WIDGET_ORIGIN = /^https:\/\/[a-z0-9-]+\.claudemcpcontent\.com$/;
 
 /**
+ * The widget percent-encodes the name, because a header value may not carry the
+ * non-ASCII characters a Norwegian filename often has. A hand-written curl call
+ * sends it raw, and a raw name may contain a stray `%`, so a decode failure
+ * falls back to the value as sent rather than rejecting the upload.
+ */
+function decodeFilename(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch (err) {
+    if (err instanceof URIError) return value;
+    throw err;
+  }
+}
+
+/**
  * The public receipt upload endpoint the MCP App widget posts to. No cookies,
  * no session: the ticket (issued alongside the widget resource) carries the
  * Fiken token and target company for the next 15 minutes.
@@ -44,7 +59,7 @@ export function uploadRoutes(cfg: Config): Hono {
     const detected = detectType(bytes);
     if (!detected) return c.json({ error: "unsupported_type" }, 415);
 
-    const filename = safeFilename(c.req.header("x-filename") ?? "", detected.ext);
+    const filename = safeFilename(decodeFilename(c.req.header("x-filename") ?? ""), detected.ext);
 
     const form = new FormData();
     form.append("name", filename);

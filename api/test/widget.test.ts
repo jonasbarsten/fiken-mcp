@@ -15,4 +15,13 @@ describe("built widget", () => {
     expect(html).not.toContain("innerHTML");
     expect(html.length).toBeGreaterThan(500_000);
   });
+
+  it("prefixes the summary block and gates image blocks on the host's declared modality", () => {
+    // The summary names user-supplied file names, so it is untrusted like the rest.
+    expect(html).toContain("${PREFIX}Uploaded to Fiken inbox of");
+    expect(html).toContain("updateModelContext?.image");
+    // A dead ticket must name every file of the batch, not just the one that hit the 401.
+    expect(html).toContain("opplastingen utløp");
+    expect(html).toContain("Bokfør den.");
+  });
 });

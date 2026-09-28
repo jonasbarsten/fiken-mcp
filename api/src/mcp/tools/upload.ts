@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { WIDGET_HTML } from "../../assets.js";
 import type { Config } from "../../config.js";
 import { UPLOAD_TICKET_SECONDS, issueUploadTicket } from "../../upload/ticket.js";
 import type { ToolContext } from "../server.js";
@@ -13,11 +13,6 @@ import { companySlug } from "./common.js";
  * pointing at a resource we no longer serve.
  */
 export const UPLOAD_RESOURCE_URI = "ui://fiken-mcp/upload.html";
-
-// Built by scripts/build-widget.mjs into src/assets; the api stack copies that
-// folder next to the bundled index.mjs, so the same relative URL resolves in
-// both places (exactly like src/icon.ts does for the connector icon).
-const WIDGET_HTML = readFileSync(new URL("../../assets/upload.html", import.meta.url), "utf8");
 
 const UPLOAD_DESCRIPTION =
   "Opens a picker in the chat where the user selects receipt photos or PDFs. The widget uploads each file to the company's " +
