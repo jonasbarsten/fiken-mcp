@@ -1,7 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { FikenError } from "../../fiken/client.js";
-import { toolError, toolJson, type ToolContext } from "../server.js";
+import { noteFikenError, toolError, toolJson, type ToolContext } from "../server.js";
 
 export const companySlug = z.string().min(1).describe("Company slug, from list_companies");
 export const paging = {
@@ -20,6 +20,7 @@ export async function withCompany(ctx: ToolContext, slug: string, fn: () => Prom
   try {
     return await fn();
   } catch (err) {
+    noteFikenError(ctx, err);
     if (err instanceof FikenError && err.status === 404) {
       try {
         const companies = await ctx.fiken.json<Array<{ slug: string }>>("/companies");

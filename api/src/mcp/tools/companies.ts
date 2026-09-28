@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, toolError, toolJson, type ToolContext } from "../server.js";
+import { counted, noteFikenError, toolError, toolJson, type ToolContext } from "../server.js";
 
 interface FikenCompany {
   name: string;
@@ -28,6 +28,7 @@ export function registerCompanies(server: McpServer, ctx: ToolContext): void {
           companies.map((c) => ({ name: c.name, slug: c.slug, organizationNumber: c.organizationNumber, hasApiAccess: c.hasApiAccess })),
         );
       } catch (err) {
+        noteFikenError(ctx, err);
         return toolError(err);
       }
     }),

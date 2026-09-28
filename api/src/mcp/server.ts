@@ -20,6 +20,8 @@ export interface ToolContext {
   /** When the caller's access token expires; an upload ticket never outlives it. */
   exp: number;
   usage: UsageStore;
+  /** Per-request flag: set when a Fiken 401 is seen on a path where nothing was written, so `/mcp` can answer HTTP 401. */
+  session: { fikenUnauthorized: boolean };
 }
 
 export function toolJson(value: unknown): CallToolResult {
@@ -39,6 +41,15 @@ export function toolError(err: unknown): CallToolResult {
 }
 
 /**
+ * Marks the request's session dead when `err` is a Fiken 401. Call only on
+ * paths where nothing was written yet, since setting it makes `/mcp` answer
+ * HTTP 401 and the client re-sends the same tools/call.
+ */
+export function noteFikenError(ctx: ToolContext, err: unknown): void {
+  if (err instanceof FikenError && err.status === 401) ctx.session.fikenUnauthorized = true;
+}
+
+/**
  * Wraps a tool handler so every call is counted after it runs: a thrown error
  * becomes `toolError(err)`, then the outcome is recorded against the caller's
  * anonymous id. A usage-store failure is logged and never changes the result
@@ -54,6 +65,7 @@ export function counted<A>(
     try {
       result = await handler(args, extra);
     } catch (err) {
+      noteFikenError(ctx, err);
       result = toolError(err);
     }
     try {

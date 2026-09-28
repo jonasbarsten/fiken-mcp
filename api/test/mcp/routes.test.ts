@@ -54,4 +54,25 @@ describe("POST /mcp", () => {
     expect((await app.request("/mcp", { headers: { authorization: `Bearer ${token}` } })).status).toBe(405);
     expect((await app.request("/mcp", { method: "DELETE", headers: { authorization: `Bearer ${token}` } })).status).toBe(405);
   });
+
+  it("still answers 200 with isError when a tool call fails with a non-401 Fiken error", async () => {
+    const call = await rpc({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "list_projects", arguments: { companySlug: "a" } } });
+    expect(call.status).toBe(200);
+    const body = await call.json();
+    expect(body.result.isError).toBe(true);
+  });
+
+  it("turns a Fiken 401 during a tool call into an HTTP 401 so the client refreshes", async () => {
+    const cfg401 = testConfig({ fetch: async () => new Response("expired", { status: 401 }) });
+    const app401 = createApp(cfg401);
+    const tok = issueTokens(cfg401, { access_token: "FA", refresh_token: "FR", expires_in: 3600 }, "anon").access_token;
+    const res = await app401.request("/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${tok}` },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "list_companies", arguments: {} } }),
+    });
+    expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toContain('error="invalid_token"');
+    expect(await res.json()).toEqual({ error: "invalid_token" });
+  });
 });

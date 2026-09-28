@@ -28,7 +28,14 @@ export const farFutureExp = () => Math.floor(Date.now() / 1000) + 3600;
 
 export async function connected(fetchImpl: typeof fetch, opts?: { usage?: UsageStore }) {
   const fiken = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
-  const server = createMcpServer({ fiken, anonId: "anon", fikenAccessToken: "tok", exp: farFutureExp(), usage: opts?.usage ?? memoryUsageStore() });
+  const server = createMcpServer({
+    fiken,
+    anonId: "anon",
+    fikenAccessToken: "tok",
+    exp: farFutureExp(),
+    usage: opts?.usage ?? memoryUsageStore(),
+    session: { fikenUnauthorized: false },
+  });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   const client = new Client({ name: "test", version: "0" });

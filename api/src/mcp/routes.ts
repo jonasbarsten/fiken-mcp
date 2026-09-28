@@ -19,15 +19,18 @@ export function mcpRoutes(cfg: Config): Hono {
       return c.body("Unauthorized", 401, { "WWW-Authenticate": challenge });
     }
     const fiken = createFikenClient({ baseUrl: cfg.fikenBaseUrl, accessToken: claims.fikenAccessToken, fetch: cfg.fetch });
+    const session = { fikenUnauthorized: false };
     const server = createMcpServer(
-      { fiken, anonId: claims.anonId, fikenAccessToken: claims.fikenAccessToken, exp: claims.exp, usage: cfg.usage },
+      { fiken, anonId: claims.anonId, fikenAccessToken: claims.fikenAccessToken, exp: claims.exp, usage: cfg.usage, session },
       cfg.publicUrl,
       cfg,
     );
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     await server.connect(transport);
     const parsedBody = await c.req.json().catch(() => undefined);
-    return transport.handleRequest(c.req.raw, { parsedBody });
+    const res = await transport.handleRequest(c.req.raw, { parsedBody });
+    if (session.fikenUnauthorized) return c.json({ error: "invalid_token" }, 401, { "WWW-Authenticate": challenge });
+    return res;
   });
 
   app.on(["GET", "DELETE"], "/mcp", (c) => c.text("Method Not Allowed", 405));

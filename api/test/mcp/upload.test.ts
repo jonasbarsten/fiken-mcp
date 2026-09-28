@@ -15,7 +15,11 @@ async function connectedWithUrl(exp = farFutureExp()) {
     fetch: async () => new Response("x", { status: 500 }),
     queue: new FikenQueue(0),
   });
-  const server = createMcpServer({ fiken, anonId: "anon", fikenAccessToken: "tok", exp, usage: memoryUsageStore() }, "https://fiken-mcp.test", testConfig());
+  const server = createMcpServer(
+    { fiken, anonId: "anon", fikenAccessToken: "tok", exp, usage: memoryUsageStore(), session: { fikenUnauthorized: false } },
+    "https://fiken-mcp.test",
+    testConfig(),
+  );
   const [ct, st] = InMemoryTransport.createLinkedPair();
   await server.connect(st);
   const client = new Client({ name: "t", version: "0" });
@@ -76,7 +80,14 @@ describe("upload tools", () => {
       fetch: async () => new Response("x", { status: 500 }),
       queue: new FikenQueue(0),
     });
-    const server = createMcpServer({ fiken, anonId: "anon", fikenAccessToken: "tok", exp: farFutureExp(), usage: memoryUsageStore() });
+    const server = createMcpServer({
+      fiken,
+      anonId: "anon",
+      fikenAccessToken: "tok",
+      exp: farFutureExp(),
+      usage: memoryUsageStore(),
+      session: { fikenUnauthorized: false },
+    });
     const [ct, st] = InMemoryTransport.createLinkedPair();
     await server.connect(st);
     const client = new Client({ name: "t", version: "0" });
