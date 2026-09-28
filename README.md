@@ -28,9 +28,15 @@ model's context, so nothing is read back from Fiken. Press "Ferdig" and
 the model books. `get_upload_url` gives shell-capable clients such as
 Claude Code a `curl` command instead.
 
-Limits: 4.5 MB per file (larger photos are downscaled in the widget;
-larger PDFs are skipped and named), and no HEIC (Fiken does not accept
-it; export as JPEG first). Amounts everywhere are integers in øre.
+Limits: 4 MB per file (larger photos are downscaled in the widget; larger
+PDFs are skipped and named). Fiken takes PDF, PNG, JPEG and GIF; a HEIC
+photo is converted to JPEG on your phone when the browser can decode it,
+and named as skipped when it cannot. Amounts everywhere are integers in
+øre.
+
+Only the widget's own sandbox origins (`*.claudemcpcontent.com`) may post
+to the upload endpoint, so ChatGPT's app sandbox cannot upload yet; its
+read and write tools work as usual.
 
 - Design: [docs/superpowers/specs/2026-09-22-fiken-mcp-design.md](docs/superpowers/specs/2026-09-22-fiken-mcp-design.md)
 - Decision record (what we ruled out and why): [docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md](docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md)

@@ -391,9 +391,10 @@ button. For each picked file it does two things:
 1. **Upload.** `POST /upload` with the ticket, filename and bytes. The
    Lambda validates the ticket, forwards the file as multipart to
    `POST /companies/{slug}/inbox`, and returns the inbox document id.
-   Bytes are never written anywhere. Limit about 4.5 MB per file: Lambda
-   accepts 6 MB per request and API Gateway base64-encodes binary
-   bodies. Multipart framing does not change this. Images above the
+   Bytes are never written anywhere. Limit 4 MB per file: Lambda accepts
+   6 MiB per request and API Gateway base64-encodes binary bodies, which
+   puts the hard ceiling at 4.5 MiB of raw bytes, so 4 MB leaves a
+   margin. Multipart framing does not change this. Images above the
    limit are downscaled in the widget before upload. Any other file
    above the limit is **not uploaded**: the widget shows a clear message
    next to the file naming it and the limit, marks it as skipped in the
@@ -444,8 +445,10 @@ them itself. The Lambda forwards to Fiken as above.
 
 - Attaching files from a Claude.ai chat without the widget or a shell:
   no mechanism exists. See the decision record.
-- HEIC: Fiken rejects it; not converted in version one.
-- Files over about 4.5 MB that are not images. The widget tells the user
+- HEIC: Fiken rejects it, so the widget converts it to JPEG on the device
+  when the browser can decode it (Safari can). A browser that cannot
+  decode it gets the file named as skipped.
+- Files over 4 MB that are not images. The widget tells the user
   which file was skipped and why; the model learns it from the summary
   block.
 
@@ -502,7 +505,9 @@ Still to build from section 8: invoices (`list_invoices`, `get_invoice`,
 `bank_balances`, `get_journal_entries`, `get_inbox_document`,
 `get_attachments`, `create_credit_note`, `register_payment`,
 attachments to sales, invoices and journal entries; from section 6 the
-usage counters, `my_usage` and `GET /stats`.
+usage counters, `my_usage` and `GET /stats`. `get_upload_url` only ever
+reaches the inbox: uploading straight to a sale, an invoice or a journal
+entry still has to be built.
 
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.
