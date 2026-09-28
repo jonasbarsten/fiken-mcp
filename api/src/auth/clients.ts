@@ -45,3 +45,18 @@ export function clientLabel(uri: string): string {
   const url = parse(uri);
   return (url && KNOWN.find((c) => c.matches(url))?.label) ?? "an unknown client";
 }
+
+/**
+ * Hosts whose client id metadata documents we are willing to fetch. This
+ * only decides where our server makes an outbound request; the redirect
+ * URI allowlist above stays the control over where codes go.
+ */
+const CIMD_EXACT_HOSTS = ["claude.ai", "chatgpt.com"];
+const CIMD_DOMAINS = ["anthropic.com", "openai.com"];
+
+export function isAllowedCimdHost(host: string): boolean {
+  // A host with a port never matches: the entries below carry none.
+  const h = host.toLowerCase();
+  if (CIMD_EXACT_HOSTS.includes(h)) return true;
+  return CIMD_DOMAINS.some((d) => h === d || (h.endsWith(`.${d}`) && h.length > d.length + 1));
+}

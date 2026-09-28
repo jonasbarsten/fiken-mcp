@@ -60,7 +60,10 @@ Fiken under Rediger konto, API.
 
 Claude (web, Desktop, iOS): Settings, Connectors, Add custom connector,
 URL `https://api.fiken-mcp.byjoba.com/mcp`, sign-in required. Log in with
-Fiken when asked.
+Fiken when asked. Claude's "Use Claude's published identity" option works
+too: we accept a client id metadata document from Claude and ChatGPT in
+place of dynamic registration, and check the redirect URI against the
+same allowlist either way.
 
 Claude Code:
 

@@ -7,6 +7,7 @@ import { verifyPkce } from "../crypto/pkce.js";
 import { FikenOAuthError, exchangeFikenCode, fetchFikenUser, fikenAuthorizeUrl } from "../fiken/oauth.js";
 import { log } from "../log.js";
 import { anonymousId } from "./anon.js";
+import { resolveClient } from "./cimd.js";
 import { clientLabel, isAllowedRedirectUri } from "./clients.js";
 import { consentPage, continuePage } from "./consent.js";
 import { issueTokens, renewTokens } from "./tokens.js";
@@ -47,11 +48,11 @@ function nonceMatches(cookie: string | undefined, expected: string): boolean {
 interface AuthorizeRequest { redirectUri: string; codeChallenge: string; clientState: string; clientName: string }
 
 /** Validates authorize parameters; returns an error message or the validated request. */
-function validateAuthorize(cfg: Config, q: Record<string, string | undefined>): { error: string } | { ok: AuthorizeRequest } {
+async function validateAuthorize(cfg: Config, q: Record<string, string | undefined>): Promise<{ error: string } | { ok: AuthorizeRequest }> {
   if (q.response_type !== "code") return { error: "response_type must be code" };
   let client: { redirectUris: string[]; name: string };
   try {
-    client = readClientId(cfg, q.client_id ?? "");
+    client = await resolveClient(cfg, q.client_id ?? "");
   } catch {
     return { error: "invalid client_id" };
   }
@@ -97,6 +98,7 @@ export function authRoutes(cfg: Config): Hono {
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
+      client_id_metadata_document_supported: true,
     }),
   );
 
@@ -124,9 +126,9 @@ export function authRoutes(cfg: Config): Hono {
     );
   });
 
-  app.get("/authorize", (c) => {
+  app.get("/authorize", async (c) => {
     const q = c.req.query();
-    const v = validateAuthorize(cfg, q);
+    const v = await validateAuthorize(cfg, q);
     if ("error" in v) return c.text(v.error, 400);
     // The nonce is issued here, kept in the login cookie and echoed by the
     // form. POST requires both to match, so a cross-site form post (which
@@ -159,7 +161,7 @@ export function authRoutes(cfg: Config): Hono {
 
   app.post("/authorize", async (c) => {
     const q = Object.fromEntries(new URLSearchParams(await c.req.text())) as Record<string, string>;
-    const v = validateAuthorize(cfg, q);
+    const v = await validateAuthorize(cfg, q);
     if ("error" in v) return c.text(v.error, 400);
     const nonce = q.nonce ?? "";
     if (nonce === "" || !nonceMatches(getCookie(c, LOGIN_COOKIE), nonce)) {
@@ -218,7 +220,7 @@ export function authRoutes(cfg: Config): Hono {
         }
         let client: { redirectUris: string[] };
         try {
-          client = readClientId(cfg, fields.client_id);
+          client = await resolveClient(cfg, fields.client_id);
         } catch {
           return oauthError("invalid_client", "unknown client_id");
         }
