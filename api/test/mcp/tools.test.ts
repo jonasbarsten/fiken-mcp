@@ -100,7 +100,7 @@ describe("write tools", () => {
   it("create_purchase books, attaches the inbox document and returns the purchase", async () => {
     const f = fakeFiken([
       { match: /\/purchases$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77" } },
-      { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77/attachments/u" } },
+      { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134&attachToSale=true&attachToPayment=true$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77/attachments/u" } },
       { match: /\/purchases\/77$/, body: { purchaseId: 77, date: "2026-09-01", kind: "cash_purchase", paid: true, currency: "NOK", lines: [], purchaseAttachments: [{ uuid: "u", filename: "r.pdf" }] } },
     ]);
     const c = await connected(f.fetchImpl);
@@ -117,15 +117,31 @@ describe("write tools", () => {
     expect(f.calls[1]?.init?.method).toBe("POST");
     expect(f.calls.map((x) => x.url.replace("https://api.test/v2", ""))).toEqual([
       "/companies/demo/purchases",
-      "/companies/demo/purchases/77/attachments?inboxDocumentId=1234134",
+      // Fiken rejects an attachment with neither flag; a cash receipt documents both the purchase and its payment.
+      "/companies/demo/purchases/77/attachments?inboxDocumentId=1234134&attachToSale=true&attachToPayment=true",
       "/companies/demo/purchases/77",
     ]);
+  });
+
+  it("create_purchase attaches a supplier purchase's receipt to the sale only", async () => {
+    const f = fakeFiken([
+      { match: /\/purchases$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/78" } },
+      { match: /\/purchases\/78\/attachments\?inboxDocumentId=99&attachToSale=true$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/78/attachments/u" } },
+      { match: /\/purchases\/78$/, body: { purchaseId: 78, date: "2026-09-01", kind: "supplier", paid: false, currency: "NOK", lines: [], purchaseAttachments: [{ uuid: "u", filename: "r.pdf" }] } },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_purchase", {
+      companySlug: "demo", date: "2026-09-01", kind: "supplier", supplierId: 5, dueDate: "2026-09-30",
+      lines: [{ description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }], inboxDocumentId: 99,
+    });
+    expect(r.isError).toBe(false);
+    expect(f.calls[1]?.url.replace("https://api.test/v2", "")).toBe("/companies/demo/purchases/78/attachments?inboxDocumentId=99&attachToSale=true");
   });
 
   it("create_purchase names the created purchase when attaching the receipt fails, so the model doesn't book it twice", async () => {
     const f = fakeFiken([
       { match: /\/purchases$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77" } },
-      { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134$/, status: 500, body: "boom" },
+      { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134/, status: 500, body: "boom" },
     ]);
     const c = await connected(f.fetchImpl);
     const r = await callJson(c, "create_purchase", {
@@ -143,7 +159,7 @@ describe("write tools", () => {
   it("create_purchase does not ask for a second attachment when only the read-back failed", async () => {
     const f = fakeFiken([
       { match: /\/purchases$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77" } },
-      { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77/attachments/u" } },
+      { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134&attachToSale=true&attachToPayment=true$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77/attachments/u" } },
       { match: /\/purchases\/77$/, status: 500, body: "boom" },
     ]);
     const c = await connected(f.fetchImpl);
