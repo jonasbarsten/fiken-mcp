@@ -182,10 +182,14 @@ describe("write tools", () => {
     expect(f.calls).toHaveLength(1);
   });
 
-  it("attach_inbox_document attaches to an existing purchase", async () => {
-    const f = fakeFiken([{ match: /\/purchases\/77\/attachments\?inboxDocumentId=9&attachToSale=true$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77/attachments/u" } }]);
+  it("attach_inbox_document attaches to an existing purchase and always states what the document proves", async () => {
+    const f = fakeFiken([{ match: /\/purchases\/77\/attachments\?inboxDocumentId=9&attachToSale=true&attachToPayment=false$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77/attachments/u" } }]);
     const c = await connected(f.fetchImpl);
     expect((await callJson(c, "attach_inbox_document", { companySlug: "demo", purchaseId: 77, inboxDocumentId: 9 })).json()).toEqual({ purchaseId: 77, inboxDocumentId: 9 });
+    const neither = await callJson(c, "attach_inbox_document", { companySlug: "demo", purchaseId: 77, inboxDocumentId: 9, attachToSale: false });
+    expect(neither.isError).toBe(true);
+    expect(neither.text).toContain("At least one of attachToSale and attachToPayment");
+    expect(f.calls).toHaveLength(1);
   });
 
   it("consequential tools are marked destructive and demand confirmation", async () => {

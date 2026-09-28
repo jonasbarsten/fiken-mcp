@@ -197,13 +197,18 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
         companySlug,
         purchaseId: z.number().int().describe("Purchase id, from list_purchases"),
         inboxDocumentId: z.number().int().describe("Inbox document id, from list_inbox"),
-        attachToSale: z.boolean().default(true).describe("Whether the attachment also counts as the sale/purchase documentation"),
+        attachToSale: z.boolean().default(true).describe("The document proves the purchase itself (the receipt or invoice)"),
+        attachToPayment: z.boolean().default(false).describe("The document proves the payment (card slip, bank confirmation)"),
       }),
       annotations: { destructiveHint: true, readOnlyHint: false },
     },
-    async ({ companySlug: slug, purchaseId, inboxDocumentId, attachToSale }) => {
+    async ({ companySlug: slug, purchaseId, inboxDocumentId, attachToSale, attachToPayment }) => {
+      // Fiken refuses an attachment that documents neither; say so before calling.
+      if (!attachToSale && !attachToPayment) {
+        return { content: [{ type: "text", text: "At least one of attachToSale and attachToPayment must be true." }], isError: true };
+      }
       return withCompany(ctx, slug, async () => {
-        await ctx.fiken.upload(`/companies/${slug}/purchases/${purchaseId}/attachments`, new FormData(), { inboxDocumentId, attachToSale });
+        await ctx.fiken.upload(`/companies/${slug}/purchases/${purchaseId}/attachments`, new FormData(), { inboxDocumentId, attachToSale, attachToPayment });
         return toolJson({ purchaseId, inboxDocumentId });
       });
     },
