@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { toolJson, type ToolContext } from "../server.js";
-import { companySlug, paged, paging, withCompany } from "./common.js";
+import { companySlug, CONFIRM, paged, paging, withCompany } from "./common.js";
 
 interface FikenContact {
   contactId: number;
@@ -13,6 +13,19 @@ interface FikenContact {
   supplierNumber?: number;
   customerNumber?: number;
   inactive?: boolean;
+}
+
+interface FikenContactDetail extends FikenContact {
+  phoneNumber?: string;
+  address?: {
+    streetAddress?: string;
+    streetAddressLine2?: string;
+    city?: string;
+    postCode?: string;
+    country?: string;
+  };
+  bankAccountNumber?: string;
+  currency?: string;
 }
 
 export function registerContacts(server: McpServer, ctx: ToolContext): void {
@@ -75,9 +88,60 @@ export function registerContacts(server: McpServer, ctx: ToolContext): void {
     },
     async ({ companySlug: slug, contactId }) => {
       return withCompany(ctx, slug, async () => {
-        const contact = await ctx.fiken.json<Record<string, unknown>>(`/companies/${slug}/contacts/${contactId}`);
-        const { notes: _notes, documents: _documents, ...rest } = contact;
-        return toolJson(rest);
+        const contact = await ctx.fiken.json<FikenContactDetail>(`/companies/${slug}/contacts/${contactId}`);
+        return toolJson({
+          contactId: contact.contactId,
+          name: contact.name,
+          email: contact.email,
+          phoneNumber: contact.phoneNumber,
+          organizationNumber: contact.organizationNumber,
+          supplier: contact.supplier,
+          customer: contact.customer,
+          supplierNumber: contact.supplierNumber,
+          customerNumber: contact.customerNumber,
+          inactive: contact.inactive,
+          address: contact.address
+            ? {
+                streetAddress: contact.address.streetAddress,
+                streetAddressLine2: contact.address.streetAddressLine2,
+                city: contact.address.city,
+                postCode: contact.address.postCode,
+                country: contact.address.country,
+              }
+            : undefined,
+          bankAccountNumber: contact.bankAccountNumber,
+          currency: contact.currency,
+        });
+      });
+    },
+  );
+
+  server.registerTool(
+    "create_contact",
+    {
+      title: "Create contact",
+      description: `Create a new supplier or customer contact in Fiken. ${CONFIRM}`,
+      inputSchema: z.object({
+        companySlug,
+        name: z.string().min(1).describe("Contact name"),
+        organizationNumber: z.string().optional().describe("Norwegian organization number"),
+        email: z.string().optional().describe("Email address"),
+        phoneNumber: z.string().optional().describe("Phone number"),
+        supplier: z.boolean().default(true).describe("Whether this contact is a supplier"),
+        customer: z.boolean().default(false).describe("Whether this contact is a customer"),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
+    async ({ companySlug: slug, name, organizationNumber, email, phoneNumber, supplier, customer }) => {
+      return withCompany(ctx, slug, async () => {
+        const body: Record<string, unknown> = { name };
+        if (organizationNumber !== undefined) body.organizationNumber = organizationNumber;
+        if (email !== undefined) body.email = email;
+        if (phoneNumber !== undefined) body.phoneNumber = phoneNumber;
+        body.supplier = supplier;
+        body.customer = customer;
+        const { id } = await ctx.fiken.create(`/companies/${slug}/contacts`, body);
+        return toolJson({ contactId: id });
       });
     },
   );

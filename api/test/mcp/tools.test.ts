@@ -124,3 +124,64 @@ describe("read tools", () => {
     expect(tools.find((x) => x.name === "list_purchases")?.description).toContain("øre");
   });
 });
+
+describe("write tools", () => {
+  it("create_contact posts the supplier and returns its id", async () => {
+    const f = fakeFiken([{ match: /\/contacts$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/contacts/5" } }]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_contact", { companySlug: "demo", name: "Clas Ohlson AS", organizationNumber: "913312465" });
+    expect(r.json()).toEqual({ contactId: 5 });
+    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ name: "Clas Ohlson AS", organizationNumber: "913312465", supplier: true, customer: false });
+  });
+
+  it("create_purchase books, attaches the inbox document and returns the purchase", async () => {
+    const f = fakeFiken([
+      { match: /\/purchases$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77" } },
+      { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77/attachments/u" } },
+      { match: /\/purchases\/77$/, body: { purchaseId: 77, date: "2026-09-01", kind: "cash_purchase", paid: true, currency: "NOK", lines: [], purchaseAttachments: [{ uuid: "u", filename: "r.pdf" }] } },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_purchase", {
+      companySlug: "demo", date: "2026-09-01", kind: "cash_purchase", paymentAccount: "1920:10001", paymentDate: "2026-09-01", projectId: 1,
+      lines: [{ description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }], inboxDocumentId: 1234134,
+    });
+    expect(r.isError).toBe(false);
+    expect(r.json()).toMatchObject({ purchaseId: 77, attachedInboxDocumentId: 1234134, purchaseAttachments: [{ uuid: "u", filename: "r.pdf" }] });
+    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({
+      date: "2026-09-01", kind: "cash_purchase", currency: "NOK", paymentAccount: "1920:10001", paymentDate: "2026-09-01", projectId: 1,
+      lines: [{ description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }],
+    });
+    expect(f.calls[1]?.init?.method).toBe("POST");
+    expect(f.calls.map((x) => x.url.replace("https://api.test/v2", ""))).toEqual([
+      "/companies/demo/purchases",
+      "/companies/demo/purchases/77/attachments?inboxDocumentId=1234134",
+      "/companies/demo/purchases/77",
+    ]);
+  });
+
+  it("create_purchase without an inbox document makes no attachment call and relays Fiken's validation error", async () => {
+    const f = fakeFiken([{ match: /\/purchases$/, status: 400, body: { message: "paymentAccount is required for cash purchases" } }]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_purchase", { companySlug: "demo", date: "2026-09-01", kind: "cash_purchase", lines: [{ description: "x", netPrice: 1, vat: 0, account: "6540", vatType: "NONE" }] });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("paymentAccount is required");
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it("attach_inbox_document attaches to an existing purchase", async () => {
+    const f = fakeFiken([{ match: /\/purchases\/77\/attachments\?inboxDocumentId=9&attachToSale=true$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77/attachments/u" } }]);
+    const c = await connected(f.fetchImpl);
+    expect((await callJson(c, "attach_inbox_document", { companySlug: "demo", purchaseId: 77, inboxDocumentId: 9 })).json()).toEqual({ purchaseId: 77, inboxDocumentId: 9 });
+  });
+
+  it("consequential tools are marked destructive and demand confirmation", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const tools = (await c.listTools()).tools;
+    for (const name of ["create_purchase", "attach_inbox_document"]) {
+      const t = tools.find((x) => x.name === name)!;
+      expect(t.annotations?.destructiveHint, name).toBe(true);
+      expect(t.description, name).toContain("explicit confirmation");
+    }
+    expect(tools.find((x) => x.name === "create_contact")?.description).toContain("explicit confirmation");
+  });
+});
