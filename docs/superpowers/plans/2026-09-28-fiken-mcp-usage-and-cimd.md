@@ -226,8 +226,9 @@ describe("usage counting", () => {
     expect((await callJson(c, "list_projects", { companySlug: "demo" })).isError).toBe(true);
     const mine = (await callJson(c, "my_usage", {})).json() as { anonId: string; months: Array<{ calls: number; errors: number; tools: Record<string, number> }> };
     expect(mine.anonId).toBe("anon");
-    expect(mine.months[0]).toMatchObject({ calls: 3, errors: 1, tools: { list_companies: 1, list_projects: 1, my_usage: 1 } });
-    expect((await usage.globalStats()).months[0]).toMatchObject({ calls: 3, activeUsers: 1 });
+    // my_usage reads before its own call is recorded (counters record after the handler).
+    expect(mine.months[0]).toMatchObject({ calls: 2, errors: 1, tools: { list_companies: 1, list_projects: 1 } });
+    expect((await usage.globalStats()).months[0]).toMatchObject({ calls: 3, activeUsers: 1, tools: { list_companies: 1, list_projects: 1, my_usage: 1 } });
   });
 
   it("a failing usage store never fails the tool", async () => {
@@ -276,10 +277,12 @@ describe("GET /stats", () => {
 ### Task 3: Fiken 401 during a tool call becomes HTTP 401
 
 **Files:**
-- Modify: `api/src/mcp/server.ts` (`ToolContext.session: { fikenUnauthorized: boolean }`; `errorText` sets nothing, but `counted()` sets `ctx.session.fikenUnauthorized = true` when the handler threw or returned a `FikenError` with status 401; to know that, `toolError` records the last error's status on the result: simplest is for `counted()` to catch `FikenError` thrown by handlers, and for `withCompany`/`toolError` paths to set the flag via a shared `noteFikenError(ctx, err)` call), `api/src/mcp/tools/common.ts` (`withCompany` calls `noteFikenError(ctx, err)` before `toolError`), `api/src/mcp/routes.ts` (after `handleRequest`, if the flag is set respond `401` with the `WWW-Authenticate` challenge and `{ error: "invalid_token" }`)
+- Modify: `api/src/mcp/server.ts` (`ToolContext.session: { fikenUnauthorized: boolean }`; new `noteFikenError(ctx, err)` sets `ctx.session.fikenUnauthorized = true` when `err` is a `FikenError` with status 401; `counted()` calls it for errors thrown out of a handler), `api/src/mcp/tools/common.ts` (`withCompany` calls `noteFikenError(ctx, err)` first thing in its catch), `api/src/mcp/tools/companies.ts` (its catch calls `noteFikenError(ctx, err)` before `toolError`), `api/src/mcp/routes.ts` (after `handleRequest`, if the flag is set respond `401` with the `WWW-Authenticate` challenge and `{ error: "invalid_token" }`)
 - Test: `api/test/mcp/routes.test.ts` (extend)
 
 **Interfaces:** `export function noteFikenError(ctx: ToolContext, err: unknown): void` in `server.ts`; `ToolContext.session` created per request in `mcp/routes.ts` as `{ fikenUnauthorized: false }`; helpers create it too.
+
+**Never after a write:** an HTTP 401 makes the client refresh and re-send the same tools/call, which would repeat a write. The flag is therefore only set on paths where nothing was written: `withCompany`'s catch (the handler threw before or on its first Fiken call) and `list_companies`. The purchase follow-up path (`createdPurchaseFollowUpFailed`, purchase already created) keeps returning a tool error and never sets the flag.
 
 - [ ] **Step 1: Failing test** (in `routes.test.ts`, with a config whose fetch answers `/companies` with 401):
 ```ts
