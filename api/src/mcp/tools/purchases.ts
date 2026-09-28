@@ -1,6 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/server";
+import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { toolJson, type ToolContext } from "../server.js";
+import { toolError, toolJson, type ToolContext } from "../server.js";
 import { companySlug, CONFIRM, ORE, paged, paging, withCompany } from "./common.js";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -41,6 +41,20 @@ function trimPurchase(p: FikenPurchase) {
     lines: p.lines.map((l) => ({ description: l.description, netPrice: l.netPrice, vat: l.vat, account: l.account, vatType: l.vatType })),
     attachments: (p.purchaseAttachments ?? []).length,
   };
+}
+
+/**
+ * The purchase POST already succeeded when this is called: attaching the receipt or reading the purchase back failed.
+ * Names the created purchaseId so the model doesn't retry create_purchase and book the receipt twice.
+ */
+function createdPurchaseFollowUpFailed(id: number, inboxDocumentId: number | undefined, err: unknown): CallToolResult {
+  const message = (toolError(err).content[0] as { text: string }).text;
+  const text =
+    inboxDocumentId !== undefined
+      ? `Purchase ${id} was created, but the receipt (inboxDocumentId ${inboxDocumentId}) could not be attached: ${message}. ` +
+        `Do not create the purchase again; call attach_inbox_document with purchaseId ${id} and inboxDocumentId ${inboxDocumentId}.`
+      : `Purchase ${id} was created; fetching it back failed: ${message}. Do not create it again; use get_purchase with purchaseId ${id}.`;
+  return { content: [{ type: "text", text }], isError: true };
 }
 
 export function registerPurchases(server: McpServer, ctx: ToolContext): void {
@@ -146,15 +160,19 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
         if (projectId !== undefined) body.projectId = projectId;
         body.lines = lines;
         const { id } = await ctx.fiken.create(`/companies/${slug}/purchases`, body);
-        if (inboxDocumentId !== undefined) {
-          await ctx.fiken.upload(`/companies/${slug}/purchases/${id}/attachments`, new FormData(), { inboxDocumentId });
+        try {
+          if (inboxDocumentId !== undefined) {
+            await ctx.fiken.upload(`/companies/${slug}/purchases/${id}/attachments`, new FormData(), { inboxDocumentId });
+          }
+          const purchase = await ctx.fiken.json<FikenPurchase>(`/companies/${slug}/purchases/${id}`);
+          return toolJson({
+            ...trimPurchase(purchase),
+            purchaseAttachments: (purchase.purchaseAttachments ?? []).map((a) => ({ uuid: a.uuid, filename: a.filename })),
+            attachedInboxDocumentId: inboxDocumentId,
+          });
+        } catch (err) {
+          return createdPurchaseFollowUpFailed(id, inboxDocumentId, err);
         }
-        const purchase = await ctx.fiken.json<FikenPurchase>(`/companies/${slug}/purchases/${id}`);
-        return toolJson({
-          ...trimPurchase(purchase),
-          purchaseAttachments: (purchase.purchaseAttachments ?? []).map((a) => ({ uuid: a.uuid, filename: a.filename })),
-          attachedInboxDocumentId: inboxDocumentId,
-        });
       });
     },
   );

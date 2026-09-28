@@ -159,6 +159,24 @@ describe("write tools", () => {
     ]);
   });
 
+  it("create_purchase names the created purchase when attaching the receipt fails, so the model doesn't book it twice", async () => {
+    const f = fakeFiken([
+      { match: /\/purchases$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77" } },
+      { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134$/, status: 500, body: "boom" },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_purchase", {
+      companySlug: "demo", date: "2026-09-01", kind: "cash_purchase", paymentAccount: "1920:10001", paymentDate: "2026-09-01",
+      lines: [{ description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }], inboxDocumentId: 1234134,
+    });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("Purchase 77 was created");
+    expect(r.text).toContain("attach_inbox_document");
+    expect(r.text).toContain("purchaseId 77");
+    expect(r.text).toContain("inboxDocumentId 1234134");
+    expect(f.calls.filter((x) => x.url.endsWith("/purchases"))).toHaveLength(1);
+  });
+
   it("create_purchase without an inbox document makes no attachment call and relays Fiken's validation error", async () => {
     const f = fakeFiken([{ match: /\/purchases$/, status: 400, body: { message: "paymentAccount is required for cash purchases" } }]);
     const c = await connected(f.fetchImpl);
