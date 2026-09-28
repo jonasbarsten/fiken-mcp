@@ -21,7 +21,13 @@ describe("ApiStack", () => {
       Runtime: "nodejs24.x",
       Architectures: ["arm64"],
       ReservedConcurrentExecutions: 1,
-      Environment: { Variables: { PUBLIC_URL: "https://api.fiken-mcp.byjoba.com", PARAM_PREFIX: "/fiken_mcp" } },
+      Environment: {
+        Variables: {
+          PUBLIC_URL: "https://api.fiken-mcp.byjoba.com",
+          PARAM_PREFIX: "/fiken_mcp",
+          USAGE_TABLE_NAME: { "Fn::ImportValue": "fiken-mcp-usage-table-name" },
+        },
+      },
     });
     t.hasResourceProperties("AWS::Logs::LogGroup", { LogGroupName: "/aws/lambda/fiken-mcp-api", RetentionInDays: 30 });
     t.hasResourceProperties("AWS::Logs::LogGroup", { LogGroupName: "/aws/apigateway/fiken-mcp-api", RetentionInDays: 30 });
@@ -42,11 +48,14 @@ describe("ApiStack", () => {
   it("grants read on exactly the four parameters", () => {
     const policies = synth().findResources("AWS::IAM::Policy");
     expect(Object.keys(policies)).toHaveLength(1);
-    const statements = Object.values(policies)[0]!.Properties.PolicyDocument.Statement as Array<{
+    const allStatements = Object.values(policies)[0]!.Properties.PolicyDocument.Statement as Array<{
       Action: string[];
       Effect: string;
-      Resource: { "Fn::Join": [string, unknown[]] };
+      Resource: unknown;
     }>;
+    const statements = allStatements.filter(
+      (s) => Array.isArray(s.Action) && s.Action[0] === "ssm:DescribeParameters",
+    ) as Array<{ Action: string[]; Effect: string; Resource: { "Fn::Join": [string, unknown[]] } }>;
     expect(statements).toHaveLength(4);
     for (const statement of statements) {
       expect(statement.Action).toEqual(["ssm:DescribeParameters", "ssm:GetParameters", "ssm:GetParameter", "ssm:GetParameterHistory"]);
@@ -63,6 +72,25 @@ describe("ApiStack", () => {
         ":ssm:eu-west-1:209479295726:parameter/fiken_mcp/user_salt",
       ].sort(),
     );
+  });
+
+  it("grants read/write on the usage table imported from the iac stack, on the same role's policy", () => {
+    const policies = synth().findResources("AWS::IAM::Policy");
+    expect(Object.keys(policies)).toHaveLength(1);
+    const statements = Object.values(policies)[0]!.Properties.PolicyDocument.Statement as Array<{
+      Action: string[];
+      Effect: string;
+      Resource: unknown;
+    }>;
+    const stmt = statements.find(
+      (s) =>
+        Array.isArray(s.Action) &&
+        ["dynamodb:UpdateItem", "dynamodb:PutItem", "dynamodb:Query", "dynamodb:GetItem"].every((a) => s.Action.includes(a)),
+    );
+    expect(stmt).toBeDefined();
+    expect(stmt!.Effect).toBe("Allow");
+    expect(stmt!.Resource).toMatchObject({ "Fn::Join": expect.anything() });
+    expect(JSON.stringify(stmt!.Resource)).toContain("fiken-mcp-usage-table-name");
   });
 
   it("throttles the stage and writes access logs without headers", () => {

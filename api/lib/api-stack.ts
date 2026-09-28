@@ -2,6 +2,7 @@ import { CfnOutput, Duration, Fn, RemovalPolicy, Stack, type StackProps } from "
 import { AccessLogFormat } from "aws-cdk-lib/aws-apigateway";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
@@ -37,6 +38,9 @@ export class ApiStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // Owned by the iac stack (anonymous usage counters only).
+    const table = dynamodb.TableV2.fromTableName(this, "UsageTable", Fn.importValue("fiken-mcp-usage-table-name"));
+
     const fn = new NodejsFunction(this, "Handler", {
       functionName: FUNCTION_NAME,
       entry: fileURLToPath(new URL("../src/lambda.ts", import.meta.url)),
@@ -50,7 +54,7 @@ export class ApiStack extends Stack {
       // concurrency quota above the default 10.
       reservedConcurrentExecutions: 1,
       logGroup,
-      environment: { PUBLIC_URL: `https://${DOMAIN}`, PARAM_PREFIX },
+      environment: { PUBLIC_URL: `https://${DOMAIN}`, PARAM_PREFIX, USAGE_TABLE_NAME: table.tableName },
       bundling: {
         format: OutputFormat.ESM,
         target: "node24",
@@ -71,6 +75,7 @@ export class ApiStack extends Stack {
     for (const name of PARAM_NAMES) {
       ssm.StringParameter.fromSecureStringParameterAttributes(this, `Param-${name}`, { parameterName: `${PARAM_PREFIX}/${name}` }).grantRead(fn);
     }
+    table.grantReadWriteData(fn);
 
     const domainName = apigwv2.DomainName.fromDomainNameAttributes(this, "Domain", {
       name: Fn.importValue(DOMAIN_EXPORTS.name),

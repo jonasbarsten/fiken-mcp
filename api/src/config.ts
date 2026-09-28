@@ -1,5 +1,10 @@
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { GetParametersCommand, SSMClient } from "@aws-sdk/client-ssm";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { keyRingFromParameter, type KeyRing } from "./crypto/blob.js";
+import { dynamoUsageStore } from "./usage/dynamo.js";
+import { memoryUsageStore } from "./usage/memory.js";
+import type { UsageStore } from "./usage/store.js";
 
 export interface Config {
   publicUrl: string;
@@ -10,6 +15,7 @@ export interface Config {
   fikenBaseUrl: string;
   fikenOAuthBaseUrl: string;
   fetch: typeof fetch;
+  usage: UsageStore;
 }
 
 export interface SsmLike {
@@ -40,6 +46,8 @@ export async function loadConfig(deps: { env?: NodeJS.ProcessEnv; ssm?: SsmLike;
   const env = deps.env ?? process.env;
   const publicUrl = env.PUBLIC_URL?.replace(/\/+$/, "");
   if (!publicUrl) throw new Error("PUBLIC_URL is required");
+  const usageTableName = env.USAGE_TABLE_NAME;
+  if (!usageTableName) throw new Error("USAGE_TABLE_NAME is required");
   const prefix = env.PARAM_PREFIX ?? "/fiken_mcp";
   const names = PARAM_NAMES.map((n) => `${prefix}/${n}`);
   const params = await (deps.ssm ?? ssmFromSdk()).getParameters(names);
@@ -57,6 +65,7 @@ export async function loadConfig(deps: { env?: NodeJS.ProcessEnv; ssm?: SsmLike;
     fikenBaseUrl: "https://api.fiken.no/api/v2",
     fikenOAuthBaseUrl: "https://fiken.no/oauth",
     fetch: deps.fetch ?? globalThis.fetch,
+    usage: dynamoUsageStore(DynamoDBDocumentClient.from(new DynamoDBClient({})), usageTableName),
   };
 }
 
@@ -70,6 +79,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     fikenBaseUrl: "https://api.fiken.test/api/v2",
     fikenOAuthBaseUrl: "https://fiken.test/oauth",
     fetch: async () => new Response("unexpected fetch", { status: 500 }),
+    usage: memoryUsageStore(),
     ...overrides,
   };
 }
