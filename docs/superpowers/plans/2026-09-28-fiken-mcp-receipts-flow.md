@@ -473,7 +473,7 @@ describe("write tools", () => {
 - `detect.ts`: `export type DetectedType = { mime: "application/pdf" | "image/png" | "image/jpeg" | "image/gif"; ext: "pdf" | "png" | "jpg" | "gif" }; export function detectType(bytes: Uint8Array): DetectedType | undefined` (`%PDF-`, `89 50 4E 47 0D 0A 1A 0A`, `FF D8 FF`, `GIF87a`/`GIF89a`); `export function safeFilename(name: string, ext: string): string` (basename, strip everything but `[A-Za-z0-9._-]`, collapse, max 80 chars, force the detected extension, fallback `receipt.<ext>`).
 - `routes.ts`: `uploadRoutes(cfg)`:
   - `cors` (from `hono/cors`) on `/upload` with `origin: (o) => /^https:\/\/[a-z0-9-]+\.claudemcpcontent\.com$/.test(o) ? o : ""` (the widget's origin per the spike), `allowMethods: ["POST", "OPTIONS"]`, `allowHeaders: ["content-type", "x-filename", "x-ticket"]`, `maxAge: 600`. Requests without an `Origin` (curl) pass.
-  - `POST /upload`: ticket from `x-ticket` header, else from `?ticket=` (the curl path); `readUploadTicket` failure → 401 JSON `{ error: "invalid_ticket" }` before reading the body. Read the body as bytes; empty → 400; over `4.5 * 1024 * 1024` → 413 `{ error: "too_large", limitBytes }`; `detectType` undefined → 415 `{ error: "unsupported_type" }`. Then `FormData` with `name` = safe filename, `filename`, `description: "Uploaded via Fiken MCP"`, `file` = `new Blob([bytes], { type: mime })` with the filename; `fiken.upload("/companies/{slug}/inbox", form)` with a `createFikenClient` built from the ticket's token; respond 201 `{ documentId, name, size, type }`. `FikenError` → 502 `{ error: "fiken", status }` with the body text truncated to 200 chars (never the token). Never log the filename or body; the request logger already logs only route and status.
+  - `POST /upload`: ticket from the `x-ticket` header only (a `?ticket=` fallback was specified here and dropped in the final review: a URL reaches access logs and shell history); `readUploadTicket` failure → 401 JSON `{ error: "invalid_ticket" }` before reading the body. Read the body as bytes; empty → 400; over `4 * 1024 * 1024` → 413 `{ error: "too_large", limitBytes }`; `detectType` undefined → 415 `{ error: "unsupported_type" }`. Then `FormData` with `name` = safe filename, `filename`, `description: "Uploaded via Fiken MCP"`, `file` = `new Blob([bytes], { type: mime })` with the filename; `fiken.upload("/companies/{slug}/inbox", form)` with a `createFikenClient` built from the ticket's token; respond 201 `{ documentId, name, size, type }`. `FikenError` → 502 `{ error: "fiken", status }` with the body text truncated to 200 chars (never the token). Never log the filename or body; the request logger already logs only route and status.
   - `GET /upload` → 405.
 
 - [ ] **Step 1: Failing tests**
@@ -590,7 +590,7 @@ describe("POST /upload", () => {
     const { app, calls, ticket } = setup();
     expect((await upload(app, new TextEncoder().encode("<html>"), { "x-ticket": ticket, "x-filename": "x.png", "content-type": "image/png" })).status).toBe(415);
     expect((await upload(app, null, { "x-ticket": ticket, "content-type": "image/png" })).status).toBe(400);
-    const big = new Uint8Array(4.5 * 1024 * 1024 + 1);
+    const big = new Uint8Array(4 * 1024 * 1024 + 1);
     big.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const res = await upload(app, big, { "x-ticket": ticket, "content-type": "image/png" });
     expect(res.status).toBe(413);
