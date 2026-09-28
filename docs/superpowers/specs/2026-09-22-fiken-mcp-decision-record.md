@@ -228,8 +228,19 @@ changed, and what it left open:
 - **Login state bound to a `__Host-` cookie.** The signed state alone
   let anyone who obtained a state blob complete `/callback` in their own
   browser (RFC 6749 section 10.12), which also bypassed our consent
-  page. `POST /authorize` now sets a nonce in a `__Host-fmcp_login`
-  cookie and in the state; `/callback` requires both to match.
+  page. `GET /authorize` (2026-09-28: moved from POST) sets a nonce in a
+  `__Host-fmcp_login` cookie and echoes it as a hidden field;
+  `POST /authorize` requires field and cookie to match, which is the
+  CSRF check a cross-site form post cannot pass (it carries neither the
+  field nor, under SameSite=Lax, the cookie); the nonce goes into the
+  state and `/callback` requires cookie and state to match.
+- **Continue page instead of a redirect after the consent post
+  (2026-09-28).** Chrome checks `form-action` against every hop of the
+  redirect chain after a form post, and Fiken's login redirects are not
+  ours to allowlist (two failed logins: `'self'`, then `'self'
+  https://fiken.no`). The post answers with a page that navigates via
+  `<meta http-equiv="refresh">`, which CSP does not govern; `form-action`
+  stays `'self'`.
 - **Certificate made by hand, static domain in iac (2026-09-27).** Two
   first deploys failed on `acm:RequestCertificate`: a request-tag gate
   cannot pass (CloudFormation requests first, tags afterwards) and a

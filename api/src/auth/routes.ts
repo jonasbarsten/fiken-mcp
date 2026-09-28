@@ -27,9 +27,11 @@ const CODE_WINDOW_SECONDS = 5 * 60;
 const now = () => Math.floor(Date.now() / 1000);
 
 /**
- * Binds the login to the browser that pressed "Fortsett": a state blob
- * pasted into another browser's /callback is refused (RFC 6749 section
- * 10.12, and it would let an attacker skip our consent page).
+ * Binds the login to the browser that saw the consent page: the nonce is
+ * set as a cookie on GET /authorize, must be echoed by the form on POST
+ * (CSRF), and must match the state at /callback, so a state blob pasted
+ * into another browser is refused (RFC 6749 section 10.12, and it would
+ * let an attacker skip our consent page).
  */
 const LOGIN_COOKIE = "__Host-fmcp_login";
 const LOGIN_COOKIE_ATTRS = { path: "/", secure: true, httpOnly: true, sameSite: "Lax" } as const;
@@ -125,6 +127,12 @@ export function authRoutes(cfg: Config): Hono {
     const q = c.req.query();
     const v = validateAuthorize(cfg, q);
     if ("error" in v) return c.text(v.error, 400);
+    // The nonce is issued here, kept in the login cookie and echoed by the
+    // form. POST requires both to match, so a cross-site form post (which
+    // carries neither our page's field nor, with SameSite=Lax, the cookie)
+    // cannot start a login. The same nonce then binds /callback.
+    const nonce = randomBytes(16).toString("base64url");
+    setCookie(c, LOGIN_COOKIE, nonce, { ...LOGIN_COOKIE_ATTRS, maxAge: LOGIN_WINDOW_SECONDS });
     const fields: Record<string, string> = {
       response_type: "code",
       client_id: q.client_id ?? "",
@@ -132,6 +140,7 @@ export function authRoutes(cfg: Config): Hono {
       code_challenge: v.ok.codeChallenge,
       code_challenge_method: "S256",
       state: v.ok.clientState,
+      nonce,
     };
     const cancel = new URL(v.ok.redirectUri);
     cancel.searchParams.set("error", "access_denied");
@@ -151,9 +160,11 @@ export function authRoutes(cfg: Config): Hono {
     const q = Object.fromEntries(new URLSearchParams(await c.req.text())) as Record<string, string>;
     const v = validateAuthorize(cfg, q);
     if ("error" in v) return c.text(v.error, 400);
-    const nonce = randomBytes(16).toString("base64url");
+    const nonce = q.nonce ?? "";
+    if (nonce === "" || !nonceMatches(getCookie(c, LOGIN_COOKIE), nonce)) {
+      return c.text("This consent form did not come from this browser or has expired. Go back to the app and connect again.", 400);
+    }
     const state: StateWire = { k: "s", ru: v.ok.redirectUri, cc: v.ok.codeChallenge, cs: v.ok.clientState, n: nonce, exp: now() + LOGIN_WINDOW_SECONDS };
-    setCookie(c, LOGIN_COOKIE, nonce, { ...LOGIN_COOKIE_ATTRS, maxAge: LOGIN_WINDOW_SECONDS });
     const fikenUrl = fikenAuthorizeUrl(cfg, signBlob(state, cfg.keys));
     return c.html(continuePage(fikenUrl), 200, { "Content-Security-Policy": CONSENT_CSP, "Cache-Control": "no-store" });
   });
