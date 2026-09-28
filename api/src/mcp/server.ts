@@ -1,6 +1,8 @@
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import type { Config } from "../config.js";
 import { FikenError, type FikenClient } from "../fiken/client.js";
+import { log } from "../log.js";
+import type { UsageStore } from "../usage/store.js";
 import { registerAccounts } from "./tools/accounts.js";
 import { registerCompanies } from "./tools/companies.js";
 import { registerContacts } from "./tools/contacts.js";
@@ -8,6 +10,7 @@ import { registerInbox } from "./tools/inbox.js";
 import { registerProjects } from "./tools/projects.js";
 import { registerPurchases } from "./tools/purchases.js";
 import { registerUploadTools } from "./tools/upload.js";
+import { registerUsage } from "./tools/usage.js";
 
 export interface ToolContext {
   fiken: FikenClient;
@@ -16,6 +19,7 @@ export interface ToolContext {
   fikenAccessToken: string;
   /** When the caller's access token expires; an upload ticket never outlives it. */
   exp: number;
+  usage: UsageStore;
 }
 
 export function toolJson(value: unknown): CallToolResult {
@@ -34,6 +38,33 @@ export function toolError(err: unknown): CallToolResult {
   return { content: [{ type: "text", text: errorText(err) }], isError: true };
 }
 
+/**
+ * Wraps a tool handler so every call is counted after it runs: a thrown error
+ * becomes `toolError(err)`, then the outcome is recorded against the caller's
+ * anonymous id. A usage-store failure is logged and never changes the result
+ * or fails the tool.
+ */
+export function counted<A>(
+  ctx: ToolContext,
+  name: string,
+  handler: (args: A, extra: unknown) => Promise<CallToolResult>,
+): (args: A, extra: unknown) => Promise<CallToolResult> {
+  return async (args, extra) => {
+    let result: CallToolResult;
+    try {
+      result = await handler(args, extra);
+    } catch (err) {
+      result = toolError(err);
+    }
+    try {
+      await ctx.usage.recordCall(ctx.anonId, name, result.isError !== true);
+    } catch {
+      log("usage_failed", { tool: name });
+    }
+    return result;
+  };
+}
+
 export function registerAllTools(server: McpServer, ctx: ToolContext): void {
   registerCompanies(server, ctx);
   registerProjects(server, ctx);
@@ -41,6 +72,7 @@ export function registerAllTools(server: McpServer, ctx: ToolContext): void {
   registerContacts(server, ctx);
   registerPurchases(server, ctx);
   registerInbox(server, ctx);
+  registerUsage(server, ctx);
 }
 
 /**

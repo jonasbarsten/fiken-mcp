@@ -5,6 +5,7 @@ import type { Config } from "../config.js";
 import { BlobError, signBlob, verifyBlob } from "../crypto/blob.js";
 import { verifyPkce } from "../crypto/pkce.js";
 import { FikenOAuthError, exchangeFikenCode, fetchFikenUser, fikenAuthorizeUrl } from "../fiken/oauth.js";
+import { log } from "../log.js";
 import { anonymousId } from "./anon.js";
 import { clientLabel, isAllowedRedirectUri } from "./clients.js";
 import { consentPage, continuePage } from "./consent.js";
@@ -229,7 +230,13 @@ export function authRoutes(cfg: Config): Hono {
         }
         const fiken = await exchangeFikenCode(cfg, code.fc, code.fs);
         const user = await fetchFikenUser(cfg, fiken.access_token);
-        return c.json(issueTokens(cfg, fiken, anonymousId(user.email, cfg.userSalt)), 200, noStore);
+        const anonId = anonymousId(user.email, cfg.userSalt);
+        try {
+          await cfg.usage.recordFirstLogin(anonId);
+        } catch {
+          log("usage_failed", { tool: "login" });
+        }
+        return c.json(issueTokens(cfg, fiken, anonId), 200, noStore);
       }
 
       if (fields.grant_type === "refresh_token") {

@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { toolJson, type ToolContext } from "../server.js";
+import { counted, toolJson, type ToolContext } from "../server.js";
 import { companySlug, CONFIRM, paged, paging, withCompany } from "./common.js";
 
 interface FikenContact {
@@ -47,7 +47,7 @@ export function registerContacts(server: McpServer, ctx: ToolContext): void {
       }),
       annotations: { readOnlyHint: true },
     },
-    async ({ companySlug: slug, page, pageSize, name, organizationNumber, email, supplier, customer }) => {
+    counted(ctx, "search_contacts", async ({ companySlug: slug, page, pageSize, name, organizationNumber, email, supplier, customer }) => {
       return withCompany(ctx, slug, async () => {
         const { items, total } = await ctx.fiken.list<FikenContact>(`/companies/${slug}/contacts`, {
           page,
@@ -75,7 +75,7 @@ export function registerContacts(server: McpServer, ctx: ToolContext): void {
           pageSize,
         );
       });
-    },
+    }),
   );
 
   server.registerTool(
@@ -86,7 +86,7 @@ export function registerContacts(server: McpServer, ctx: ToolContext): void {
       inputSchema: z.object({ companySlug, contactId: z.number().int().describe("Contact id, from search_contacts") }),
       annotations: { readOnlyHint: true },
     },
-    async ({ companySlug: slug, contactId }) => {
+    counted(ctx, "get_contact", async ({ companySlug: slug, contactId }) => {
       return withCompany(ctx, slug, async () => {
         const contact = await ctx.fiken.json<FikenContactDetail>(`/companies/${slug}/contacts/${contactId}`);
         return toolJson({
@@ -113,7 +113,7 @@ export function registerContacts(server: McpServer, ctx: ToolContext): void {
           currency: contact.currency,
         });
       });
-    },
+    }),
   );
 
   server.registerTool(
@@ -132,7 +132,7 @@ export function registerContacts(server: McpServer, ctx: ToolContext): void {
       }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async ({ companySlug: slug, name, organizationNumber, email, phoneNumber, supplier, customer }) => {
+    counted(ctx, "create_contact", async ({ companySlug: slug, name, organizationNumber, email, phoneNumber, supplier, customer }) => {
       return withCompany(ctx, slug, async () => {
         const body: Record<string, unknown> = { name };
         if (organizationNumber !== undefined) body.organizationNumber = organizationNumber;
@@ -143,6 +143,6 @@ export function registerContacts(server: McpServer, ctx: ToolContext): void {
         const { id } = await ctx.fiken.create(`/companies/${slug}/contacts`, body);
         return toolJson({ contactId: id });
       });
-    },
+    }),
   );
 }

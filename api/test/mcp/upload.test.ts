@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { testConfig } from "../../src/config.js";
 import { FikenQueue, createFikenClient } from "../../src/fiken/client.js";
 import { createMcpServer } from "../../src/mcp/server.js";
+import { memoryUsageStore } from "../../src/usage/memory.js";
 import { UPLOAD_TICKET_SECONDS, readUploadTicket } from "../../src/upload/ticket.js";
 import { farFutureExp } from "./helpers.js";
 
@@ -14,7 +15,7 @@ async function connectedWithUrl(exp = farFutureExp()) {
     fetch: async () => new Response("x", { status: 500 }),
     queue: new FikenQueue(0),
   });
-  const server = createMcpServer({ fiken, anonId: "anon", fikenAccessToken: "tok", exp }, "https://fiken-mcp.test", testConfig());
+  const server = createMcpServer({ fiken, anonId: "anon", fikenAccessToken: "tok", exp, usage: memoryUsageStore() }, "https://fiken-mcp.test", testConfig());
   const [ct, st] = InMemoryTransport.createLinkedPair();
   await server.connect(st);
   const client = new Client({ name: "t", version: "0" });
@@ -75,7 +76,7 @@ describe("upload tools", () => {
       fetch: async () => new Response("x", { status: 500 }),
       queue: new FikenQueue(0),
     });
-    const server = createMcpServer({ fiken, anonId: "anon", fikenAccessToken: "tok", exp: farFutureExp() });
+    const server = createMcpServer({ fiken, anonId: "anon", fikenAccessToken: "tok", exp: farFutureExp(), usage: memoryUsageStore() });
     const [ct, st] = InMemoryTransport.createLinkedPair();
     await server.connect(st);
     const client = new Client({ name: "t", version: "0" });

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { WIDGET_HTML } from "../../assets.js";
 import type { Config } from "../../config.js";
 import { issueUploadTicket, uploadTicketSeconds } from "../../upload/ticket.js";
-import type { ToolContext } from "../server.js";
+import { counted, type ToolContext } from "../server.js";
 import { companySlug } from "./common.js";
 
 /**
@@ -35,7 +35,7 @@ export function registerUploadTools(server: McpServer, ctx: ToolContext, publicU
       annotations: { readOnlyHint: false, destructiveHint: false },
       _meta: { ui: { resourceUri: UPLOAD_RESOURCE_URI } },
     },
-    async ({ companySlug: slug }) => ({
+    counted(ctx, "upload_receipts", async ({ companySlug: slug }) => ({
       content: [
         {
           type: "text",
@@ -50,7 +50,7 @@ export function registerUploadTools(server: McpServer, ctx: ToolContext, publicU
         companySlug: slug,
         expiresInSeconds: uploadTicketSeconds(claims),
       },
-    }),
+    })),
   );
 
   registerAppResource(
@@ -80,7 +80,7 @@ export function registerUploadTools(server: McpServer, ctx: ToolContext, publicU
       inputSchema: z.object({ companySlug }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async ({ companySlug: slug }) => {
+    counted(ctx, "get_upload_url", async ({ companySlug: slug }) => {
       const ticket = issueUploadTicket(cfg, claims, slug);
       const seconds = uploadTicketSeconds(claims);
       const minutes = seconds < 60 ? "less than 1" : String(Math.floor(seconds / 60));
@@ -96,6 +96,6 @@ export function registerUploadTools(server: McpServer, ctx: ToolContext, publicU
           },
         ],
       };
-    },
+    }),
   );
 }

@@ -1,6 +1,6 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { toolError, toolJson, type ToolContext } from "../server.js";
+import { counted, toolError, toolJson, type ToolContext } from "../server.js";
 import { companySlug, CONFIRM, ORE, paged, paging, withCompany } from "./common.js";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -73,12 +73,12 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
       }),
       annotations: { readOnlyHint: true },
     },
-    async ({ companySlug: slug, page, pageSize, dateGe, dateLe, paid }) => {
+    counted(ctx, "list_purchases", async ({ companySlug: slug, page, pageSize, dateGe, dateLe, paid }) => {
       return withCompany(ctx, slug, async () => {
         const { items, total } = await ctx.fiken.list<FikenPurchase>(`/companies/${slug}/purchases`, { page, pageSize, dateGe, dateLe, paid });
         return paged(items.map(trimPurchase), total, page, pageSize);
       });
-    },
+    }),
   );
 
   server.registerTool(
@@ -89,7 +89,7 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
       inputSchema: z.object({ companySlug, purchaseId: z.number().int().describe("Purchase id, from list_purchases") }),
       annotations: { readOnlyHint: true },
     },
-    async ({ companySlug: slug, purchaseId }) => {
+    counted(ctx, "get_purchase", async ({ companySlug: slug, purchaseId }) => {
       return withCompany(ctx, slug, async () => {
         const purchase = await ctx.fiken.json<FikenPurchase>(`/companies/${slug}/purchases/${purchaseId}`);
         return toolJson({
@@ -97,7 +97,7 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
           purchaseAttachments: (purchase.purchaseAttachments ?? []).map((a) => ({ uuid: a.uuid, filename: a.filename })),
         });
       });
-    },
+    }),
   );
 
   server.registerTool(
@@ -137,7 +137,7 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
       }),
       annotations: { destructiveHint: true, readOnlyHint: false },
     },
-    async ({
+    counted(ctx, "create_purchase", async ({
       companySlug: slug,
       date,
       kind,
@@ -185,7 +185,7 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
           return createdPurchaseFollowUpFailed(id, pendingInboxDocumentId, err);
         }
       });
-    },
+    }),
   );
 
   server.registerTool(
@@ -202,7 +202,7 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
       }),
       annotations: { destructiveHint: true, readOnlyHint: false },
     },
-    async ({ companySlug: slug, purchaseId, inboxDocumentId, attachToSale, attachToPayment }) => {
+    counted(ctx, "attach_inbox_document", async ({ companySlug: slug, purchaseId, inboxDocumentId, attachToSale, attachToPayment }) => {
       // Fiken refuses an attachment that documents neither; say so before calling.
       if (!attachToSale && !attachToPayment) {
         return { content: [{ type: "text", text: "At least one of attachToSale and attachToPayment must be true." }], isError: true };
@@ -211,6 +211,6 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
         await ctx.fiken.upload(`/companies/${slug}/purchases/${purchaseId}/attachments`, new FormData(), { inboxDocumentId, attachToSale, attachToPayment });
         return toolJson({ purchaseId, inboxDocumentId });
       });
-    },
+    }),
   );
 }

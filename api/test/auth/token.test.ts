@@ -65,6 +65,15 @@ describe("POST /token authorization_code", () => {
     expect(tokenCall?.body?.get("code")).toBe("FIKENCODE");
     expect(tokenCall?.body?.get("state")).toBe("fstate");
     expect(fiken.calls.some((c) => c.url.endsWith("/user"))).toBe(true);
+    expect((await cfg.usage.globalStats()).totalUsers).toBe(1);
+
+    const codeBlob2 = signBlob(
+      { k: "d", fc: "FIKENCODE", fs: "fstate", cc: pkceChallenge("verifier-123"), ru: CLAUDE_CB, exp: Math.floor(Date.now() / 1000) + 300 },
+      cfg.keys,
+    );
+    const res2 = await app.request("/token", form({ grant_type: "authorization_code", code: codeBlob2, code_verifier: "verifier-123", redirect_uri: CLAUDE_CB, client_id: clientId }));
+    expect(res2.status).toBe(200);
+    expect((await cfg.usage.globalStats()).totalUsers).toBe(1);
   });
 
   it("rejects a wrong verifier, wrong redirect uri, wrong client, garbage code", async () => {
