@@ -278,7 +278,9 @@ accounting data.
 | `GLOBAL` | `MONTH#YYYY-MM` | calls, errors, per-tool counters, activeUsers |
 | `GLOBAL` | `ALL` | totalUsers |
 
-Two atomic `ADD` updates per tool call, in parallel with the Fiken call.
+Two atomic `ADD` updates per tool call, run after the tool's handler
+returns and awaited, so `errors` is exact; a store failure is logged as
+`usage_failed` and never fails the tool.
 `activeUsers` increments when the user-month update reports no previous
 value. `totalUsers` increments when the `PROFILE` conditional put
 succeeds at first login. Totals are sums over month rows. No streams.
@@ -470,7 +472,10 @@ too if you suspect a device or account was compromised.
 
 ## 12. Error handling
 
-- Fiken 401: return 401 with `WWW-Authenticate` so the client refreshes.
+- Fiken 401: return 401 with `WWW-Authenticate` so the client refreshes,
+  set only when nothing was written in that call; after a successful
+  create, a failing follow-up stays a tool error so the client's re-send
+  cannot repeat the write.
 - Fiken 429: retry once after 1 s, then surface as tool error.
 - Fiken 4xx validation: pass Fiken's message through as `isError`.
 - Unknown company slug: error text lists the user's slugs.
@@ -499,27 +504,26 @@ widget, the upload ticket and `/upload`, `get_upload_url`, and the tools
 `get_purchase`, `create_purchase`, `attach_inbox_document`, `list_inbox`.
 `attach_inbox_document` covers purchases only so far.
 
+Done by the usage-and-cimd plan (2026-09-28,
+`docs/superpowers/plans/2026-09-28-fiken-mcp-usage-and-cimd.md`): the
+usage counters, `my_usage`, `GET /stats`, the Fiken 401 → HTTP 401
+mapping, and Client ID Metadata Documents (Claude's "published
+identity").
+
 Still to build from section 8: invoices (`list_invoices`, `get_invoice`,
 `create_invoice_draft`, `create_invoice_from_draft`, `create_invoice`,
 `send_invoice`), `list_sales`, `list_products`, `account_balances`,
 `bank_balances`, `get_journal_entries`, `get_inbox_document`,
 `get_attachments`, `create_credit_note`, `register_payment`,
-attachments to sales, invoices and journal entries; from section 6 the
-usage counters, `my_usage` and `GET /stats`. `get_upload_url` only ever
-reaches the inbox: uploading straight to a sale, an invoice or a journal
-entry still has to be built.
+attachments to sales, invoices and journal entries. `get_upload_url`
+only ever reaches the inbox: uploading straight to a sale, an invoice or
+a journal entry still has to be built.
 
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.
-- **Plan 2: Client ID Metadata Documents (CIMD).** Claude offers "Use
-  Claude's published identity": the client id is an `https://` URL on
-  an Anthropic host and the server fetches a metadata document from it
-  instead of taking redirect URIs at registration. Accept such client
-  ids only when the URL's host is on the redirect allowlist, fetch the
-  document once per cold start and cache it, and require the redirect
-  URI to be in both the document and our allowlist. The allowlist stays
-  the control; DCR keeps working. Claude Desktop 2026-09 detects DCR
-  and works without this, so it is not blocking.
+- **CIMD (done 2026-09-28).** Allowed hosts: claude.ai, anthropic.com
+  and subdomains, chatgpt.com, openai.com and subdomains; the redirect
+  allowlist stays the control.
 - **Connector icon (done 2026-09-27).** Clients show a letter placeholder
   until the server declares `icons` on its `serverInfo` (MCP
   `Implementation` supports `icons: [{ src, mimeType, sizes }]`). The api

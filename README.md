@@ -50,20 +50,25 @@ We hold Fiken app credentials and a signing key. We never store your
 Fiken tokens, your files or your accounting data; files pass through our
 server's memory on the way to Fiken and are not written or logged. We
 keep anonymous usage counters keyed by a salted hash of your email that
-we cannot reverse: every tool call, and whether it succeeded, against
-that pseudonym. Ask the `my_usage` tool for your own counters, or see
-the same numbers aggregated across every user at
+we cannot reverse: pseudonymous monthly call counts per tool, and
+whether each call succeeded, against that pseudonym. Ask the `my_usage`
+tool for your own counters, or see the same counts aggregated across
+every user, with no per-user detail, at
 `https://api.fiken-mcp.byjoba.com/stats`. Revoke access at any time in
 Fiken under Rediger konto, API.
 
 ## Adding the connector
 
+If Fiken rejects a login during a tool call (for example because you
+revoked access), the server answers with an HTTP 401 so the client asks
+you to log in again automatically.
+
 Claude (web, Desktop, iOS): Settings, Connectors, Add custom connector,
 URL `https://api.fiken-mcp.byjoba.com/mcp`, sign-in required. Log in with
 Fiken when asked. Claude's "Use Claude's published identity" option works
-too: we accept a client id metadata document from Claude and ChatGPT in
-place of dynamic registration, and check the redirect URI against the
-same allowlist either way.
+too: we accept a client id metadata document from Claude (Anthropic
+hosts) and ChatGPT (OpenAI hosts) in place of dynamic registration, and
+check the redirect URI against the same allowlist either way.
 
 Claude Code:
 

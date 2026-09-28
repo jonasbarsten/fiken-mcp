@@ -130,3 +130,13 @@ Merge the first PR to `main`, approve the `production` deployment when
 GitHub asks, and watch the `deploy` workflow. The certificate lives in
 the iac stack, so its DNS validation (a few minutes) happens during the
 hand-run `cdk deploy fiken-mcp-iac`, not in the workflow.
+
+## Verify after deploying the usage-and-cimd plan
+
+- `curl https://api.fiken-mcp.byjoba.com/stats` shows `totalUsers` and
+  this month's counters after a few tool calls.
+- `my_usage` in Claude matches what `/stats` reports for your own calls.
+- In Claude's connector settings, "Use Claude's published identity" logs
+  in and the consent page names Claude.
+- Revoking "Fiken MCP" in Fiken and then calling a tool makes Claude
+  re-authenticate instead of showing an error.

@@ -38,6 +38,8 @@ Foundation plan executed 2026-09-22 (see
 `docs/superpowers/plans/2026-09-22-fiken-mcp-foundation.md`); first
 deploy live 2026-09-27 at `api.fiken-mcp.byjoba.com`. Receipts-flow plan
 executed 2026-09-28 (widget, upload, booking tools; see
-`docs/superpowers/plans/2026-09-28-fiken-mcp-receipts-flow.md`). Next:
-the remaining tools, usage counters and CIMD, as listed in spec
-section 14.
+`docs/superpowers/plans/2026-09-28-fiken-mcp-receipts-flow.md`).
+Usage-and-CIMD plan executed 2026-09-28 (counters, `my_usage`, `/stats`,
+401 refresh, CIMD; see
+`docs/superpowers/plans/2026-09-28-fiken-mcp-usage-and-cimd.md`). Next:
+the remaining Fiken tools listed in spec section 14.
