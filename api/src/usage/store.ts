@@ -15,4 +15,5 @@ export interface UsageStore {
   globalStats(): Promise<{ totalUsers: number; months: MonthRow[] }>; // newest first, at most 24
 }
 
-export const monthKey = (d: Date) => `MONTH#${d.toISOString().slice(0, 7)}`;
+export const yearMonth = (d: Date) => d.toISOString().slice(0, 7);
+export const monthKey = (d: Date) => `MONTH#${yearMonth(d)}`;

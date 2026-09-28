@@ -36,4 +36,15 @@ describe("memoryUsageStore", () => {
     expect(await s.userMonths("nobody")).toEqual([]);
     expect(await s.globalStats()).toEqual({ totalUsers: 0, months: [] });
   });
+
+  it("caps userMonths at 24, newest first", async () => {
+    const s = memoryUsageStore();
+    for (let i = 0; i < 25; i++) {
+      await s.recordCall("a", "list_companies", true, new Date(Date.UTC(2026, i, 15)));
+    }
+    const months = await s.userMonths("a");
+    expect(months).toHaveLength(24);
+    expect(months[0]!.month).toBe("2028-01");
+    expect(months[23]!.month).toBe("2026-02");
+  });
 });

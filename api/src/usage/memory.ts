@@ -1,4 +1,4 @@
-import { monthKey, type MonthRow, type UsageStore } from "./store.js";
+import { monthKey, yearMonth, type MonthRow, type UsageStore } from "./store.js";
 
 type Row = Record<string, unknown> & { PK: string; SK: string };
 
@@ -42,7 +42,7 @@ export function memoryUsageStore(): UsageStore & { dump(): Map<string, Record<st
     async recordFirstLogin(anonId, now = new Date()) {
       const key = `USER#${anonId}|PROFILE`;
       if (rows.has(key)) return;
-      const firstSeen = now.toISOString().slice(0, 7);
+      const firstSeen = yearMonth(now);
       rows.set(key, { PK: `USER#${anonId}`, SK: "PROFILE", firstSeen });
       const globalKey = "GLOBAL|ALL";
       const g = rows.get(globalKey) ?? { PK: "GLOBAL", SK: "ALL" };
@@ -56,7 +56,7 @@ export function memoryUsageStore(): UsageStore & { dump(): Map<string, Record<st
         if (key.startsWith(prefix)) result.push(toMonthRow(row, false));
       }
       result.sort((a, b) => (a.month < b.month ? 1 : a.month > b.month ? -1 : 0));
-      return result;
+      return result.slice(0, 24);
     },
     async globalStats() {
       const totalUsers = (rows.get("GLOBAL|ALL")?.totalUsers as number) ?? 0;

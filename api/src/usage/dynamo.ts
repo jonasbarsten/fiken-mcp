@@ -1,5 +1,5 @@
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { monthKey, type MonthRow, type UsageStore } from "./store.js";
+import { monthKey, yearMonth, type MonthRow, type UsageStore } from "./store.js";
 
 export interface DynamoLike {
   send(command: unknown): Promise<unknown>;
@@ -56,7 +56,7 @@ export function dynamoUsageStore(client: DynamoLike, table: string): UsageStore 
     },
 
     async recordFirstLogin(anonId, now = new Date()) {
-      const firstSeen = now.toISOString().slice(0, 7);
+      const firstSeen = yearMonth(now);
       try {
         await client.send(
           new PutCommand({
