@@ -176,6 +176,18 @@ describe("POST /token authorization_code with a client id metadata document", ()
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("invalid_grant");
   });
+
+  it("re-checks our allowlist, so a document listing a redirect uri we do not allow cannot redeem a code", async () => {
+    const evil = "https://evil.example/cb";
+    const { app, cfg } = cimdSetup([evil]);
+    const evilCode = signBlob(
+      { k: "d", fc: "FIKENCODE", fs: "fstate", cc: pkceChallenge("verifier-123"), ru: evil, exp: Math.floor(Date.now() / 1000) + 300 },
+      cfg.keys,
+    );
+    const res = await app.request("/token", form({ grant_type: "authorization_code", code: evilCode, code_verifier: "verifier-123", redirect_uri: evil, client_id: DOC_URL }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid_grant");
+  });
 });
 
 describe("POST /token refresh_token", () => {

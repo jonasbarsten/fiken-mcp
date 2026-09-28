@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
-import { readClientId } from "../../src/auth/routes.js";
+import { readClientId } from "../../src/auth/clients.js";
 import { testConfig } from "../../src/config.js";
 
 const cfg = testConfig();

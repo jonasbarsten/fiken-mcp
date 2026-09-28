@@ -8,17 +8,9 @@ import { FikenOAuthError, exchangeFikenCode, fetchFikenUser, fikenAuthorizeUrl }
 import { log } from "../log.js";
 import { anonymousId } from "./anon.js";
 import { resolveClient } from "./cimd.js";
-import { clientLabel, isAllowedRedirectUri } from "./clients.js";
+import { type ClientWire, clientLabel, isAllowedRedirectUri } from "./clients.js";
 import { consentPage, continuePage } from "./consent.js";
 import { issueTokens, renewTokens } from "./tokens.js";
-
-interface ClientWire { k: "c"; ru: string[]; n: string }
-
-export function readClientId(cfg: Config, clientId: string): { redirectUris: string[]; name: string } {
-  const wire = verifyBlob<Partial<ClientWire>>(clientId, cfg.keys);
-  if (wire.k !== "c" || !Array.isArray(wire.ru)) throw new BlobError("invalid");
-  return { redirectUris: wire.ru, name: typeof wire.n === "string" ? wire.n : "" };
-}
 
 /** Login state; `n` is a nonce that must match the browser's login cookie at /callback. */
 interface StateWire { k: "s"; ru: string; cc: string; cs: string; n: string; exp: number }

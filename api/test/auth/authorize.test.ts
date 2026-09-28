@@ -242,35 +242,45 @@ describe("GET /callback", () => {
 
 describe("a client id metadata document as client_id", () => {
   const DOC_URL = "https://claude.ai/.well-known/mcp-client.json";
-  const doc = { client_id: DOC_URL, client_name: "Claude", redirect_uris: [CLAUDE_CB] };
+
   /** Serves the published identity document; anything else behaves like the default test config. */
-  const cimdCfg = testConfig({
-    fetch: async (input) => (String(input) === DOC_URL ? Response.json(doc) : new Response("unexpected fetch", { status: 500 })),
-  });
-  const cimdApp = createApp(cimdCfg);
+  function serving(redirectUris: string[]) {
+    const doc = { client_id: DOC_URL, client_name: "Claude", redirect_uris: redirectUris };
+    const cfg = testConfig({
+      fetch: async (input) => (String(input) === DOC_URL ? Response.json(doc) : new Response("unexpected fetch", { status: 500 })),
+    });
+    return { cfg, app: createApp(cfg) };
+  }
+  const claude = serving([CLAUDE_CB]);
 
   beforeEach(() => clearCimdCache());
 
   it("renders the consent page for a published identity", async () => {
-    const res = await get(params(DOC_URL), cimdApp);
+    const res = await get(params(DOC_URL), claude.app);
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("Claude (claude.ai)");
   });
 
   it("refuses a redirect uri the document does not list", async () => {
-    const res = await get(params(DOC_URL, { redirect_uri: "https://chatgpt.com/connector_platform_oauth_redirect" }), cimdApp);
+    const res = await get(params(DOC_URL, { redirect_uri: "https://chatgpt.com/connector_platform_oauth_redirect" }), claude.app);
+    expect(res.status).toBe(400);
+  });
+
+  it("re-checks our allowlist, so a document listing a redirect uri we do not allow is refused", async () => {
+    const evil = "https://evil.example/cb";
+    const res = await get(params(DOC_URL, { redirect_uri: evil }), serving([evil]).app);
     expect(res.status).toBe(400);
   });
 
   it("carries the published identity through consent, form post and callback", async () => {
-    const { seen, res } = await pressContinue(params(DOC_URL), cimdApp);
+    const { seen, res } = await pressContinue(params(DOC_URL), claude.app);
     expect(res.status).toBe(200);
     const fs = new URL(fikenUrlFrom(await res.text())).searchParams.get("state")!;
-    const cb = await cimdApp.request(`/callback?code=FIKENCODE&state=${encodeURIComponent(fs)}`, { headers: { cookie: seen.cookie } });
+    const cb = await claude.app.request(`/callback?code=FIKENCODE&state=${encodeURIComponent(fs)}`, { headers: { cookie: seen.cookie } });
     expect(cb.status).toBe(302);
     const loc = new URL(cb.headers.get("location")!);
     expect(loc.origin + loc.pathname).toBe(CLAUDE_CB);
-    expect(verifyBlob<Record<string, unknown>>(loc.searchParams.get("code")!, cimdCfg.keys)).toMatchObject({ k: "d", fc: "FIKENCODE", ru: CLAUDE_CB });
+    expect(verifyBlob<Record<string, unknown>>(loc.searchParams.get("code")!, claude.cfg.keys)).toMatchObject({ k: "d", fc: "FIKENCODE", ru: CLAUDE_CB });
   });
 });

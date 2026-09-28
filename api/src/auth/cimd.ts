@@ -1,6 +1,5 @@
 import type { Config } from "../config.js";
-import { isAllowedCimdHost } from "./clients.js";
-import { readClientId } from "./routes.js";
+import { isAllowedCimdHost, readClientId } from "./clients.js";
 
 /**
  * Client ID Metadata Documents: instead of registering at /register, a
