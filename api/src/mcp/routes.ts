@@ -28,6 +28,8 @@ export function mcpRoutes(cfg: Config): Hono {
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     await server.connect(transport);
     const parsedBody = await c.req.json().catch(() => undefined);
+    // Batches are gone from the current MCP spec, and a batch could mix a write with a call that trips the 401 flag.
+    if (Array.isArray(parsedBody)) return c.text("Bad Request", 400);
     const res = await transport.handleRequest(c.req.raw, { parsedBody });
     if (session.fikenUnauthorized) return c.json({ error: "invalid_token" }, 401, { "WWW-Authenticate": challenge });
     return res;

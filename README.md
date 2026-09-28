@@ -61,7 +61,8 @@ Fiken under Rediger konto, API.
 
 If Fiken rejects a login during a tool call (for example because you
 revoked access), the server answers with an HTTP 401 so the client asks
-you to log in again automatically.
+you to log in again automatically; legacy JSON-RPC batch request bodies
+are refused with a 400 instead of being processed.
 
 Claude (web, Desktop, iOS): Settings, Connectors, Add custom connector,
 URL `https://api.fiken-mcp.byjoba.com/mcp`, sign-in required. Log in with

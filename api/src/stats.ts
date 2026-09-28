@@ -10,7 +10,7 @@ export function statsRoutes(cfg: Config): Hono {
       const stats = await cfg.usage.globalStats();
       return c.json(stats, 200, { "Cache-Control": "public, max-age=300" });
     } catch {
-      log("usage_failed", { tool: "stats" });
+      log("stats_failed");
       return c.json({ error: "unavailable" }, 503);
     }
   });

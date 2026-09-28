@@ -27,7 +27,8 @@ export async function withCompany(ctx: ToolContext, slug: string, fn: () => Prom
         const base = toolError(err);
         const text = `${(base.content[0] as { text: string }).text}\nCompany "${slug}" was not found. Known company slugs: ${companies.map((c) => c.slug).join(", ")}`;
         return { content: [{ type: "text", text }], isError: true };
-      } catch {
+      } catch (innerErr) {
+        noteFikenError(ctx, innerErr);
         return toolError(err);
       }
     }

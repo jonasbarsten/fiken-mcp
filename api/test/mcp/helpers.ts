@@ -26,7 +26,7 @@ export function fakeFiken(routes: Route[]) {
 /** A session that expires in an hour, so an upload ticket gets its full 15 minutes. */
 export const farFutureExp = () => Math.floor(Date.now() / 1000) + 3600;
 
-export async function connected(fetchImpl: typeof fetch, opts?: { usage?: UsageStore }) {
+export async function connected(fetchImpl: typeof fetch, opts?: { usage?: UsageStore; session?: { fikenUnauthorized: boolean } }) {
   const fiken = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
   const server = createMcpServer({
     fiken,
@@ -34,7 +34,7 @@ export async function connected(fetchImpl: typeof fetch, opts?: { usage?: UsageS
     fikenAccessToken: "tok",
     exp: farFutureExp(),
     usage: opts?.usage ?? memoryUsageStore(),
-    session: { fikenUnauthorized: false },
+    session: opts?.session ?? { fikenUnauthorized: false },
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);

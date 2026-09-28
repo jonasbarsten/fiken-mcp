@@ -37,7 +37,15 @@ export function isCimdClientId(clientId: string): boolean {
   } catch {
     return false;
   }
-  return url.protocol === "https:" && isAllowedCimdHost(url.host) && url.pathname.length > 1 && url.search === "" && url.hash === "";
+  return (
+    url.protocol === "https:" &&
+    isAllowedCimdHost(url.host) &&
+    url.pathname.length > 1 &&
+    url.search === "" &&
+    url.hash === "" &&
+    url.username === "" &&
+    url.password === ""
+  );
 }
 
 export function clearCimdCache(): void {
@@ -85,7 +93,7 @@ export async function fetchClientMetadata(cfg: Config, clientId: string, now = M
   } catch {
     throw new CimdError("fetch failed");
   }
-  if (text.length > MAX_BODY_CHARS) throw new CimdError("too large");
+  if (Buffer.byteLength(text, "utf8") > MAX_BODY_CHARS) throw new CimdError("too large");
   const meta = readDocument(clientId, text);
 
   cache.delete(clientId);

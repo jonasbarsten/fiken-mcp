@@ -21,6 +21,7 @@ describe("cimd", () => {
     expect(isCimdClientId("https://claude.ai/x.json?y=1")).toBe(false);
     expect(isCimdClientId("https://evil.example/x.json")).toBe(false);
     expect(isCimdClientId("https://claude.ai.evil.example/x.json")).toBe(false);
+    expect(isCimdClientId("https://u:p@claude.ai/x.json")).toBe(false);
     expect(isCimdClientId("v1.k1.abc.def")).toBe(false);
   });
 

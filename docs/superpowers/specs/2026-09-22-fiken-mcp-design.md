@@ -280,10 +280,15 @@ accounting data.
 
 Two atomic `ADD` updates per tool call, run after the tool's handler
 returns and awaited, so `errors` is exact; a store failure is logged as
-`usage_failed` and never fails the tool.
+`usage_failed` and never fails the tool. Calls the SDK rejects before a
+handler runs (invalid arguments, unknown tool) are not counted.
 `activeUsers` increments when the user-month update reports no previous
 value. `totalUsers` increments when the `PROFILE` conditional put
 succeeds at first login. Totals are sums over month rows. No streams.
+If the global update fails after the user update succeeded, that user's
+`activeUsers` contribution for the month is lost; this is accepted for
+anonymous statistics rather than giving up the single `ALL_OLD` round
+trip on the user update.
 
 Surfaces: a `my_usage` tool for the user, and `GET /stats` returning the
 global rows with a cache header for the website. CloudWatch keeps
@@ -475,7 +480,8 @@ too if you suspect a device or account was compromised.
 - Fiken 401: return 401 with `WWW-Authenticate` so the client refreshes,
   set only when nothing was written in that call; after a successful
   create, a failing follow-up stays a tool error so the client's re-send
-  cannot repeat the write.
+  cannot repeat the write. Legacy JSON-RPC batch bodies are refused with
+  400 so one body can never mix a write with the 401 mapping.
 - Fiken 429: retry once after 1 s, then surface as tool error.
 - Fiken 4xx validation: pass Fiken's message through as `isError`.
 - Unknown company slug: error text lists the user's slugs.
