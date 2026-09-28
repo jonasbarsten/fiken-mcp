@@ -26,7 +26,8 @@ export function safeFilename(name: string, ext: string): string {
   const base = name.split(/[\\/]/).pop() ?? "";
   const sanitized = base.replace(/[^A-Za-z0-9._-]/g, "");
   const dot = sanitized.lastIndexOf(".");
-  const stem = dot > 0 ? sanitized.slice(0, dot) : sanitized;
+  // A name that is nothing but an extension (".pdf") has no stem to keep.
+  const stem = dot >= 0 ? sanitized.slice(0, dot) : sanitized;
   const finalStem = stem.length > 0 ? stem : "receipt";
   const suffix = `.${ext}`;
   const maxStemLength = Math.max(1, MAX_LENGTH - suffix.length);

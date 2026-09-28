@@ -6,7 +6,9 @@ import { createFikenClient, FikenError } from "../fiken/client.js";
 import { detectType, safeFilename } from "./detect.js";
 import { readUploadTicket } from "./ticket.js";
 
-const MAX_BYTES = 4.5 * 1024 * 1024;
+// Lambda's request payload ceiling is 6 MiB base64-encoded, which is 4.5 MiB of
+// raw bytes: exactly on that edge, so leave a margin.
+const MAX_BYTES = 4 * 1024 * 1024;
 const WIDGET_ORIGIN = /^https:\/\/[a-z0-9-]+\.claudemcpcontent\.com$/;
 
 /**
@@ -43,7 +45,9 @@ export function uploadRoutes(cfg: Config): Hono {
   );
 
   app.post("/upload", async (c) => {
-    const ticketValue = c.req.header("x-ticket") ?? c.req.query("ticket") ?? "";
+    // Header only: a ticket in the query string would be copied into access
+    // logs, shell history and browser history wherever the URL travels.
+    const ticketValue = c.req.header("x-ticket") ?? "";
     let ticket;
     try {
       ticket = readUploadTicket(cfg, ticketValue);
@@ -75,6 +79,10 @@ export function uploadRoutes(cfg: Config): Hono {
       if (result.id === undefined) return c.json({ error: "fiken", status: 502, message: "missing document id" }, 502);
       return c.json({ documentId: result.id, name: filename, size: bytes.length, type: detected.mime }, 201);
     } catch (err) {
+      // Fiken refusing the sealed token means the ticket is worthless, whatever
+      // its own expiry says. Answer like an expired ticket so the widget tells
+      // the user to reopen the upload instead of reporting a server fault.
+      if (err instanceof FikenError && err.status === 401) return c.json({ error: "invalid_ticket" }, 401);
       if (err instanceof FikenError) return c.json({ error: "fiken", status: err.status, message: err.body.slice(0, 200) }, 502);
       throw err;
     }

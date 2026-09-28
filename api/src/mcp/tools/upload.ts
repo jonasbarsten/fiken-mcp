@@ -3,7 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { WIDGET_HTML } from "../../assets.js";
 import type { Config } from "../../config.js";
-import { UPLOAD_TICKET_SECONDS, issueUploadTicket } from "../../upload/ticket.js";
+import { issueUploadTicket, uploadTicketSeconds } from "../../upload/ticket.js";
 import type { ToolContext } from "../server.js";
 import { companySlug } from "./common.js";
 
@@ -23,7 +23,7 @@ const UPLOAD_DESCRIPTION =
 
 export function registerUploadTools(server: McpServer, ctx: ToolContext, publicUrl: string, cfg: Config): void {
   const uploadUrl = `${publicUrl}/upload`;
-  const claims = { fikenAccessToken: ctx.fikenAccessToken, anonId: ctx.anonId };
+  const claims = { fikenAccessToken: ctx.fikenAccessToken, anonId: ctx.anonId, exp: ctx.exp };
 
   registerAppTool(
     server,
@@ -48,7 +48,7 @@ export function registerUploadTools(server: McpServer, ctx: ToolContext, publicU
         uploadUrl,
         ticket: issueUploadTicket(cfg, claims, slug),
         companySlug: slug,
-        expiresInSeconds: UPLOAD_TICKET_SECONDS,
+        expiresInSeconds: uploadTicketSeconds(claims),
       },
     }),
   );
@@ -82,15 +82,16 @@ export function registerUploadTools(server: McpServer, ctx: ToolContext, publicU
     },
     async ({ companySlug: slug }) => {
       const ticket = issueUploadTicket(cfg, claims, slug);
+      const minutes = Math.floor(uploadTicketSeconds(claims) / 60);
       return {
         content: [
           {
             type: "text",
             text:
               `Upload each receipt to the Fiken inbox of ${slug} with:\n\n` +
-              `curl -sS -X POST '${uploadUrl}?ticket=${ticket}' -H 'content-type: application/octet-stream' -H 'x-filename: <name>' --data-binary @<file>\n\n` +
-              `The ticket lasts 15 minutes and is bound to ${slug}; ask for a new one after that. Each response is JSON carrying ` +
-              `documentId, which create_purchase takes as inboxDocumentId. Files must be PDF, PNG, JPEG or GIF and at most 4.5 MB.`,
+              `curl -sS -X POST '${uploadUrl}' -H 'x-ticket: ${ticket}' -H 'content-type: application/octet-stream' -H 'x-filename: <name>' --data-binary @<file>\n\n` +
+              `The ticket lasts ${minutes} minutes and is bound to ${slug}; ask for a new one after that. Each response is JSON carrying ` +
+              `documentId, which create_purchase takes as inboxDocumentId. Files must be PDF, PNG, JPEG or GIF and at most 4 MB.`,
           },
         ],
       };

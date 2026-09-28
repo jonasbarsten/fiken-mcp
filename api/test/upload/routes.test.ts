@@ -1,9 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../../src/app.js";
 import { testConfig } from "../../src/config.js";
 import { issueUploadTicket } from "../../src/upload/ticket.js";
 
-const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+/** A run of bytes distinctive enough that we would spot it in any log line. */
+const MARKER = "RECEIPT-BYTES-MARKER";
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...new TextEncoder().encode(MARKER)]);
+
+/** Session claims for a ticket: an hour of life left unless a test says otherwise. */
+const claims = (fikenAccessToken = "FA") => ({ fikenAccessToken, anonId: "anon", exp: Math.floor(Date.now() / 1000) + 3600 });
+
+function captureStdout() {
+  const lines: string[] = [];
+  vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+    lines.push(String(chunk));
+    return true;
+  });
+  return { lines };
+}
+
 function setup() {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const cfg = testConfig({
@@ -14,7 +29,7 @@ function setup() {
     },
   });
   const app = createApp(cfg);
-  const ticket = issueUploadTicket(cfg, { fikenAccessToken: "FA", anonId: "anon" }, "demo");
+  const ticket = issueUploadTicket(cfg, claims(), "demo");
   return { app, cfg, calls, ticket };
 }
 const upload = (app: ReturnType<typeof createApp>, body: BodyInit | null, headers: Record<string, string>, query = "") =>
@@ -60,35 +75,55 @@ describe("POST /upload", () => {
     expect(bad.headers.get("access-control-allow-origin")).toBeNull();
   });
 
-  it("refuses a missing, wrong or expired ticket before reading the body, and takes the ticket from the query for curl", async () => {
+  it("refuses a missing, wrong or expired ticket before reading the body, and ignores a ticket in the query", async () => {
     const { app, cfg, calls } = setup();
     expect((await upload(app, PNG, { "content-type": "image/png" })).status).toBe(401);
     expect((await upload(app, PNG, { "x-ticket": "garbage", "content-type": "image/png" })).status).toBe(401);
-    const expired = issueUploadTicket(cfg, { fikenAccessToken: "FA", anonId: "anon" }, "demo", 1);
+    const expired = issueUploadTicket(cfg, claims(), "demo", 1);
     expect((await upload(app, PNG, { "x-ticket": expired, "content-type": "image/png" })).status).toBe(401);
+    // The ticket only travels in a header, so it stays out of access logs and history.
+    const viaQuery = await upload(app, PNG, { "content-type": "image/png", "x-filename": "r.png" }, `?ticket=${encodeURIComponent(issueUploadTicket(cfg, claims(), "demo"))}`);
+    expect(viaQuery.status).toBe(401);
     expect(calls).toHaveLength(0);
-    const viaQuery = await upload(app, PNG, { "content-type": "image/png", "x-filename": "r.png" }, `?ticket=${encodeURIComponent(issueUploadTicket(cfg, { fikenAccessToken: "FA", anonId: "anon" }, "demo"))}`);
-    expect(viaQuery.status).toBe(201);
   });
 
   it("refuses unsupported types, empty and oversized bodies without calling Fiken", async () => {
     const { app, calls, ticket } = setup();
     expect((await upload(app, new TextEncoder().encode("<html>"), { "x-ticket": ticket, "x-filename": "x.png", "content-type": "image/png" })).status).toBe(415);
     expect((await upload(app, null, { "x-ticket": ticket, "content-type": "image/png" })).status).toBe(400);
-    const big = new Uint8Array(4.5 * 1024 * 1024 + 1);
+    const big = new Uint8Array(4 * 1024 * 1024 + 1);
     big.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const res = await upload(app, big, { "x-ticket": ticket, "content-type": "image/png" });
     expect(res.status).toBe(413);
-    expect(await res.json()).toMatchObject({ error: "too_large" });
+    expect(await res.json()).toMatchObject({ error: "too_large", limitBytes: 4 * 1024 * 1024 });
     expect(calls).toHaveLength(0);
   });
 
-  it("maps a Fiken failure to 502 without the token and never logs the file", async () => {
-    const cfg = testConfig({ fetch: async () => new Response("inbox is full BEARER-FA", { status: 400 }) });
+  it("answers a Fiken 401 as an expired ticket, so the widget tells the user to reopen the upload", async () => {
+    const cfg = testConfig({ fetch: async () => new Response("token expired", { status: 401 }) });
     const app = createApp(cfg);
-    const ticket = issueUploadTicket(cfg, { fikenAccessToken: "FA", anonId: "anon" }, "demo");
+    const ticket = issueUploadTicket(cfg, claims(), "demo");
+    const res = await upload(app, PNG, { "x-ticket": ticket, "x-filename": "r.png", "content-type": "image/png" });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "invalid_ticket" });
+  });
+
+  it("relays Fiken's error body, truncated, as a 502", async () => {
+    const cfg = testConfig({ fetch: async () => new Response(`inbox is full BEARER-FA ${"x".repeat(400)}`, { status: 400 }) });
+    const app = createApp(cfg);
+    const ticket = issueUploadTicket(cfg, claims("FIKEN-TOKEN-PLAINTEXT"), "demo");
+    const out = captureStdout();
     const res = await upload(app, PNG, { "x-ticket": ticket, "x-filename": "r.png", "content-type": "image/png" });
     expect(res.status).toBe(502);
-    expect(await res.json()).toEqual({ error: "fiken", status: 400, message: "inbox is full BEARER-FA" });
+    const body = await res.json();
+    expect(body).toMatchObject({ error: "fiken", status: 400 });
+    expect(body.message).toHaveLength(200);
+    expect(body.message.startsWith("inbox is full BEARER-FA")).toBe(true);
+    // The request log must carry neither the file's bytes nor any credential.
+    const logged = out.lines.join("");
+    expect(logged).not.toContain(MARKER);
+    expect(logged).not.toContain("Bearer");
+    expect(logged).not.toContain("FIKEN-TOKEN-PLAINTEXT");
+    expect(logged).not.toContain(ticket);
   });
 });

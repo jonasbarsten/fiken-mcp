@@ -47,7 +47,9 @@ async function main() {
     const code = await inlineEsm(specifier, globalName);
     html = html.replace(marker, () => code);
   }
-  const version = createHash("sha256").update(template).digest("hex").slice(0, 8);
+  // Hash what actually ships, bundles included, so the stamp changes when a
+  // dependency bump changes the widget even though the template did not.
+  const version = createHash("sha256").update(html).digest("hex").slice(0, 8);
   html = html.replaceAll("__WIDGET_VERSION__", version);
 
   await mkdir(new URL("./", OUT_PATH), { recursive: true });

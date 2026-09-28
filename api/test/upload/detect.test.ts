@@ -19,6 +19,8 @@ describe("safeFilename", () => {
     expect(safeFilename("../../etc/passwd", "png")).toBe("passwd.png");
     expect(safeFilename("IMG_0042.HEIC", "jpg")).toBe("IMG_0042.jpg");
     expect(safeFilename("", "pdf")).toBe("receipt.pdf");
+    expect(safeFilename(".pdf", "png")).toBe("receipt.png");
+    expect(safeFilename(".", "pdf")).toBe("receipt.pdf");
     expect(safeFilename("a".repeat(200) + ".pdf", "pdf")).toHaveLength(80);
   });
 });

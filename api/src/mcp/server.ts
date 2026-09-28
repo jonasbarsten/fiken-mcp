@@ -14,6 +14,8 @@ export interface ToolContext {
   anonId: string;
   /** The caller's Fiken token, sealed into upload tickets so the widget can post without a session. */
   fikenAccessToken: string;
+  /** When the caller's access token expires; an upload ticket never outlives it. */
+  exp: number;
 }
 
 export function toolJson(value: unknown): CallToolResult {

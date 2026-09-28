@@ -13,13 +13,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-ssm": "3.1139.0",
+    "@modelcontextprotocol/ext-apps": "2.0.0",
     "@modelcontextprotocol/server": "2.1.0",
     "hono": "4.13.9",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.1.0",
-    "@modelcontextprotocol/ext-apps": "2.0.0",
     "@types/aws-lambda": "8.10.163",
     "@types/node": "24.13.6",
     "aws-cdk": "2.1143.0",
