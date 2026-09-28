@@ -102,6 +102,21 @@ describe("createFikenClient", () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ kind: "cash_purchase" });
   });
 
+  it("create accepts a trailing slash in Location and refuses a non-numeric id", async () => {
+    const { fetchImpl } = fakeFetch([
+      () => new Response(null, { status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/x/purchases/2888156/" } }),
+      () => new Response(null, { status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/x/purchases/abc" } }),
+    ]);
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
+    const ok = client.create("/companies/x/purchases", {});
+    await vi.runAllTimersAsync();
+    expect((await ok).id).toBe(2888156);
+    const bad = client.create("/companies/x/purchases", {});
+    bad.catch(() => {}); // Suppress unhandled rejection
+    await vi.runAllTimersAsync();
+    await expect(bad).rejects.toMatchObject({ status: 502 });
+  });
+
   it("create fails loudly without a Location header and on a 4xx", async () => {
     const { fetchImpl } = fakeFetch([
       () => new Response(null, { status: 201 }),

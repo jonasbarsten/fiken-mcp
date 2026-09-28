@@ -44,9 +44,9 @@ function withQuery(path: string, query: Query = {}): string {
 
 function locatedId(res: Response): { id: number; location: string } {
   const location = res.headers.get("location");
-  const id = Number(location?.split("/").pop());
-  if (!location || !Number.isInteger(id)) throw new FikenError(502, "no Location header");
-  return { id, location };
+  const m = location ? /\/(\d+)\/?$/.exec(location) : null;
+  if (!location || !m) throw new FikenError(502, "Location header missing or without a numeric id");
+  return { id: Number(m[1]), location };
 }
 
 export function createFikenClient(opts: { baseUrl: string; accessToken: string; fetch: typeof fetch; queue?: FikenQueue }): FikenClient {
