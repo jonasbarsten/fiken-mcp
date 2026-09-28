@@ -57,7 +57,9 @@ export class ApiStack extends Stack {
         minify: false,
         sourceMap: true,
         banner: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
-        // src/icon.ts reads ./assets/icon.png relative to itself; put the folder next to the bundle.
+        // src/assets.ts (the only module allowed to read assets; it sits at the src root) reads
+        // ./assets/* relative to itself. The bundle is one flat index.mjs, so the folder must sit
+        // next to it. A test in api/test/assets.test.ts guards the src-root rule.
         commandHooks: {
           beforeBundling: () => [],
           beforeInstall: () => [],

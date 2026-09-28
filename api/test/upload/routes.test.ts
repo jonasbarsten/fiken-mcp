@@ -41,7 +41,6 @@ describe("POST /upload", () => {
     const name = (await res.json()).name;
     expect(name).toBe("kvittering1.png");
     expect(name).not.toContain("%20");
-    expect(name).not.toContain("20");
   });
 
   it("keeps a filename that is not valid percent-encoding instead of rejecting the upload", async () => {
