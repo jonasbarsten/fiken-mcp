@@ -11,6 +11,8 @@ describe("built widget", () => {
     expect(html).not.toContain("/*__BUNDLE__*/");
     expect(html).not.toMatch(/<\/script>[^<]*<\/script>/); // no early close from an inlined bundle
     expect(html).toContain("UNTRUSTED DOCUMENT CONTENT");
+    // The widget's limit must stay the route's limit (MAX_BYTES in src/upload/routes.ts).
+    expect(html).toContain("MAX_UPLOAD_BYTES = 4 * 1024 * 1024");
     expect(html).toContain("Ferdig");
     expect(html).not.toContain("innerHTML");
     expect(html.length).toBeGreaterThan(500_000);

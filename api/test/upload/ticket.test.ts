@@ -33,8 +33,9 @@ describe("upload ticket", () => {
     const issued = issueTokens(cfg, { access_token: "FA", refresh_token: "FR", expires_in: 3600 }, "anon1");
     expect(() => readUploadTicket(cfg, issued.access_token)).toThrow(BlobError);
     expect(() => readUploadTicket(cfg, issued.refresh_token)).toThrow(BlobError);
-    const ticket = issueUploadTicket(cfg, session(1_000_000), "demo");
-    expect(() => readAccessToken(cfg, ticket)).toThrow(BlobError);
-    expect(() => readRefreshToken(cfg, ticket)).toThrow(BlobError);
+    // A live ticket (far-future session), so the refusal below is the kind tag, not expiry.
+    const ticket = issueUploadTicket(cfg, session(Math.floor(Date.now() / 1000) + 3600), "demo");
+    expect(() => readAccessToken(cfg, ticket)).toThrow(expect.objectContaining({ code: "invalid" }));
+    expect(() => readRefreshToken(cfg, ticket)).toThrow(expect.objectContaining({ code: "invalid" }));
   });
 });

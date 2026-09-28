@@ -752,3 +752,32 @@ No code. After the PR merges and deploys:
 - Spec coverage: section 8 read tools needed for booking (projects, accounts, bank accounts, contacts, purchases, inbox) and write tools (`create_contact`, `create_purchase`, `attach_inbox_document`); section 9 widget, ticket, `/upload`, oversized-file handling, secondary curl path, untrusted-content prefix; section 7b magic bytes, filename, no DOM injection, ticket scope and expiry; section 12 unknown slug recovery and ticket 401. Not in this plan, by intent: invoices, sales, credit notes, payments, journal entries, `get_inbox_document`, usage counters, `my_usage`, `/stats`, CIMD.
 - Placeholders: none; every code step shows its code or the exact interface plus test that pins it.
 - Type consistency: `ToolContext` gains `fikenAccessToken` in Task 5 and every earlier test constructs it without that field until then; Task 5 updates `tools.test.ts`/`helpers.ts` to include it. `createMcpServer(ctx, publicUrl?, cfg?)` is the final signature; `mcp/routes.ts` is the only production caller.
+
+## Rulings applied during execution (2026-09-28)
+
+The code is authoritative where it differs from the task text and
+snippets above:
+
+- **Task 1.** `upload` returns `{ id: number | undefined, location }`:
+  Fiken's attachment `Location` ends in a UUID, only inbox documents
+  have a numeric id. `create` parses the id strictly.
+- **Task 3.** `create_purchase` attaches with `attachToSale: true` and,
+  for a cash purchase, `attachToPayment: true` (Fiken requires at least
+  one); `attach_inbox_document` takes both flags and refuses a call
+  where both are false. A failure after the purchase was created returns
+  text naming the purchase and, only while the receipt is still
+  unattached, tells the model to call `attach_inbox_document`.
+- **Task 4.** Limit 4 MiB, not 4.5 MB (4.5 MB base64-encoded is exactly
+  the Lambda 6 MiB ceiling). The ticket is read from the `x-ticket`
+  header only; the `?ticket=` fallback shown in the snippets was
+  dropped. `x-filename` is percent-decoded before sanitising. A Fiken
+  401 on the forward is answered as `401 invalid_ticket`.
+- **Task 5.** Assets are read only from `src/assets.ts` at the src root,
+  because the Lambda bundle is one flat `index.mjs`; a test guards it.
+  `ToolContext` also carries `exp`, and a ticket never outlives the
+  session's Fiken token, so `expiresInSeconds` is the real number, not
+  900. `get_upload_url`'s curl passes the ticket in a header.
+  `@modelcontextprotocol/ext-apps` is a runtime dependency. The summary
+  block carries the untrusted prefix too. The capability gate fails
+  open. HEIC photos are re-encoded to JPEG on the phone when the browser
+  can decode them.

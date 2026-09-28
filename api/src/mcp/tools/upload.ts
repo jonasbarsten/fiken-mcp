@@ -82,7 +82,8 @@ export function registerUploadTools(server: McpServer, ctx: ToolContext, publicU
     },
     async ({ companySlug: slug }) => {
       const ticket = issueUploadTicket(cfg, claims, slug);
-      const minutes = Math.floor(uploadTicketSeconds(claims) / 60);
+      const seconds = uploadTicketSeconds(claims);
+      const minutes = seconds < 60 ? "less than 1" : String(Math.floor(seconds / 60));
       return {
         content: [
           {
