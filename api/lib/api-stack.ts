@@ -57,6 +57,12 @@ export class ApiStack extends Stack {
         minify: false,
         sourceMap: true,
         banner: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
+        // src/icon.ts reads ./assets/icon.png relative to itself; put the folder next to the bundle.
+        commandHooks: {
+          beforeBundling: () => [],
+          beforeInstall: () => [],
+          afterBundling: (inputDir, outputDir) => [`cp -r ${inputDir}/api/src/assets ${outputDir}/assets`],
+        },
       },
     });
 

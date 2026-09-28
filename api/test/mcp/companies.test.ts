@@ -29,7 +29,7 @@ describe("list_companies", () => {
     expect(result.isError).toBeFalsy();
     const text = (result.content as Array<{ type: string; text: string }>)[0]?.text ?? "";
     expect(JSON.parse(text)).toEqual([
-      { name: "byJoBa AS", slug: "byjoba-as", organizationNumber: "123456789" },
+      { name: "byJoBa AS", slug: "byjoba-as", organizationNumber: "123456789", hasApiAccess: true },
       { name: "Test", slug: "test", organizationNumber: "987654321" },
     ]);
   });

@@ -40,7 +40,9 @@ describe("POST /mcp", () => {
     });
     expect(init.status).toBe(200);
     expect(init.headers.get("content-type")).toContain("application/json");
-    expect((await init.json()).result.serverInfo.name).toBe("fiken-mcp");
+    const serverInfo = (await init.json()).result.serverInfo;
+    expect(serverInfo.name).toBe("fiken-mcp");
+    expect(serverInfo.icons).toEqual([{ src: "https://fiken-mcp.test/icon.png", mimeType: "image/png", sizes: ["512x512"] }]);
 
     const call = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "list_companies", arguments: {} } });
     expect(call.status).toBe(200);

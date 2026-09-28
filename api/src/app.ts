@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
 import { authRoutes } from "./auth/routes.js";
 import type { Config } from "./config.js";
+import { iconRoutes } from "./icon.js";
 import { log, withRequestId, type LogFields } from "./log.js";
 import { mcpRoutes } from "./mcp/routes.js";
 
@@ -55,6 +56,7 @@ export function createApp(cfg: Config): Hono<LambdaEnv> {
   });
 
   app.get("/", (c) => c.text("fiken-mcp\n"));
+  app.route("/", iconRoutes());
   app.route("/", authRoutes(cfg));
   app.route("/", mcpRoutes(cfg));
   return app;
