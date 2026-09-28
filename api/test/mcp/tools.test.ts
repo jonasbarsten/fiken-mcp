@@ -1,0 +1,126 @@
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport } from "@modelcontextprotocol/server";
+import { describe, expect, it } from "vitest";
+import { FikenQueue, createFikenClient } from "../../src/fiken/client.js";
+import { createMcpServer } from "../../src/mcp/server.js";
+
+type Route = { match: RegExp; status?: number; body?: unknown; headers?: Record<string, string> };
+
+/** A Fiken that answers by URL pattern and records every request. */
+export function fakeFiken(routes: Route[]) {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url = String(input);
+    calls.push({ url, init });
+    const r = routes.find((x) => x.match.test(url));
+    if (!r) return new Response(`unexpected ${url}`, { status: 500 });
+    return new Response(r.body === undefined ? null : JSON.stringify(r.body), {
+      status: r.status ?? 200,
+      headers: { "content-type": "application/json", ...(r.headers ?? {}) },
+    });
+  };
+  return { fetchImpl, calls };
+}
+
+export async function connected(fetchImpl: typeof fetch) {
+  const fiken = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
+  const server = createMcpServer({ fiken, anonId: "anon" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  const client = new Client({ name: "test", version: "0" });
+  await client.connect(clientTransport);
+  return client;
+}
+
+export async function callJson(client: Client, name: string, args: Record<string, unknown>) {
+  const result = await client.callTool({ name, arguments: args });
+  const text = (result.content as Array<{ type: string; text: string }>)[0]?.text ?? "";
+  return { isError: result.isError === true, text, json: () => JSON.parse(text) as unknown };
+}
+
+describe("read tools", () => {
+  it("list_projects pages and trims", async () => {
+    const f = fakeFiken([{ match: /\/companies\/demo\/projects\?/, body: [{ projectId: 1, number: "P1", name: "Atlanter", completed: false, contact: { name: "x" } }], headers: { "Fiken-Api-Result-Count": "1" } }]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "list_projects", { companySlug: "demo", completed: false });
+    expect(r.isError).toBe(false);
+    expect(r.json()).toEqual({ items: [{ projectId: 1, number: "P1", name: "Atlanter", completed: false }], total: 1, page: 0, pageSize: 25 });
+    expect(f.calls[0]?.url).toBe("https://api.test/v2/companies/demo/projects?page=0&pageSize=25&completed=false");
+  });
+
+  it("list_accounts passes the range; list_bank_accounts returns account codes", async () => {
+    const f = fakeFiken([
+      { match: /\/accounts\?/, body: [{ code: "6300", name: "Leie lokale" }] },
+      { match: /\/bankAccounts$/, body: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", type: "normal", inactive: false, iban: "x" }] },
+    ]);
+    const c = await connected(f.fetchImpl);
+    expect((await callJson(c, "list_accounts", { companySlug: "demo", range: "4000-7999" })).json()).toMatchObject({ items: [{ code: "6300", name: "Leie lokale" }] });
+    expect(f.calls[0]?.url).toContain("range=4000-7999");
+    expect((await callJson(c, "list_bank_accounts", { companySlug: "demo" })).json()).toEqual({ items: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", type: "normal", inactive: false }] });
+  });
+
+  it("search_contacts and get_contact", async () => {
+    const f = fakeFiken([
+      { match: /\/contacts\?/, body: [{ contactId: 5, name: "Clas Ohlson AS", supplier: true, customer: false, supplierNumber: 20001, notes: [{ x: 1 }] }], headers: { "Fiken-Api-Result-Count": "1" } },
+      { match: /\/contacts\/5$/, body: { contactId: 5, name: "Clas Ohlson AS", supplier: true, customer: false, notes: [], documents: [], address: { country: "Norway" } } },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const s = (await callJson(c, "search_contacts", { companySlug: "demo", name: "Clas Ohlson AS", supplier: true })).json() as { items: unknown[] };
+    expect(s.items).toEqual([{ contactId: 5, name: "Clas Ohlson AS", supplier: true, customer: false, supplierNumber: 20001 }]);
+    expect(f.calls[0]?.url).toContain("name=Clas+Ohlson+AS&supplier=true");
+    const g = (await callJson(c, "get_contact", { companySlug: "demo", contactId: 5 })).json() as Record<string, unknown>;
+    expect(g).not.toHaveProperty("notes");
+    expect(g).toMatchObject({ contactId: 5, address: { country: "Norway" } });
+  });
+
+  it("list_purchases, get_purchase and list_inbox trim to what the model needs", async () => {
+    const purchase = {
+      purchaseId: 77, date: "2026-09-01", kind: "cash_purchase", paid: true, currency: "NOK", identifier: "R-1",
+      supplier: { contactId: 5, name: "Clas Ohlson AS", notes: [] },
+      project: [{ projectId: 1, name: "Atlanter", contact: {} }],
+      lines: [{ lineId: 3, description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }],
+      purchaseAttachments: [{ uuid: "u", filename: "r.pdf", downloadUrl: "https://x" }],
+      payments: [{ amount: 12500 }],
+    };
+    const f = fakeFiken([
+      { match: /\/purchases\?/, body: [purchase], headers: { "Fiken-Api-Result-Count": "1" } },
+      { match: /\/purchases\/77$/, body: purchase },
+      { match: /\/inbox\?/, body: [{ documentId: 1234134, name: "r.pdf", filename: "r.pdf", status: false, createdAt: "2026-09-01T10:00:00Z", documentUrl: "https://x" }], headers: { "Fiken-Api-Result-Count": "1" } },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const l = (await callJson(c, "list_purchases", { companySlug: "demo", dateGe: "2026-09-01" })).json() as { items: Array<Record<string, unknown>> };
+    expect(l.items[0]).toEqual({
+      purchaseId: 77, date: "2026-09-01", dueDate: undefined, kind: "cash_purchase", paid: true, identifier: "R-1", currency: "NOK",
+      supplier: { contactId: 5, name: "Clas Ohlson AS" }, project: [{ projectId: 1, name: "Atlanter" }],
+      lines: [{ description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }], attachments: 1,
+    });
+    expect(f.calls[0]?.url).toContain("dateGe=2026-09-01");
+    const g = (await callJson(c, "get_purchase", { companySlug: "demo", purchaseId: 77 })).json() as Record<string, unknown>;
+    expect(g.purchaseAttachments).toEqual([{ uuid: "u", filename: "r.pdf" }]);
+    const i = (await callJson(c, "list_inbox", { companySlug: "demo" })).json() as { items: unknown[] };
+    expect(i.items).toEqual([{ documentId: 1234134, name: "r.pdf", filename: "r.pdf", status: false, createdAt: "2026-09-01T10:00:00Z" }]);
+    expect(f.calls[2]?.url).toContain("status=unused");
+    expect(f.calls[2]?.url).toContain("sortBy=createdDate+desc");
+  });
+
+  it("an unknown company slug lists the known slugs in the error", async () => {
+    const f = fakeFiken([
+      { match: /\/companies\/nope\/projects/, status: 404, body: { message: "not found" } },
+      { match: /\/companies$/, body: [{ name: "Demo", slug: "demo" }, { name: "Other", slug: "other-as" }] },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "list_projects", { companySlug: "nope" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("Known company slugs: demo, other-as");
+  });
+
+  it("every tool carries annotations and the øre note where amounts appear", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const tools = (await c.listTools()).tools;
+    for (const name of ["list_projects", "list_accounts", "list_bank_accounts", "search_contacts", "get_contact", "list_purchases", "get_purchase", "list_inbox"]) {
+      const t = tools.find((x) => x.name === name);
+      expect(t?.annotations?.readOnlyHint, name).toBe(true);
+    }
+    expect(tools.find((x) => x.name === "list_purchases")?.description).toContain("øre");
+  });
+});
