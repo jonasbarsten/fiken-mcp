@@ -32,7 +32,8 @@ export interface FikenClient {
   json<T>(path: string, init?: RequestInit): Promise<T>;
   list<T>(path: string, query?: Query): Promise<{ items: T[]; total: number | undefined }>;
   create(path: string, body: unknown, query?: Query): Promise<{ id: number; location: string }>;
-  upload(path: string, form: FormData, query?: Query): Promise<{ id: number; location: string }>;
+  /** Location of the created resource; `id` only when its last path segment is numeric (inbox documents yes, attachments carry a UUID). */
+  upload(path: string, form: FormData, query?: Query): Promise<{ id: number | undefined; location: string }>;
 }
 
 function withQuery(path: string, query: Query = {}): string {
@@ -88,7 +89,10 @@ export function createFikenClient(opts: { baseUrl: string; accessToken: string; 
     async upload(path: string, form: FormData, query?: Query) {
       const res = await doFetch(withQuery(path, query), { method: "POST", body: form });
       if (!res.ok) throw new FikenError(res.status, await res.text());
-      return locatedId(res);
+      const location = res.headers.get("location");
+      if (!location) throw new FikenError(502, "Location header missing");
+      const m = /\/(\d+)\/?$/.exec(location);
+      return { id: m ? Number(m[1]) : undefined, location };
     },
   };
 }

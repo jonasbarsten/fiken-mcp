@@ -147,4 +147,19 @@ describe("createFikenClient", () => {
     expect(calls[0]?.init?.body).toBe(form);
     expect(new Headers(calls[0]?.init?.headers).has("content-type")).toBe(false);
   });
+
+  it("upload tolerates a UUID Location (attachments) and still fails without any Location", async () => {
+    const { fetchImpl } = fakeFetch([
+      () => new Response(null, { status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/x/purchases/1/attachments/745b2f15-1234-4408-8bf2-b1d2d7610cb2" } }),
+      () => new Response(null, { status: 201 }),
+    ]);
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
+    const ok = client.upload("/companies/x/purchases/1/attachments", new FormData(), { inboxDocumentId: 7 });
+    await vi.runAllTimersAsync();
+    expect(await ok).toEqual({ id: undefined, location: "https://api.fiken.no/api/v2/companies/x/purchases/1/attachments/745b2f15-1234-4408-8bf2-b1d2d7610cb2" });
+    const bad = client.upload("/companies/x/purchases/1/attachments", new FormData());
+    bad.catch(() => {}); // Suppress unhandled rejection
+    await vi.runAllTimersAsync();
+    await expect(bad).rejects.toMatchObject({ status: 502 });
+  });
 });
