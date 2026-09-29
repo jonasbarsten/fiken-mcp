@@ -19,7 +19,7 @@ export function mcpRoutes(cfg: Config): Hono {
       return c.body("Unauthorized", 401, { "WWW-Authenticate": challenge });
     }
     const session = { fikenUnauthorized: false, wrote: false };
-    const fiken = createFikenClient({ baseUrl: cfg.fikenBaseUrl, accessToken: claims.fikenAccessToken, fetch: cfg.fetch, onWrite: () => { session.wrote = true; } });
+    const fiken = createFikenClient({ baseUrl: cfg.fikenBaseUrl, fileBaseUrl: cfg.fikenFileBaseUrl, accessToken: claims.fikenAccessToken, fetch: cfg.fetch, onWrite: () => { session.wrote = true; } });
     const server = createMcpServer(
       { fiken, anonId: claims.anonId, fikenAccessToken: claims.fikenAccessToken, exp: claims.exp, usage: cfg.usage, session },
       cfg.publicUrl,

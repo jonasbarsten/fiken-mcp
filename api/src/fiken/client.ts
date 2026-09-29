@@ -59,26 +59,37 @@ function locatedId(res: Response): { id: number; location: string } {
   return { id: Number(m[1]), location };
 }
 
-export function createFikenClient(opts: { baseUrl: string; accessToken: string; fetch: typeof fetch; queue?: FikenQueue; onWrite?: () => void }): FikenClient {
+export function createFikenClient(opts: {
+  baseUrl: string;
+  /** Fiken's file host (documentUrl, downloadUrl); only download() goes there. */
+  fileBaseUrl?: string;
+  accessToken: string;
+  fetch: typeof fetch;
+  queue?: FikenQueue;
+  onWrite?: () => void;
+}): FikenClient {
   const queue = opts.queue ?? globalQueue;
 
-  async function once(path: string, init?: RequestInit): Promise<Response> {
+  async function once(url: string, init?: RequestInit): Promise<Response> {
     const headers = new Headers(init?.headers);
     headers.set("authorization", `Bearer ${opts.accessToken}`);
     if (!headers.has("accept")) headers.set("accept", "application/json");
-    return opts.fetch(`${opts.baseUrl}${path}`, { ...init, headers });
+    return opts.fetch(url, { ...init, headers });
   }
 
-  const doFetch = (path: string, init?: RequestInit) =>
+  /** Callers must pass only URLs on `baseUrl` or `fileBaseUrl`: the token goes with the request. */
+  const fetchFikenUrl = (url: string, init?: RequestInit) =>
     queue.run(async () => {
-      let res = await once(path, init);
+      let res = await once(url, init);
       if (res.status === 429) {
         await sleep(1000);
-        res = await once(path, init);
+        res = await once(url, init);
       }
       if (res.ok && (init?.method ?? "GET").toUpperCase() !== "GET") opts.onWrite?.();
       return res;
     });
+
+  const doFetch = (path: string, init?: RequestInit) => fetchFikenUrl(`${opts.baseUrl}${path}`, init);
 
   return {
     fetch: doFetch,
@@ -113,11 +124,12 @@ export function createFikenClient(opts: { baseUrl: string; accessToken: string; 
     async download(url: string) {
       // The trailing "/" keeps "https://api.test/v2files" and "https://api.test.evil.example" out;
       // "//host/..." is protocol-relative, so it counts as a foreign absolute URL.
-      let path: string;
-      if (url.startsWith(`${opts.baseUrl}/`)) path = url.slice(opts.baseUrl.length);
-      else if (url.startsWith("/") && !url.startsWith("//")) path = url;
+      let target: string;
+      if (url.startsWith(`${opts.baseUrl}/`)) target = url;
+      else if (opts.fileBaseUrl !== undefined && url.startsWith(`${opts.fileBaseUrl}/`)) target = url;
+      else if (url.startsWith("/") && !url.startsWith("//")) target = `${opts.baseUrl}${url}`;
       else throw new FikenError(400, "refusing to fetch a URL outside the Fiken API");
-      const res = await doFetch(path, { headers: { accept: "*/*" } });
+      const res = await fetchFikenUrl(target, { headers: { accept: "*/*" } });
       if (!res.ok) throw new FikenError(res.status, await res.text());
       const tooLarge = () => new FikenError(413, "document larger than 10 MB");
       if (Number(res.headers.get("content-length") ?? 0) > MAX_DOWNLOAD_BYTES) throw tooLarge();

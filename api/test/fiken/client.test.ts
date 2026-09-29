@@ -238,4 +238,23 @@ describe("createFikenClient", () => {
     await expect(client.download("https://api.test/v2/big")).rejects.toMatchObject({ status: 413 });
     expect(urls).toEqual(["https://api.test/v2/files/abc", "https://api.test/v2/files/abc", "https://api.test/v2/big"]);
   });
+
+  it("download also takes Fiken's file host, fetched as is, and nothing near it", async () => {
+    vi.useRealTimers();
+    const seen: Array<{ url: string; auth: string | null }> = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      seen.push({ url: String(input), auth: new Headers(init?.headers).get("authorization") });
+      return new Response(new Uint8Array([4]), { headers: { "content-type": "image/png" } });
+    };
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", fileBaseUrl: "https://files.test/v2", accessToken: "tok", queue: new FikenQueue(0), fetch: fetchImpl });
+    expect(await client.download("https://files.test/v2/files/abc")).toEqual({ bytes: new Uint8Array([4]), contentType: "image/png" });
+    await expect(client.download("https://files.test/v2files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://files.test.evil.example/v2/files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://files.test/other/abc")).rejects.toMatchObject({ status: 400 });
+    expect(seen).toEqual([{ url: "https://files.test/v2/files/abc", auth: "Bearer tok" }]);
+
+    const noFileHost = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0), fetch: fetchImpl });
+    await expect(noFileHost.download("https://files.test/v2/files/abc")).rejects.toMatchObject({ status: 400 });
+    expect(seen).toHaveLength(1);
+  });
 });

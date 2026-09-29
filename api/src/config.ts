@@ -13,6 +13,8 @@ export interface Config {
   keys: KeyRing;
   userSalt: Buffer;
   fikenBaseUrl: string;
+  /** Where Fiken serves files (inbox documentUrl, attachment downloadUrl); download() may send the token here too. */
+  fikenFileBaseUrl: string;
   fikenOAuthBaseUrl: string;
   fetch: typeof fetch;
   usage: UsageStore;
@@ -63,6 +65,7 @@ export async function loadConfig(deps: { env?: NodeJS.ProcessEnv; ssm?: SsmLike;
     keys: keyRingFromParameter(get("signing_key")),
     userSalt: saltFromHex(get("user_salt")),
     fikenBaseUrl: "https://api.fiken.no/api/v2",
+    fikenFileBaseUrl: "https://fiken.no/api/v2",
     fikenOAuthBaseUrl: "https://fiken.no/oauth",
     fetch: deps.fetch ?? globalThis.fetch,
     usage: dynamoUsageStore(DynamoDBDocumentClient.from(new DynamoDBClient({})), usageTableName),
@@ -77,6 +80,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     keys: keyRingFromParameter(`t1:${"1".repeat(64)}`),
     userSalt: saltFromHex("2".repeat(64)),
     fikenBaseUrl: "https://api.fiken.test/api/v2",
+    fikenFileBaseUrl: "https://fiken.test/api/v2",
     fikenOAuthBaseUrl: "https://fiken.test/oauth",
     fetch: async () => new Response("unexpected fetch", { status: 500 }),
     usage: memoryUsageStore(),

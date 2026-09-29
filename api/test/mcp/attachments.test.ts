@@ -26,8 +26,8 @@ describe("attachments", () => {
 
   it("copies an inbox document onto an invoice", async () => {
     const f = fakeFiken([
-      { match: /\/inbox\/9$/, body: { documentId: 9, name: "timeliste", filename: "timeliste.pdf", documentUrl: "https://api.test/v2/files/f9" } },
-      { match: /\/files\/f9$/, body: "PDFBYTES" },
+      { match: /\/inbox\/9$/, body: { documentId: 9, name: "timeliste", filename: "timeliste.pdf", documentUrl: "https://files.test/v2/files/f9" } },
+      { match: /^https:\/\/files\.test\/v2\/files\/f9$/, body: "PDFBYTES" },
       { match: /\/invoices\/77\/attachments$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/invoices/77/attachments/u3" } },
     ]);
     const c = await connected(f.fetchImpl);
