@@ -51,7 +51,10 @@ Operations by concept (`read` unless marked write):
 - `ledger`: `get_journal_entries`
 - `purchases`: `list_purchases`, `get_purchase`, `create_purchase` (write;
   optionally attaching an inbox document)
-- `sales`: `list_sales`
+- `sales`: `list_sales`, `get_sale` (with lines and payment count),
+  `create_sale` (write; income not invoiced through Fiken: a cash sale or an
+  invoice issued elsewhere), `settle_sale` (write; settle without a
+  payment), `write_off_sale` (write; books a loss)
 - `invoices`: `list_invoices`, `get_invoice`, `create_invoice` (write;
   final in Fiken once created, issued and booked, not sent),
   `create_invoice_draft` (write; needs `bankAccountNumber` from
@@ -61,7 +64,7 @@ Operations by concept (`read` unless marked write):
 - `credit_notes`: `create_credit_note` (write; full or partial, booked but
   not sent)
 - `payments`: `register_payment` (write; on a sale or a purchase, positive
-  amounts only, NOK only)
+  amounts only, NOK only), `list_payments` (on one sale or one purchase)
 - `products`: `list_products`
 - `inbox`: `list_inbox`, `get_inbox_document` (an inbox document that did
   not come through the upload widget: images as images, PDFs as text per
