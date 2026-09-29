@@ -74,7 +74,7 @@ export function mentionedOperations(text: string, names: readonly string[]): Arr
   );
 }
 
-const REAL_TOOLS =new Set<string>([...HOT_PATH, "fiken_explore", "fiken_read", "fiken_write", "upload_receipts", "get_upload_url"]);
+const REAL_TOOLS = new Set<string>([...HOT_PATH, "fiken_explore", "fiken_read", "fiken_write", "upload_receipts", "get_upload_url"]);
 
 /** Calls `name` directly when it is a real tool, otherwise through fiken_read or fiken_write. */
 export async function callJson(client: Client, name: string, args: Record<string, unknown>) {

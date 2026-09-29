@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CONCEPTS } from "../../src/mcp/operations.js";
 import { type ConnectorOptions, parseConnectorOptions, visibleOperations } from "../../src/mcp/options.js";
 import { OPERATIONS } from "../../src/mcp/registry.js";
 import { connected, fakeFiken, mentionedOperations, operationTexts } from "./helpers.js";
@@ -20,20 +21,21 @@ describe("connector options", () => {
     expect("error" in bad && bad.error).toMatch(/^Unknown connector option "invoicez"\. Use readonly and any of: /);
   });
 
-  it("readonly hides every write; a concept filter keeps the lookup reads but not their writes", () => {
-    expect(visibleOperations(parsed("readonly")).every((o) => o.kind === "read")).toBe(true);
+  it("readonly hides every write; a concept filter limits writes only, and every read stays", () => {
+    const reads = OPERATIONS.filter((o) => o.kind === "read").map((o) => o.name);
+    const ro = visibleOperations(parsed("readonly"));
+    expect(ro.map((o) => o.name)).toEqual(reads);
     const inv = visibleOperations(parsed("invoices"));
-    expect(new Set(inv.map((o) => o.concept))).toEqual(new Set(["invoices", "companies", "contacts", "accounts", "projects", "products", "inbox"]));
-    expect(inv.filter((o) => o.concept !== "invoices").every((o) => o.kind === "read")).toBe(true);
-    expect(inv.map((o) => o.name)).toEqual(expect.arrayContaining(["list_companies", "search_contacts", "get_contact", "list_accounts", "account_balances", "list_bank_accounts", "list_projects", "list_products", "list_inbox", "get_inbox_document"]));
+    expect(inv.filter((o) => o.kind === "read").map((o) => o.name)).toEqual(reads);
+    expect(new Set(inv.filter((o) => o.kind === "write").map((o) => o.concept))).toEqual(new Set(["invoices"]));
     expect(inv.map((o) => o.name)).not.toContain("create_contact");
     expect(visibleOperations(parsed("contacts")).map((o) => o.name)).toContain("create_contact");
-    expect(visibleOperations(parsed("invoices,readonly")).some((o) => o.kind === "write")).toBe(false);
+    expect(visibleOperations(parsed("invoices,readonly")).map((o) => o.name)).toEqual(reads);
   });
 
-  it("keeps visible every operation a visible operation says an id comes from", () => {
+  it("keeps visible every operation a visible operation says an id comes from, under every single-concept filter", () => {
     const names = OPERATIONS.map((o) => o.name);
-    for (const segment of ["invoices", "purchases"]) {
+    for (const segment of Object.keys(CONCEPTS)) {
       const visible = new Set(visibleOperations(parsed(segment)).map((o) => o.name));
       for (const op of OPERATIONS.filter((o) => visible.has(o.name))) {
         for (const text of operationTexts(op)) {

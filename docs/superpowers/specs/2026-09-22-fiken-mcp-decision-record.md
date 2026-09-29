@@ -341,16 +341,20 @@ changed, and what it left open:
   stored. They limit what a connection offers the model and are not a
   security boundary against the token holder (the same token works on
   `/mcp`).
-- **Concept filters keep the lookups their operations need.** Any
-  concept filter always includes the read operations of `companies`,
-  `contacts`, `accounts`, `projects`, `products` and `inbox`; the writes
-  of those concepts show only when the concept is chosen. Found in the
-  final review: `/mcp/invoices` hid `search_contacts` and
-  `list_bank_accounts`, which every invoice needs, and `/mcp/purchases`
-  hid `list_inbox`, where `create_purchase` takes `inboxDocumentId`
-  from. A test asserts, with no exceptions, that under `/mcp/invoices`
-  and `/mcp/purchases` every operation a visible description names as
-  "from <op>" is itself visible.
+- **A concept filter chooses which areas the model may change; all
+  reads stay available.** Every read operation is visible on every
+  connection; writes are visible only for the chosen concepts, and never
+  when `readonly`. Found in the final review: `/mcp/invoices` hid
+  `search_contacts` and `list_bank_accounts`, which every invoice needs,
+  and `/mcp/purchases` hid `list_inbox`. A first fix kept a fixed set of
+  lookup concepts, but the re-review found `/mcp/credit_notes`,
+  `/mcp/payments` and `/mcp/attachments` still hid where their ids come
+  from. The filter's purpose is to narrow what the model can change, so
+  reads are no longer filtered. A test asserts, for every concept alone
+  and with no exceptions, that every operation a visible description
+  names as "from <op>" is itself visible. Writes that also return an id
+  (`create_invoice`) are named after a ";" rather than as a "from"
+  source, since the lookup read is always there.
 - **Only real tools are called by name.** Every text that names an
   operation which is not a hot-path tool says to run it through
   `fiken_read` or `fiken_write`, and recovery texts give the exact call.

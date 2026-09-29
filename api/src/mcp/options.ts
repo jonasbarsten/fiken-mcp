@@ -22,17 +22,11 @@ export function parseConnectorOptions(segment: string): { ok: ConnectorOptions }
 }
 
 /**
- * Concepts whose reads every concept filter keeps: the slug, contact, account, project, product and
- * inbox lookups that other operations take their ids from. Their writes show only when the concept is chosen.
+ * Every read, always: other operations take their slugs and ids from reads in any concept. A concept
+ * filter chooses which areas the model may change, so writes show only for the chosen concepts, and
+ * never when read-only.
  */
-export const LOOKUP_CONCEPTS: ReadonlySet<Concept> = new Set<Concept>(["companies", "contacts", "accounts", "projects", "products", "inbox"]);
-
-/** All operations, minus writes when read-only, and with a concept filter only the chosen concepts plus the lookup reads. */
 export function visibleOperations(options: ConnectorOptions): readonly Operation[] {
   const { readOnly, concepts } = options;
-  return OPERATIONS.filter(
-    (op) =>
-      !(readOnly && op.kind === "write") &&
-      (!concepts || concepts.has(op.concept) || (op.kind === "read" && LOOKUP_CONCEPTS.has(op.concept))),
-  );
+  return OPERATIONS.filter((op) => op.kind === "read" || (!readOnly && (!concepts || concepts.has(op.concept))));
 }

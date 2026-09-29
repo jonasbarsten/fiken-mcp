@@ -86,19 +86,19 @@ options are read from the path on every request, so nothing is stored.
 | --- | --- |
 | `https://api.fiken-mcp.byjoba.com/mcp` | Everything |
 | `https://api.fiken-mcp.byjoba.com/mcp/readonly` | Reads only; no write operation, no `fiken_write`, no upload tools |
-| `https://api.fiken-mcp.byjoba.com/mcp/invoices,sales` | Only those concepts |
-| `https://api.fiken-mcp.byjoba.com/mcp/invoices,readonly` | Those concepts, reads only |
+| `https://api.fiken-mcp.byjoba.com/mcp/invoices,sales` | Every read; writes only in those concepts |
 
 Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
 `purchases`, `sales`, `invoices`, `credit_notes`, `payments`, `products`,
-`inbox`, `attachments`, `usage`. A concept filter always includes the
-read lookups of `companies`, `contacts`, `accounts`, `projects`,
-`products` and `inbox`, since other operations take their slugs and ids from them;
-the writes of those concepts (such as `create_contact`) show only when
-the concept is chosen. An unknown word gets a 400 naming the
-valid ones, after login; an unauthenticated request to an invalid option
-path gets the plain `/mcp` login challenge. The upload tools need
-`purchases` visible and a connection that is not read-only.
+`inbox`, `attachments`, `usage`. A concept filter chooses which areas the
+model may change; all reads stay available, since operations take their
+slugs and ids from reads in other concepts. So `/mcp/invoices` can look
+up contacts and bank accounts but not create a contact, and
+`/mcp/invoices,readonly` offers the same as `/mcp/readonly`. An unknown
+word gets a 400 naming the valid ones, after login; an unauthenticated
+request to an invalid option path gets the plain `/mcp` login challenge.
+The upload tools need `purchases` chosen (or no filter) and a connection
+that is not read-only.
 
 These options limit what a connection offers the model. They are not a
 security boundary against whoever holds the token: the same login token

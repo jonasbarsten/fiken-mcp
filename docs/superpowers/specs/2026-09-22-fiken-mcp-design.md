@@ -402,13 +402,13 @@ short: the hot-path tools, the upload tools, and three gateway tools.
   payments, products, inbox, attachments, usage.
 - Connector options live in the URL path: `/mcp/readonly`,
   `/mcp/<concept>,<concept>`, combinable with `readonly`. A concept
-  filter always includes the read operations of `companies`, `contacts`,
-  `accounts`, `projects`, `products` and `inbox` (the lookups other operations
-  take slugs and ids from); their writes show only when the concept is
-  chosen (ruling, 2026-09-29). They are read on every request and
-  nothing is stored.
+  filter chooses which areas the model may change; all reads stay
+  available (ruling, 2026-09-29): every read operation is visible on
+  every connection, and writes only for the chosen concepts (none when
+  `readonly`). They are read on every request and nothing is stored.
   `fiken_write` is absent when the connection sees no write; the upload
-  tools need `purchases` visible and a non-readonly connection. Unknown
+  tools need `purchases` chosen (or no filter) and a non-readonly
+  connection. Unknown
   words get a 400 after login; an unauthenticated request to an invalid
   option path gets the plain `/mcp` challenge. The protected-resource
   metadata mirrors the path
