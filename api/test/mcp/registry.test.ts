@@ -21,6 +21,7 @@ const EXPECTED = [
   "create_order_confirmation_draft", "create_order_confirmation_from_draft", "list_order_confirmations", "create_invoice_draft_from_order_confirmation",
   "list_recurring_invoices", "create_recurring_invoice_from_draft", "set_recurring_invoice_job",
   "list_time_users", "list_activities", "list_time_entries", "create_time_entry", "create_invoice_draft_from_time_entries",
+  "list_ehf_documents", "get_ehf_document", "create_accrual",
 ];
 
 describe("operation registry", () => {

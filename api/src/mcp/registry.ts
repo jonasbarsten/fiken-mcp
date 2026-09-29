@@ -4,6 +4,7 @@ import { attachmentsOperations } from "./tools/attachments.js";
 import { companiesOperations } from "./tools/companies.js";
 import { contactsOperations } from "./tools/contacts.js";
 import { creditNotesOperations } from "./tools/credit-notes.js";
+import { ehfOperations } from "./tools/ehf.js";
 import { inboxDocumentOperations } from "./tools/inbox-document.js";
 import { inboxOperations } from "./tools/inbox.js";
 import { invoicesOperations } from "./tools/invoices.js";
@@ -28,6 +29,7 @@ export const OPERATIONS: readonly Operation[] = [
   ...attachmentsOperations,
   ...inboxOperations,
   ...inboxDocumentOperations,
+  ...ehfOperations,
   ...salesOperations,
   ...invoicesOperations,
   ...creditNotesOperations,

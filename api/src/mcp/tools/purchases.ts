@@ -10,6 +10,7 @@ interface FikenPurchaseLine {
   vat: number;
   account: string;
   vatType: string;
+  lineId: number;
 }
 
 interface FikenPurchase {
@@ -43,7 +44,10 @@ function trimPurchase(p: FikenPurchase) {
 }
 
 function purchaseDetail(p: FikenPurchase) {
-  return { ...trimPurchase(p), purchaseAttachments: (p.purchaseAttachments ?? []).map((a) => ({ uuid: a.uuid, filename: a.filename })) };
+  return {
+    ...trimPurchase(p),
+    lines: p.lines.map((l) => ({ lineId: l.lineId, description: l.description, netPrice: l.netPrice, vat: l.vat, account: l.account, vatType: l.vatType })),
+    purchaseAttachments: (p.purchaseAttachments ?? []).map((a) => ({ uuid: a.uuid, filename: a.filename })) };
 }
 
 interface FikenPurchaseDraft {

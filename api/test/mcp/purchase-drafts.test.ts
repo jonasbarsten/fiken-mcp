@@ -53,7 +53,7 @@ describe("purchase drafts", () => {
     const c = await connected(f.fetchImpl);
     const r = await callJson(c, "create_purchase_from_draft", { companySlug: "demo", draftId: 12 });
     expect(r.json()).toMatchObject({ purchaseId: 55, lines: [{ description: "Kontorrekvisita", netPrice: 10000 }] });
-    expect(JSON.stringify(r.json())).not.toContain("lineId");
+    expect(r.json()).toMatchObject({ lines: [{ lineId: 1 }] });
     expect(f.calls[0]?.init?.method).toBe("POST");
     expect(f.calls[0]?.init?.body).toBeUndefined();
   });

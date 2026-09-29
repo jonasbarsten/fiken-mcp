@@ -20,6 +20,7 @@ export const CONCEPTS = {
   payments: "Payments on sales and purchases",
   products: "Products and services the company sells",
   inbox: "The company's document inbox",
+  ehf: "Incoming EHF e-invoices",
   attachments: "Files attached to purchases, sales, invoices and journal entries",
   usage: "Your own usage counters on this server",
 } as const;

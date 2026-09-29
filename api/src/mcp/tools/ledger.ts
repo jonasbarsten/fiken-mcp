@@ -210,6 +210,35 @@ export const ledgerOperations: Operation[] = [
   }),
 
   defineOperation({
+    name: "create_accrual",
+    concept: "ledger",
+    kind: "write",
+    destructive: true,
+    title: "Create accrual",
+    description:
+      "Spread a sale or purchase line over several months (periodisering). Exactly one of saleId and purchaseId. The line must be on a " +
+      "result account (3000-7999). Purchases accrue to 1397, 1700, 1710, 1742, 1743, 1744, 1749 or 2961; sales to 1530 or 2965. " +
+      `Sales with sales-cost lines cannot be accrued. ${CONFIRM}`,
+    input: z.object({
+      companySlug,
+      saleId: z.number().int().optional().describe("Sale id, from list_sales (via fiken_read)"),
+      purchaseId: z.number().int().optional().describe("Purchase id, from list_purchases (via fiken_read)"),
+      lineId: z.number().int().describe("The line to spread, from get_sale or get_purchase (via fiken_read)"),
+      startDate: isoDate.describe("First month of the accrual (YYYY-MM-DD)"),
+      periods: z.number().int().min(2).max(120).describe("Number of monthly periods, 2 to 120"),
+      account: z.string().min(1).optional().describe("Account to accrue to; see the description for the allowed codes"),
+    }),
+    async run(ctx, { companySlug: slug, saleId, purchaseId, lineId, startDate, periods, account }) {
+      if ((saleId === undefined) === (purchaseId === undefined)) return toolText("Give exactly one of saleId and purchaseId.");
+      const path = saleId !== undefined ? `sales/${saleId}` : `purchases/${purchaseId}`;
+      return withCompany(ctx, slug, async () => {
+        const { id } = await ctx.fiken.create(`/companies/${slug}/${path}/accruals`, defined({ lineId, startDate, periods, account }));
+        return toolJson({ accrualId: id });
+      });
+    },
+  }),
+
+  defineOperation({
     name: "list_transactions",
     concept: "ledger",
     kind: "read",

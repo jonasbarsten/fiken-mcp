@@ -9,6 +9,7 @@ interface FikenSaleLine {
   vat: number;
   vatType: string;
   account?: string;
+  lineId: number;
 }
 
 interface FikenSale {
@@ -50,7 +51,7 @@ function trimSale(s: FikenSale) {
 function trimSaleDetail(s: FikenSale) {
   return {
     ...trimSale(s),
-    lines: (s.lines ?? []).map((l) => ({ description: l.description, netPrice: l.netPrice, vat: l.vat, vatType: l.vatType, account: l.account })),
+    lines: (s.lines ?? []).map((l) => ({ lineId: l.lineId, description: l.description, netPrice: l.netPrice, vat: l.vat, vatType: l.vatType, account: l.account })),
     payments: s.salePayments?.length ?? 0,
   };
 }

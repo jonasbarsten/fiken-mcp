@@ -53,7 +53,7 @@ describe("sales", () => {
     const c = await connected(f.fetchImpl);
     const r = await callJson(c, "get_sale", { companySlug: "demo", saleId: 9 });
     expect(r.json()).toMatchObject({ saleId: 9, payments: 1, lines: [{ description: "Vipps", netPrice: 10000, vat: 2500, vatType: "HIGH", account: "3000" }] });
-    expect(JSON.stringify(r.json())).not.toContain("lineId");
+    expect(r.json()).toMatchObject({ lines: [{ lineId: 1 }] });
   });
 
   it("settle_sale and write_off_sale patch the sale", async () => {

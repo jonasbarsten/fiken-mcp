@@ -54,7 +54,12 @@ Operations by concept (`read` unless marked write):
   range such as 3000-3999), `bank_balances`
 - `ledger`: `get_journal_entries`, `get_journal_entry`,
   `create_journal_entry` (write; a manual fri postering, refused unless
-  debits and credits balance), `list_transactions`, `get_transaction`
+  debits and credits balance), `list_transactions`, `get_transaction`,
+  `create_accrual` (write; spreads a sale or purchase line over months,
+  the line id comes from `get_sale` or `get_purchase`)
+- `ehf`: `list_ehf_documents`, `get_ehf_document` (incoming EHF
+  e-invoices; `attach_inbox_document` takes an `ehfDocumentId` for
+  purchases, sales and journal entries, not invoices)
 - `purchases`: `list_purchases`, `get_purchase`, `create_purchase` (write;
   optionally attaching an inbox document), `create_purchase_draft` (write;
   a draft for the user to approve in Fiken, NOK only), `list_purchase_drafts`,
@@ -128,7 +133,7 @@ options are read from the path on every request, so nothing is stored.
 
 Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
 `purchases`, `sales`, `invoices`, `invoice_drafts`, `credit_notes`,
-`offers`, `order_confirmations`, `recurring_invoices`, `time_tracking`, `payments`, `products`, `inbox`, `attachments`, `usage`. A concept filter chooses which areas the
+`offers`, `order_confirmations`, `recurring_invoices`, `time_tracking`, `payments`, `products`, `inbox`, `ehf`, `attachments`, `usage`. A concept filter chooses which areas the
 model may change; all reads stay available, since operations take their
 slugs and ids from reads in other concepts. So `/mcp/invoices` can look
 up contacts and bank accounts but not create a contact, and
