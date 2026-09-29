@@ -52,7 +52,9 @@ Operations by concept (`read` unless marked write):
   `create_journal_entry` (write; a manual fri postering, refused unless
   debits and credits balance), `list_transactions`, `get_transaction`
 - `purchases`: `list_purchases`, `get_purchase`, `create_purchase` (write;
-  optionally attaching an inbox document)
+  optionally attaching an inbox document), `create_purchase_draft` (write;
+  a draft for the user to approve in Fiken, NOK only), `list_purchase_drafts`,
+  `create_purchase_from_draft` (write; books it)
 - `sales`: `list_sales`, `get_sale` (with lines and payment count),
   `create_sale` (write; income not invoiced through Fiken: a cash sale or an
   invoice issued elsewhere), `settle_sale` (write; settle without a

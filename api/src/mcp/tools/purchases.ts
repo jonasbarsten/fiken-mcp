@@ -2,7 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
 import { errorText, toolJson } from "../context.js";
-import { companySlug, CONFIRM, gatewayCall, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
+import { companySlug, CONFIRM, defined, gatewayCall, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
 
 interface FikenPurchaseLine {
   description: string;
@@ -41,6 +41,32 @@ function trimPurchase(p: FikenPurchase) {
     attachments: (p.purchaseAttachments ?? []).length,
   };
 }
+
+function purchaseDetail(p: FikenPurchase) {
+  return { ...trimPurchase(p), purchaseAttachments: (p.purchaseAttachments ?? []).map((a) => ({ uuid: a.uuid, filename: a.filename })) };
+}
+
+interface FikenPurchaseDraft {
+  draftId: number;
+  uuid: string;
+  invoiceIssueDate?: string;
+  dueDate?: string;
+  contact?: { contactId: number; name: string };
+  cash: boolean;
+  paid: boolean;
+  lines: unknown[];
+}
+
+const draftLine = z
+  .object({
+    text: z.string().min(1).max(200).describe("Description of the line"),
+    vatType: z.string().min(1).describe("Purchase VAT type: HIGH (25%), MEDIUM (15%), LOW (12%), NONE, RAW_FISH and Fiken's other purchase types"),
+    incomeAccount: z.string().min(1).describe("The expense account code, from list_accounts (Fiken calls it incomeAccount on draft lines)"),
+    net: z.number().int().describe(`Net amount. ${ORE}`),
+    gross: z.number().int().describe(`Gross amount (net plus VAT). ${ORE}`),
+    projectId: z.number().int().optional().describe("Project id, from list_projects"),
+  })
+  .strict();
 
 /**
  * The purchase POST already succeeded when this is called: attaching the receipt or reading the purchase back failed.
@@ -91,11 +117,91 @@ export const purchasesOperations: Operation[] = [
     input: z.object({ companySlug, purchaseId: z.number().int().describe("Purchase id, from list_purchases (via fiken_read)") }),
     async run(ctx, { companySlug: slug, purchaseId }) {
       return withCompany(ctx, slug, async () => {
-        const purchase = await ctx.fiken.json<FikenPurchase>(`/companies/${slug}/purchases/${purchaseId}`);
-        return toolJson({
-          ...trimPurchase(purchase),
-          purchaseAttachments: (purchase.purchaseAttachments ?? []).map((a) => ({ uuid: a.uuid, filename: a.filename })),
-        });
+        return toolJson(purchaseDetail(await ctx.fiken.json<FikenPurchase>(`/companies/${slug}/purchases/${purchaseId}`)));
+      });
+    },
+  }),
+
+  defineOperation({
+    name: "create_purchase_draft",
+    concept: "purchases",
+    kind: "write",
+    destructive: false,
+    title: "Create purchase draft",
+    description:
+      "Prepare a purchase for the user to review and approve in Fiken, instead of booking it directly with create_purchase. " +
+      "lines use Fiken's draft names: text, net and gross (øre), and incomeAccount for the expense account. " +
+      "The user can attach the receipt in Fiken, or create_purchase_from_draft (via fiken_write) books it. " +
+      "A draft records no payment: if paid is true, the payment is recorded in Fiken when the draft is approved. " +
+      `NOK only. ${ORE}`,
+    input: z.object({
+      companySlug,
+      cash: z.boolean().describe("true for a cash purchase (paid at once), false for a supplier invoice"),
+      paid: z.boolean().describe("Whether the purchase has been paid"),
+      lines: z.array(draftLine).min(1),
+      currency: z.literal("NOK").default("NOK"),
+      contactId: z.number().int().optional().describe("Supplier contact id, from search_contacts"),
+      invoiceIssueDate: isoDate.optional().describe("Invoice date (YYYY-MM-DD)"),
+      dueDate: isoDate.optional().describe("Due date (YYYY-MM-DD)"),
+      invoiceNumber: z.string().min(1).optional().describe("The supplier's invoice number"),
+      kid: z.string().min(1).optional(),
+      projectId: z.number().int().optional().describe("Project id, from list_projects; applies to the whole draft"),
+    }),
+    async run(ctx, { companySlug: slug, ...draft }) {
+      const bad = draft.lines.findIndex((l) => l.gross < l.net);
+      if (bad !== -1) return toolText(`Line ${bad + 1}: gross (${draft.lines[bad]?.gross}) is below net (${draft.lines[bad]?.net}); gross is net plus VAT.`);
+      return withCompany(ctx, slug, async () => {
+        const { id } = await ctx.fiken.create(`/companies/${slug}/purchases/drafts`, defined(draft));
+        return toolJson({ draftId: id });
+      });
+    },
+  }),
+
+  defineOperation({
+    name: "list_purchase_drafts",
+    concept: "purchases",
+    kind: "read",
+    destructive: false,
+    title: "List purchase drafts",
+    description: `Purchase drafts waiting in Fiken for approval. draftId is what create_purchase_from_draft (via fiken_write) takes. ${ORE}`,
+    input: z.object({ companySlug, ...paging }),
+    async run(ctx, { companySlug: slug, page, pageSize }) {
+      return withCompany(ctx, slug, async () => {
+        const { items, total } = await ctx.fiken.list<FikenPurchaseDraft>(`/companies/${slug}/purchases/drafts`, { page, pageSize });
+        const trimmed = items.map((d) => ({
+          draftId: d.draftId,
+          uuid: d.uuid,
+          invoiceIssueDate: d.invoiceIssueDate,
+          dueDate: d.dueDate,
+          contact: d.contact ? { contactId: d.contact.contactId, name: d.contact.name } : undefined,
+          cash: d.cash,
+          paid: d.paid,
+          lines: d.lines.length,
+        }));
+        return paged(trimmed, total, page, pageSize);
+      });
+    },
+  }),
+
+  defineOperation({
+    name: "create_purchase_from_draft",
+    concept: "purchases",
+    kind: "write",
+    destructive: true,
+    title: "Book purchase from draft",
+    description: `Book the purchase from a draft. The purchase is booked in the accounts. ${CONFIRM}`,
+    input: z.object({ companySlug, draftId: z.number().int().describe("Draft id, from list_purchase_drafts (via fiken_read)") }),
+    async run(ctx, { companySlug: slug, draftId }) {
+      return withCompany(ctx, slug, async () => {
+        const { id } = await ctx.fiken.create(`/companies/${slug}/purchases/drafts/${draftId}/createPurchase`, undefined);
+        try {
+          return toolJson(purchaseDetail(await ctx.fiken.json<FikenPurchase>(`/companies/${slug}/purchases/${id}`)));
+        } catch (err) {
+          return toolText(
+            `Purchase ${id} was created from the draft; fetching it back failed: ${errorText(err)}. Do not create it again; ` +
+              `${gatewayCall("fiken_read", "get_purchase", { companySlug: slug, purchaseId: id })}.`,
+          );
+        }
       });
     },
   }),
