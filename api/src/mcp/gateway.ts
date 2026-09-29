@@ -5,7 +5,9 @@ import { counted, type ToolContext } from "./context.js";
 import { CONCEPTS, type Concept, type Operation } from "./operations.js";
 import { CONFIRM, toolText } from "./tools/common.js";
 
-const USAGE = "Pass an operation name and its args to fiken_read (reads) or fiken_write (writes). Operation names can also be used directly when an earlier result names them.";
+const DIRECT = "Operation names can also be used directly when an earlier result names them.";
+const USAGE_READ_WRITE = `Pass an operation name and its args to fiken_read (reads) or fiken_write (writes). ${DIRECT}`;
+const USAGE_READ_ONLY = `Pass an operation name and its args to fiken_read. ${DIRECT}`;
 
 /**
  * The JSON Schema of what a caller passes: `io: "input"` keeps defaulted fields (page, pageSize)
@@ -32,6 +34,7 @@ function describeOperation(op: Operation) {
 export function registerGateway(server: McpServer, ctx: ToolContext, visible: readonly Operation[]): void {
   const byName = new Map(visible.map((op) => [op.name, op]));
   const concepts = (Object.keys(CONCEPTS) as Concept[]).filter((c) => visible.some((op) => op.concept === c));
+  const writes = visible.some((op) => op.kind === "write");
 
   server.registerTool(
     "fiken_explore",
@@ -52,7 +55,7 @@ export function registerGateway(server: McpServer, ctx: ToolContext, visible: re
             summary: CONCEPTS[name],
             operations: visible.filter((op) => op.concept === name).map((op) => op.name),
           })),
-          usage: USAGE,
+          usage: writes ? USAGE_READ_WRITE : USAGE_READ_ONLY,
         });
       }
       if ((concepts as string[]).includes(path)) {
@@ -101,7 +104,7 @@ export function registerGateway(server: McpServer, ctx: ToolContext, visible: re
   };
 
   registerRunner("fiken_read", "read", "Run a Fiken read", "Run a read operation found with fiken_explore, with its args. Reads never change anything in Fiken.");
-  if (!visible.some((op) => op.kind === "write")) return;
+  if (!writes) return;
   registerRunner(
     "fiken_write",
     "write",

@@ -127,6 +127,9 @@ describe("POST /mcp", () => {
     });
     expect(bad.status).toBe(400);
     expect((await bad.json()).error).toBe("invalid_connector_options");
+    const unauthBad = await app.request("/mcp/invoicez", { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: "{}" });
+    expect(unauthBad.status).toBe(401);
+    expect(unauthBad.headers.get("www-authenticate")).toBe('Bearer error="invalid_token", resource_metadata="https://fiken-mcp.test/.well-known/oauth-protected-resource"');
     const ro = await app.request("/mcp/readonly", {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },

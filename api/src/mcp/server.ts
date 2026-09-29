@@ -21,7 +21,7 @@ export function registerAllTools(server: McpServer, ctx: ToolContext, visible: r
  * `publicUrl` makes serverInfo advertise the connector icon at `<publicUrl>/icon.png`.
  * The upload tools need both a public URL (where the widget posts) and the config
  * (whose key ring seals the ticket), so they register only when both are given, and
- * only when the connection may write and sees inbox or purchases.
+ * only when the connection may write and sees purchases.
  */
 export function createMcpServer(ctx: ToolContext, publicUrl?: string, cfg?: Config, options: ConnectorOptions = { readOnly: false }): McpServer {
   const server = new McpServer({
@@ -30,7 +30,8 @@ export function createMcpServer(ctx: ToolContext, publicUrl?: string, cfg?: Conf
     ...(publicUrl ? { icons: [{ src: `${publicUrl}/icon.png`, mimeType: "image/png", sizes: ["512x512"] }] } : {}),
   });
   registerAllTools(server, ctx, visibleOperations(options));
-  const uploads = !options.readOnly && (!options.concepts || options.concepts.has("inbox") || options.concepts.has("purchases"));
+  // The upload tools tell the model to book with create_purchase, so they need purchases and writes.
+  const uploads = !options.readOnly && (!options.concepts || options.concepts.has("purchases"));
   if (publicUrl && cfg && uploads) registerUploadTools(server, ctx, publicUrl, cfg);
   return server;
 }

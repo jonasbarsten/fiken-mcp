@@ -35,6 +35,12 @@ describe("connector options", () => {
     expect(names).not.toContain("upload_receipts");
     const explore = await c.callTool({ name: "fiken_explore", arguments: { path: "invoices" } });
     expect((explore.content as Array<{ text: string }>)[0]?.text).not.toContain('"kind":"write"');
+    const fullRoot = (await full.callTool({ name: "fiken_explore", arguments: {} })).content as Array<{ text: string }>;
+    expect(JSON.parse(fullRoot[0]!.text).usage).toContain("fiken_write");
+    const root = (await c.callTool({ name: "fiken_explore", arguments: {} })).content as Array<{ text: string }>;
+    const usage = JSON.parse(root[0]!.text).usage as string;
+    expect(usage).toContain("fiken_read");
+    expect(usage).not.toContain("fiken_write");
     const r = await c.callTool({ name: "fiken_read", arguments: { operation: "send_invoice", args: { companySlug: "demo", invoiceId: 1 } } });
     expect(r.isError).toBe(true);
     expect(f.calls).toHaveLength(0);

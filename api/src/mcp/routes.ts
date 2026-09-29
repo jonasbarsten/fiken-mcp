@@ -10,12 +10,15 @@ export function mcpRoutes(cfg: Config): Hono {
   const app = new Hono();
 
   /**
-   * Serves `/mcp` and `/mcp/<options>`. The challenge mirrors the raw path the client used
-   * (so its metadata's resource matches it exactly); the options are parsed from Hono's
-   * decoded param, so a comma sent as %2C works too.
+   * Serves `/mcp` and `/mcp/<options>`. The options are parsed from Hono's decoded param,
+   * so a comma sent as %2C works too. A valid option path's challenge mirrors the raw path
+   * the client used (so its metadata's resource matches it exactly); an invalid one gets the
+   * plain `/mcp` challenge, since its own metadata would 404 and the client could never log
+   * in to see the 400 naming the bad word.
    */
   const handle = async (c: Context, withOptions: boolean) => {
-    const metadataPath = withOptions ? new URL(c.req.url).pathname : "";
+    const parsed = withOptions ? parseConnectorOptions(c.req.param("options") ?? "") : { ok: { readOnly: false } };
+    const metadataPath = withOptions && "ok" in parsed ? new URL(c.req.url).pathname : "";
     const challenge = `Bearer error="invalid_token", resource_metadata="${cfg.publicUrl}/.well-known/oauth-protected-resource${metadataPath}"`;
     const auth = c.req.header("authorization") ?? "";
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -25,12 +28,8 @@ export function mcpRoutes(cfg: Config): Hono {
     } catch {
       return c.body("Unauthorized", 401, { "WWW-Authenticate": challenge });
     }
-    let options: ConnectorOptions = { readOnly: false };
-    if (withOptions) {
-      const parsed = parseConnectorOptions(c.req.param("options") ?? "");
-      if ("error" in parsed) return c.json({ error: "invalid_connector_options", message: parsed.error }, 400);
-      options = parsed.ok;
-    }
+    if ("error" in parsed) return c.json({ error: "invalid_connector_options", message: parsed.error }, 400);
+    const options: ConnectorOptions = parsed.ok;
     const session = { fikenUnauthorized: false, wrote: false };
     const fiken = createFikenClient({ baseUrl: cfg.fikenBaseUrl, fileBaseUrl: cfg.fikenFileBaseUrl, accessToken: claims.fikenAccessToken, fetch: cfg.fetch, onWrite: () => { session.wrote = true; } });
     const server = createMcpServer(

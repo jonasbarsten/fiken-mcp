@@ -30,11 +30,12 @@ async function connectedWithUrl(exp = farFutureExp(), options?: ConnectorOptions
 }
 
 describe("upload tools", () => {
-  it("register only when the connection may write and sees inbox or purchases", async () => {
+  it("register only when the connection may write and sees purchases", async () => {
     const names = async (options?: ConnectorOptions) => (await (await connectedWithUrl(undefined, options)).listTools()).tools.map((t) => t.name);
     expect(await names()).toContain("upload_receipts");
-    expect(await names({ readOnly: false, concepts: new Set(["purchases"]) })).toContain("upload_receipts");
-    expect(await names({ readOnly: false, concepts: new Set(["inbox"]) })).toContain("get_upload_url");
+    expect(await names({ readOnly: false, concepts: new Set(["purchases"]) })).toContain("get_upload_url");
+    expect(await names({ readOnly: false, concepts: new Set(["inbox"]) })).not.toContain("upload_receipts");
+    expect(await names({ readOnly: true, concepts: new Set(["purchases"]) })).not.toContain("upload_receipts");
     expect(await names({ readOnly: true })).not.toContain("upload_receipts");
     expect(await names({ readOnly: false, concepts: new Set(["invoices"]) })).not.toContain("upload_receipts");
   });
