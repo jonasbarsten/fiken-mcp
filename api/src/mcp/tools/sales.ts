@@ -178,7 +178,7 @@ export const salesOperations: Operation[] = [
             "The sale must not be a cash sale, must not already be written off, settled or deleted, and must have an outstanding balance.",
         ),
       date: isoDate.describe("Write-off date (YYYY-MM-DD)"),
-      comment: z.string().min(1).optional(),
+      comment: z.string().min(1).max(200).optional().describe("At most 200 characters (Fiken's limit)"),
     }),
     async run(ctx, { companySlug: slug, saleId, ...writeOff }) {
       return withCompany(ctx, slug, async () => {
