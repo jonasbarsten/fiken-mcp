@@ -17,6 +17,7 @@
     "@modelcontextprotocol/ext-apps": "2.0.0",
     "@modelcontextprotocol/server": "2.1.0",
     "hono": "4.13.9",
+    "pdfjs-dist": "6.3.289",
     "zod": "4.6.5"
   },
   "devDependencies": {
@@ -28,7 +29,6 @@
     "constructs": "10.8.1",
     "esbuild": "0.28.2",
     "openapi-typescript": "7.13.0",
-    "pdfjs-dist": "6.3.289",
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "5.0.1"

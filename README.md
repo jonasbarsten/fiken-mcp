@@ -15,7 +15,9 @@ payments are covered too.
 
 Read: `list_companies`, `list_projects`, `list_accounts`,
 `list_bank_accounts`, `search_contacts`, `get_contact`, `list_purchases`,
-`get_purchase`, `list_inbox`, `list_sales`, `list_products`,
+`get_purchase`, `list_inbox`, `get_inbox_document` (an inbox document
+that did not come through the upload widget: images as images, PDFs as
+text per page, read in memory), `list_sales`, `list_products`,
 `list_invoices`, `get_invoice`, `get_attachments` (on a purchase, sale,
 invoice or journal entry),
 `account_balances`, `bank_balances`, `get_journal_entries`, `my_usage` (your own pseudonymous monthly

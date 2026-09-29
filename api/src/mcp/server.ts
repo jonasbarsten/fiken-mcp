@@ -9,6 +9,7 @@ import { registerCompanies } from "./tools/companies.js";
 import { registerContacts } from "./tools/contacts.js";
 import { registerCreditNotes } from "./tools/credit-notes.js";
 import { registerInbox } from "./tools/inbox.js";
+import { registerInboxDocument } from "./tools/inbox-document.js";
 import { registerInvoices } from "./tools/invoices.js";
 import { registerLedger } from "./tools/ledger.js";
 import { registerPayments } from "./tools/payments.js";
@@ -93,6 +94,7 @@ export function registerAllTools(server: McpServer, ctx: ToolContext): void {
   registerPurchases(server, ctx);
   registerAttachments(server, ctx);
   registerInbox(server, ctx);
+  registerInboxDocument(server, ctx);
   registerSales(server, ctx);
   registerInvoices(server, ctx);
   registerCreditNotes(server, ctx);

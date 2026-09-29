@@ -37,8 +37,9 @@ export interface FikenClient {
   /** Location of the created resource; `id` only when its last path segment is numeric (inbox documents yes, attachments carry a UUID). */
   upload(path: string, form: FormData, query?: Query): Promise<{ id: number | undefined; location: string }>;
   /**
-   * Fetches a file from Fiken's API, with the user's token. Takes an absolute URL under `baseUrl/` or a path
-   * starting with a single `/`; anything else is refused before any request, so the token never leaves Fiken.
+   * Fetches a file from Fiken, with the user's token. Takes an absolute URL under `baseUrl/` or under
+   * `fileBaseUrl/` (Fiken's file host, where documentUrl points), or a path starting with a single `/`;
+   * anything else is refused before any request, so the token never leaves Fiken. Caps at 10 MB.
    */
   download(url: string): Promise<{ bytes: Uint8Array<ArrayBuffer>; contentType: string | null }>;
 }
