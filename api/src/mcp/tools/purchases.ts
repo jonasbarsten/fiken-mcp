@@ -166,7 +166,7 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
             // Fiken requires at least one of attachToSale/attachToPayment; both
             // default to false. A receipt always documents the purchase, and for
             // a cash purchase it is the payment proof too.
-            await ctx.fiken.upload(`/companies/${slug}/purchases/${id}/attachments`, new FormData(), {
+            await ctx.fiken.attach(`/companies/${slug}/purchases/${id}/attachments`, new FormData(), {
               inboxDocumentId,
               attachToSale: true,
               attachToPayment: kind === "cash_purchase" ? true : undefined,
