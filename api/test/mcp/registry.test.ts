@@ -11,6 +11,7 @@ const EXPECTED = [
   "list_invoices", "get_invoice", "create_invoice", "create_invoice_draft", "create_invoice_from_draft", "send_invoice",
   "create_credit_note", "register_payment", "list_products", "get_journal_entries", "my_usage",
   "get_sale", "create_sale", "settle_sale", "write_off_sale", "list_payments",
+  "get_journal_entry", "create_journal_entry", "list_transactions", "get_transaction",
 ];
 
 describe("operation registry", () => {

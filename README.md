@@ -48,7 +48,9 @@ Operations by concept (`read` unless marked write):
 - `accounts`: `list_accounts`, `list_bank_accounts` (with the account
   number an invoice draft needs), `account_balances` (date and an account
   range such as 3000-3999), `bank_balances`
-- `ledger`: `get_journal_entries`
+- `ledger`: `get_journal_entries`, `get_journal_entry`,
+  `create_journal_entry` (write; a manual fri postering, refused unless
+  debits and credits balance), `list_transactions`, `get_transaction`
 - `purchases`: `list_purchases`, `get_purchase`, `create_purchase` (write;
   optionally attaching an inbox document)
 - `sales`: `list_sales`, `get_sale` (with lines and payment count),
