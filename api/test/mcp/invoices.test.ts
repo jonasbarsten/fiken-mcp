@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getOperation } from "../../src/mcp/registry.js";
 import { callJson, connected, fakeFiken } from "./helpers.js";
 
 const invoice77 = {
@@ -144,6 +145,22 @@ describe("send, credit, pay", () => {
     expect(bad.isError).toBe(true);
     expect(bad.text).toBe("Line 1 has no productId and is missing unitPrice, incomeAccount.");
     expect(f.calls).toHaveLength(0);
+  });
+
+  it("refuses a mistyped key in an invoice or credit-note line instead of dropping it", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const typo = { productId: 5, quantity: 1, netPrice: 50000 };
+    const inv = await callJson(c, "create_invoice", { ...createArgs, lines: [typo] });
+    expect(inv.isError).toBe(true);
+    expect(inv.text).toContain("netPrice");
+    const note = await callJson(c, "create_credit_note", { companySlug: "demo", kind: "partial", issueDate: "2026-09-29", invoiceId: 77, lines: [{ ...line, discunt: 10 }] });
+    expect(note.isError).toBe(true);
+    expect(note.text).toContain("discunt");
+    expect(f.calls).toHaveLength(0);
+    // The same schema is a real tool's inputSchema, so the real-tool path refuses it too.
+    expect(getOperation("create_invoice")?.input.safeParse({ ...createArgs, lines: [typo] }).success).toBe(false);
+    expect(getOperation("create_credit_note")?.input.safeParse({ companySlug: "demo", kind: "partial", issueDate: "2026-09-29", invoiceId: 77, lines: [{ ...line, discunt: 10 }] }).success).toBe(false);
   });
 
   it("a partial credit note needs unitPrice on every line, even with a productId", async () => {

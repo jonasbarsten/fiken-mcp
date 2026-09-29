@@ -36,7 +36,8 @@ interface FikenInvoice {
   attachments?: unknown[];
 }
 
-export const invoiceLine = z.object({
+/** Strict, so a mistyped key (netPrice, discunt) is refused instead of silently dropped. */
+export const invoiceLine = z.strictObject({
   productId: z.number().int().optional().describe("Product id from list_products; supplies description, price, VAT type and income account"),
   description: z.string().min(1).optional(),
   quantity: z.number().positive(),

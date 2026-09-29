@@ -208,6 +208,15 @@ describe("write tools", () => {
     expect(session.fikenUnauthorized).toBe(false);
   });
 
+  it("create_purchase refuses a mistyped key in a line before any call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_purchase", { companySlug: "demo", date: "2026-09-01", kind: "cash_purchase", lines: [{ description: "x", netPrice: 1, vat: 0, account: "6540", vatType: "NONE", vatTyp: "HIGH" }] });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("vatTyp");
+    expect(f.calls).toHaveLength(0);
+  });
+
   it("create_purchase without an inbox document makes no attachment call and relays Fiken's validation error", async () => {
     const f = fakeFiken([{ match: /\/purchases$/, status: 400, body: { message: "paymentAccount is required for cash purchases" } }]);
     const c = await connected(f.fetchImpl);

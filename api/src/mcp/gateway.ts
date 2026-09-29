@@ -1,14 +1,24 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, toolJson, type ToolContext } from "./context.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
+import { counted, type ToolContext } from "./context.js";
 import { CONCEPTS, type Concept, type Operation } from "./operations.js";
 import { CONFIRM, toolText } from "./tools/common.js";
 
 const USAGE = "Pass an operation name and its args to fiken_read (reads) or fiken_write (writes). Operation names can also be used directly when an earlier result names them.";
 
-/** The JSON Schema of what a caller passes; `io: "input"` keeps defaulted fields (page, pageSize) optional. */
+/**
+ * The JSON Schema of what a caller passes: `io: "input"` keeps defaulted fields (page, pageSize)
+ * optional, and the root refuses extra keys because the gateway parses it strictly.
+ */
 function inputSchema(op: Operation) {
-  return z.toJSONSchema(op.input, { io: "input" });
+  const { $schema: _, ...schema } = z.toJSONSchema(op.input.strict(), { io: "input" });
+  return schema;
+}
+
+/** Compact JSON: explore results carry many schemas, so indentation would only cost context. */
+function compactJson(value: unknown): CallToolResult {
+  return { content: [{ type: "text", text: JSON.stringify(value) }] };
 }
 
 function describeOperation(op: Operation) {
@@ -36,7 +46,7 @@ export function registerGateway(server: McpServer, ctx: ToolContext, visible: re
     },
     counted(ctx, "fiken_explore", async ({ path }: { path?: string }) => {
       if (!path) {
-        return toolJson({
+        return compactJson({
           concepts: concepts.map((name) => ({
             name,
             summary: CONCEPTS[name],
@@ -47,14 +57,14 @@ export function registerGateway(server: McpServer, ctx: ToolContext, visible: re
       }
       if ((concepts as string[]).includes(path)) {
         const concept = path as Concept;
-        return toolJson({
+        return compactJson({
           concept,
           summary: CONCEPTS[concept],
           operations: visible.filter((op) => op.concept === concept).map(describeOperation),
         });
       }
       const op = byName.get(path);
-      if (op) return toolJson(describeOperation(op));
+      if (op) return compactJson(describeOperation(op));
       return toolText(`Unknown path "${path}". Concepts: ${concepts.join(", ")}.`);
     }),
   );

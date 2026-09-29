@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CONFIRM } from "../../src/mcp/tools/common.js";
 import { memoryUsageStore } from "../../src/usage/memory.js";
 import { connected, fakeFiken } from "./helpers.js";
 
@@ -30,6 +31,35 @@ describe("gateway", () => {
     const bad = await call(c, "fiken_explore", { path: "invoicez" });
     expect(bad.isError).toBe(true);
     expect(bad.text).toContain("Concepts: ");
+  });
+
+  it("marks the gateway tools read-only or destructive, and fiken_write asks for confirmation", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const { tools } = await c.listTools();
+    const tool = (name: string) => tools.find((t) => t.name === name);
+    expect(tool("fiken_explore")?.annotations).toEqual({ readOnlyHint: true });
+    expect(tool("fiken_read")?.annotations).toEqual({ readOnlyHint: true });
+    expect(tool("fiken_write")?.annotations).toEqual({ readOnlyHint: false, destructiveHint: true });
+    expect(tool("fiken_write")?.description?.endsWith(CONFIRM)).toBe(true);
+  });
+
+  it("returns compact explore text whose schemas refuse extra keys", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const inv = await call(c, "fiken_explore", { path: "invoices" });
+    expect(inv.text.length).toBeLessThan(12000);
+    const ops = (inv.json() as { operations: Array<{ name: string; input: Record<string, unknown> }> }).operations;
+    const send = ops.find((o) => o.name === "send_invoice");
+    expect(send?.input.additionalProperties).toBe(false);
+    expect(send?.input).not.toHaveProperty("$schema");
+  });
+
+  it("runs a hot-path operation through fiken_read with the same result as the tool", async () => {
+    const f = fakeFiken([{ match: /\/accounts\?/, body: [{ code: "1920", name: "Bank" }] }]);
+    const c = await connected(f.fetchImpl);
+    const direct = await call(c, "list_accounts", { companySlug: "demo" });
+    const viaGateway = await call(c, "fiken_read", { operation: "list_accounts", args: { companySlug: "demo" } });
+    expect(viaGateway.isError).toBe(false);
+    expect(viaGateway.text).toBe(direct.text);
   });
 
   it("runs a read through fiken_read and counts it under the operation's name", async () => {

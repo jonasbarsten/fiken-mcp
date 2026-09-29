@@ -117,7 +117,7 @@ export const purchasesOperations: Operation[] = [
       kind: z.enum(["cash_purchase", "supplier"]).describe("cash_purchase (paid directly) or supplier (booked against a supplier invoice)"),
       lines: z
         .array(
-          z.object({
+          z.strictObject({
             description: z.string().min(1),
             netPrice: z.number().int().describe(ORE),
             vat: z.number().int().describe(ORE),
