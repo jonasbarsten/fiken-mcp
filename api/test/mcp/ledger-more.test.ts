@@ -16,6 +16,19 @@ describe("manual journal entries", () => {
     expect(f.calls).toHaveLength(0);
   });
 
+  it("refuses VAT codes, line projects and a too long description, before any call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const ok = [{ amount: 100, debitAccount: "6000" }, { amount: 100, creditAccount: "1200" }];
+    const vat = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-09-29", lines: [{ amount: 100, debitAccount: "6000", debitVatCode: 1 }, ok[1]] });
+    expect(vat.isError).toBe(true);
+    const proj = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-09-29", lines: [{ ...ok[0], projectId: 1 }, ok[1]] });
+    expect(proj.isError).toBe(true);
+    const long = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x".repeat(170), date: "2026-09-29", lines: ok });
+    expect(long.isError).toBe(true);
+    expect(f.calls).toHaveLength(0);
+  });
+
   it("posts one entry and reads it back", async () => {
     const f = fakeFiken([
       { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/journalEntries/21" } },

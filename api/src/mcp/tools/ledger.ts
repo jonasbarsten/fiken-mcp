@@ -63,9 +63,6 @@ const journalEntryLine = z
     amount: z.number().int().positive().describe(`Amount moved. ${ORE}`),
     debitAccount: z.string().min(1).optional().describe("Account code to debit, from list_accounts (via fiken_read); bank accounts look like 1920:10001"),
     creditAccount: z.string().min(1).optional().describe("Account code to credit, from list_accounts (via fiken_read)"),
-    debitVatCode: z.number().int().optional().describe("VAT code for the debit side"),
-    creditVatCode: z.number().int().optional().describe("VAT code for the credit side"),
-    projectId: z.number().int().optional().describe("Project id, from list_projects (via fiken_read)"),
   })
   .strict();
 
@@ -181,10 +178,10 @@ export const ledgerOperations: Operation[] = [
     description:
       "Book a manual journal entry (fri postering): corrections, depreciation, salary, transfers between accounts. " +
       "Each line moves amount (øre) to debitAccount and/or from creditAccount; debits and credits must balance. " +
-      `Fiken prefixes the description with 'Fri postering registrert via API: '. ${ORE} ${CONFIRM}`,
+      `Fiken prefixes the description with 'Fri postering registrert via API: '. No VAT: book VAT through create_purchase or create_sale (via fiken_write). ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,
-      description: z.string().min(1),
+      description: z.string().min(1).max(169).describe("At most 169 characters: Fiken's 200-character limit includes its ~31-character prefix"),
       date: isoDate.describe("Entry date (YYYY-MM-DD)"),
       lines: z.array(journalEntryLine).min(1),
       open: z.boolean().optional().describe("Whether the entry is left open"),
