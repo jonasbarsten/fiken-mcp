@@ -22,6 +22,7 @@ describe("loadConfig", () => {
     expect(cfg.keys.active).toBe("k1");
     expect(cfg.userSalt.length).toBe(32);
     expect(cfg.fikenBaseUrl).toBe("https://api.fiken.no/api/v2");
+    expect(cfg.fikenFileBaseUrl).toBe("https://fiken.no/api/v2");
     expect(asked[0]).toEqual(["/fiken_mcp/client_id", "/fiken_mcp/client_secret", "/fiken_mcp/signing_key", "/fiken_mcp/user_salt"]);
     expect(typeof cfg.usage.recordCall).toBe("function");
   });

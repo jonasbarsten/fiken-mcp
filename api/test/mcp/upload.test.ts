@@ -16,7 +16,7 @@ async function connectedWithUrl(exp = farFutureExp()) {
     queue: new FikenQueue(0),
   });
   const server = createMcpServer(
-    { fiken, anonId: "anon", fikenAccessToken: "tok", exp, usage: memoryUsageStore(), session: { fikenUnauthorized: false } },
+    { fiken, anonId: "anon", fikenAccessToken: "tok", exp, usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false } },
     "https://fiken-mcp.test",
     testConfig(),
   );
@@ -86,7 +86,7 @@ describe("upload tools", () => {
       fikenAccessToken: "tok",
       exp: farFutureExp(),
       usage: memoryUsageStore(),
-      session: { fikenUnauthorized: false },
+      session: { fikenUnauthorized: false, wrote: false },
     });
     const [ct, st] = InMemoryTransport.createLinkedPair();
     await server.connect(st);

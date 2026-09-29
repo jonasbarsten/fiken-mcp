@@ -126,11 +126,29 @@ describe("createFikenClient", () => {
     const p1 = client.create("/companies/x/purchases", {});
     p1.catch(() => {}); // Suppress unhandled rejection
     await vi.runAllTimersAsync();
-    await expect(p1).rejects.toMatchObject({ status: 502 });
+    await expect(p1).rejects.toMatchObject({ status: 502, body: expect.stringContaining("most likely created. Do not repeat it") });
     const p2 = client.create("/companies/x/purchases", {});
     p2.catch(() => {}); // Suppress unhandled rejection
     await vi.runAllTimersAsync();
     await expect(p2).rejects.toMatchObject({ status: 400, body: "bad request" });
+  });
+
+  it("attach resolves on a 2xx with or without Location and throws on a refusal", async () => {
+    const { fetchImpl, calls } = fakeFetch([
+      () => new Response(null, { status: 201 }),
+      () => new Response("no", { status: 400 }),
+    ]);
+    const writes: string[] = [];
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0), onWrite: () => writes.push("w") });
+    const ok = client.attach("/companies/x/sales/1/attachments", new FormData(), { inboxDocumentId: 7 });
+    await vi.runAllTimersAsync();
+    await expect(ok).resolves.toBeUndefined();
+    expect(calls[0]?.url).toBe("https://api.test/v2/companies/x/sales/1/attachments?inboxDocumentId=7");
+    expect(writes).toEqual(["w"]);
+    const bad = client.attach("/companies/x/sales/1/attachments", new FormData());
+    bad.catch(() => {});
+    await vi.runAllTimersAsync();
+    await expect(bad).rejects.toMatchObject({ status: 400, body: "no" });
   });
 
   it("upload posts multipart form data untouched and appends query params", async () => {
@@ -161,5 +179,100 @@ describe("createFikenClient", () => {
     bad.catch(() => {}); // Suppress unhandled rejection
     await vi.runAllTimersAsync();
     await expect(bad).rejects.toMatchObject({ status: 502 });
+  });
+
+  it("reports successful writes through onWrite, and only those", async () => {
+    vi.useRealTimers(); // the queue's gap sleep would never fire under the describe's fake timers
+    let writes = 0;
+    const answers: Record<string, Response> = {};
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2",
+      accessToken: "tok",
+      queue: new FikenQueue(0),
+      onWrite: () => { writes++; },
+      fetch: async (input, init) => {
+        const key = `${init?.method ?? "GET"} ${String(input)}`;
+        return answers[key] ?? new Response("nope", { status: 500 });
+      },
+    });
+    answers["GET https://api.test/v2/companies"] = Response.json([]);
+    await client.json("/companies");
+    expect(writes).toBe(0);
+    answers["POST https://api.test/v2/companies/demo/contacts"] = new Response(null, { status: 201, headers: { location: "https://api.test/v2/companies/demo/contacts/5" } });
+    await client.create("/companies/demo/contacts", { name: "x" });
+    expect(writes).toBe(1);
+    answers["POST https://api.test/v2/companies/demo/sales"] = new Response("bad", { status: 400 });
+    await expect(client.create("/companies/demo/sales", {})).rejects.toThrow();
+    expect(writes).toBe(1);
+  });
+
+  it("send posts JSON and resolves without a Location; a refusal throws", async () => {
+    vi.useRealTimers();
+    const seen: Array<{ url: string; body: unknown }> = [];
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0),
+      fetch: async (input, init) => {
+        seen.push({ url: String(input), body: JSON.parse(String(init?.body)) });
+        return String(input).endsWith("/send") ? new Response(null, { status: 200 }) : new Response("nei", { status: 400 });
+      },
+    });
+    await client.send("/companies/demo/invoices/send", { invoiceId: 77 });
+    expect(seen[0]).toEqual({ url: "https://api.test/v2/companies/demo/invoices/send", body: { invoiceId: 77 } });
+    await expect(client.send("/companies/demo/other", {})).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("send reports onWrite once on success and not on a refusal", async () => {
+    vi.useRealTimers();
+    let writes = 0;
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0),
+      onWrite: () => { writes++; },
+      fetch: async (input) => (String(input).endsWith("/send") ? new Response(null, { status: 200 }) : new Response("nei", { status: 400 })),
+    });
+    await client.send("/companies/demo/invoices/send", {});
+    expect(writes).toBe(1);
+    await expect(client.send("/companies/demo/other", {})).rejects.toThrow();
+    expect(writes).toBe(1);
+  });
+
+  it("download only talks to the Fiken API host and caps the size", async () => {
+    vi.useRealTimers();
+    const urls: string[] = [];
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0),
+      fetch: async (input, init) => {
+        urls.push(String(input));
+        expect(new Headers(init?.headers).get("authorization")).toBe("Bearer tok");
+        if (String(input).endsWith("/big")) return new Response("x", { headers: { "content-length": String(11 * 1024 * 1024) } });
+        return new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "application/pdf" } });
+      },
+    });
+    expect(await client.download("https://api.test/v2/files/abc")).toEqual({ bytes: new Uint8Array([1, 2, 3]), contentType: "application/pdf" });
+    expect(await client.download("/files/abc")).toMatchObject({ contentType: "application/pdf" });
+    await expect(client.download("https://evil.example/v2/files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://api.test.evil.example/files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://api.test/v2files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("//evil.example/files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://api.test/v2/big")).rejects.toMatchObject({ status: 413 });
+    expect(urls).toEqual(["https://api.test/v2/files/abc", "https://api.test/v2/files/abc", "https://api.test/v2/big"]);
+  });
+
+  it("download also takes Fiken's file host, fetched as is, and nothing near it", async () => {
+    vi.useRealTimers();
+    const seen: Array<{ url: string; auth: string | null }> = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      seen.push({ url: String(input), auth: new Headers(init?.headers).get("authorization") });
+      return new Response(new Uint8Array([4]), { headers: { "content-type": "image/png" } });
+    };
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", fileBaseUrl: "https://files.test/v2", accessToken: "tok", queue: new FikenQueue(0), fetch: fetchImpl });
+    expect(await client.download("https://files.test/v2/files/abc")).toEqual({ bytes: new Uint8Array([4]), contentType: "image/png" });
+    await expect(client.download("https://files.test/v2files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://files.test.evil.example/v2/files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://files.test/other/abc")).rejects.toMatchObject({ status: 400 });
+    expect(seen).toEqual([{ url: "https://files.test/v2/files/abc", auth: "Bearer tok" }]);
+
+    const noFileHost = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0), fetch: fetchImpl });
+    await expect(noFileHost.download("https://files.test/v2/files/abc")).rejects.toMatchObject({ status: 400 });
+    expect(seen).toHaveLength(1);
   });
 });

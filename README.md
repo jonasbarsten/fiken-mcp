@@ -8,19 +8,34 @@ invoices, and booking receipts picked straight from a phone.
 Status: live at `https://api.fiken-mcp.byjoba.com` for a handful of
 test users. The receipts flow works end to end: pick receipts in the
 chat, they land in the Fiken inbox, the model reads them and books each
-one as a purchase with the original attached. Invoices, sales, credit
-notes and payments are next.
+one as a purchase with the original attached. Invoices, credit notes and
+payments are covered too.
 
 ## What it can do
 
 Read: `list_companies`, `list_projects`, `list_accounts`,
 `list_bank_accounts`, `search_contacts`, `get_contact`, `list_purchases`,
-`get_purchase`, `list_inbox`, `my_usage` (your own pseudonymous monthly
-call counts on this server).
+`get_purchase`, `list_inbox`, `get_inbox_document` (an inbox document
+that did not come through the upload widget: images as images, PDFs as
+text per page, read in memory), `list_sales`, `list_products`,
+`list_invoices`, `get_invoice`, `get_attachments` (on a purchase, sale,
+invoice or journal entry),
+`account_balances` (date and an account range such as 3000-3999),
+`bank_balances`, `get_journal_entries`, `my_usage` (your own pseudonymous
+monthly call counts on this server). `get_inbox_document` reads text PDFs
+and images but not scanned PDFs: those pages are named, and the widget
+(`upload_receipts`) handles them.
 
 Write (each asks the model to restate the action and get your explicit
-confirmation first): `create_contact`, `create_purchase` (optionally
-attaching an inbox document), `attach_inbox_document`.
+confirmation first, except `create_invoice_draft`, since a draft is
+reviewed in Fiken): `create_contact`, `create_purchase` (optionally
+attaching an inbox document), `attach_inbox_document` (to a purchase,
+sale, invoice or journal entry; an invoice gets a copy and the document
+stays in the inbox), `create_invoice`
+(final in Fiken once created; issued and booked, not sent), `create_invoice_draft`,
+`create_invoice_from_draft`, `send_invoice` (final: the customer receives it at
+once), `create_credit_note` (full or partial, booked but not sent),
+`register_payment` (on a sale or a purchase, positive amounts only, NOK only).
 
 Receipts: `upload_receipts` opens a picker inside the chat (photos,
 camera, PDFs). Each file goes to the company's Fiken inbox and its

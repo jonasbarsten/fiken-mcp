@@ -1,9 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, toolError, toolJson, type ToolContext } from "../server.js";
-import { companySlug, CONFIRM, ORE, paged, paging, withCompany } from "./common.js";
-
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+import { counted, errorText, toolJson, type ToolContext } from "../server.js";
+import { companySlug, CONFIRM, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
 
 interface FikenPurchaseLine {
   description: string;
@@ -48,14 +46,14 @@ function trimPurchase(p: FikenPurchase) {
  * Names the created purchaseId so the model doesn't retry create_purchase and book the receipt twice.
  */
 function createdPurchaseFollowUpFailed(id: number, pendingInboxDocumentId: number | undefined, err: unknown): CallToolResult {
-  const message = (toolError(err).content[0] as { text: string }).text;
+  const message = errorText(err);
   const text =
     pendingInboxDocumentId !== undefined
       ? `Purchase ${id} was created, but the receipt (inboxDocumentId ${pendingInboxDocumentId}) could not be attached: ${message}. ` +
         `Do not create the purchase again; call attach_inbox_document with purchaseId ${id} and inboxDocumentId ${pendingInboxDocumentId}.`
       : `Purchase ${id} was created (and its receipt attached, if one was given); fetching it back failed: ${message}. ` +
         `Do not create it again; use get_purchase with purchaseId ${id}.`;
-  return { content: [{ type: "text", text }], isError: true };
+  return toolText(text);
 }
 
 export function registerPurchases(server: McpServer, ctx: ToolContext): void {
@@ -67,8 +65,8 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
       inputSchema: z.object({
         companySlug,
         ...paging,
-        dateGe: z.string().optional().describe("Only purchases on or after this date (YYYY-MM-DD)"),
-        dateLe: z.string().optional().describe("Only purchases on or before this date (YYYY-MM-DD)"),
+        dateGe: isoDate.optional().describe("Only purchases on or after this date (YYYY-MM-DD)"),
+        dateLe: isoDate.optional().describe("Only purchases on or before this date (YYYY-MM-DD)"),
         paid: z.boolean().optional().describe("Filter to paid (or unpaid) purchases"),
       }),
       annotations: { readOnlyHint: true },
@@ -168,7 +166,7 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
             // Fiken requires at least one of attachToSale/attachToPayment; both
             // default to false. A receipt always documents the purchase, and for
             // a cash purchase it is the payment proof too.
-            await ctx.fiken.upload(`/companies/${slug}/purchases/${id}/attachments`, new FormData(), {
+            await ctx.fiken.attach(`/companies/${slug}/purchases/${id}/attachments`, new FormData(), {
               inboxDocumentId,
               attachToSale: true,
               attachToPayment: kind === "cash_purchase" ? true : undefined,
@@ -184,32 +182,6 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
         } catch (err) {
           return createdPurchaseFollowUpFailed(id, pendingInboxDocumentId, err);
         }
-      });
-    }),
-  );
-
-  server.registerTool(
-    "attach_inbox_document",
-    {
-      title: "Attach inbox document",
-      description: `Attach an existing inbox document to an already-booked purchase, removing it from the inbox. ${CONFIRM}`,
-      inputSchema: z.object({
-        companySlug,
-        purchaseId: z.number().int().describe("Purchase id, from list_purchases"),
-        inboxDocumentId: z.number().int().describe("Inbox document id, from list_inbox"),
-        attachToSale: z.boolean().default(true).describe("The document proves the purchase itself (the receipt or invoice)"),
-        attachToPayment: z.boolean().default(false).describe("The document proves the payment (card slip, bank confirmation)"),
-      }),
-      annotations: { destructiveHint: true, readOnlyHint: false },
-    },
-    counted(ctx, "attach_inbox_document", async ({ companySlug: slug, purchaseId, inboxDocumentId, attachToSale, attachToPayment }) => {
-      // Fiken refuses an attachment that documents neither; say so before calling.
-      if (!attachToSale && !attachToPayment) {
-        return { content: [{ type: "text", text: "At least one of attachToSale and attachToPayment must be true." }], isError: true };
-      }
-      return withCompany(ctx, slug, async () => {
-        await ctx.fiken.upload(`/companies/${slug}/purchases/${purchaseId}/attachments`, new FormData(), { inboxDocumentId, attachToSale, attachToPayment });
-        return toolJson({ purchaseId, inboxDocumentId });
       });
     }),
   );
