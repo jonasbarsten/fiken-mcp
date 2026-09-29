@@ -290,7 +290,8 @@ If the global update fails after the user update succeeded, that user's
 anonymous statistics rather than giving up the single `ALL_OLD` round
 trip on the user update.
 
-Surfaces: a `my_usage` tool for the user, and `GET /stats` returning the
+Surfaces: a `my_usage` operation for the user (run through
+`fiken_read`), and `GET /stats` returning the
 global rows with a cache header for the website. CloudWatch keeps
 structured request logs for 30 days for debugging only; never file
 content.
@@ -378,9 +379,18 @@ short: the hot-path tools, the upload tools, and three gateway tools.
   validate `args` against the operation's zod schema and run it through
   the same `counted()` wrapper, read-backs and write guard as before. A
   write operation sent to `fiken_read` is refused before any Fiken call;
-  unknown names, unknown top-level keys and invalid args are refused and
-  counted under the gateway's name as errors. Invoice and purchase lines
-  are strict, so a mistyped key is refused instead of dropped.
+  unknown names, a key beside `operation` and `args` (answered with a
+  hint to put the inputs under `args`) and invalid args are refused and
+  counted under the gateway's name as errors. `args` sent as a JSON
+  string is parsed; one that does not parse gets the same hint. Unknown
+  keys in args, and in an invoice or purchase line, are refused instead
+  of dropped. The hot-path tools parse their input strictly at the top
+  level too, so a mistyped key is refused the same way there.
+- Only real tools can be called by name. Every description and result
+  text that names an operation that is not a hot-path tool says how to
+  run it ("use get_invoice (via fiken_read)"; recovery texts give the
+  exact `fiken_read`/`fiken_write` call with its args). A registry test
+  pins this for every operation.
 - The hot path (`HOT_PATH` in `api/src/mcp/server.ts`) is `list_companies`,
   `list_projects`, `list_accounts`, `list_bank_accounts`,
   `search_contacts`, `list_inbox`, `create_purchase`. They stay real
@@ -391,8 +401,12 @@ short: the hot-path tools, the upload tools, and three gateway tools.
   projects, accounts, ledger, purchases, sales, invoices, credit_notes,
   payments, products, inbox, attachments, usage.
 - Connector options live in the URL path: `/mcp/readonly`,
-  `/mcp/<concept>,<concept>`, combinable with `readonly`; `companies` is
-  always included. They are read on every request and nothing is stored.
+  `/mcp/<concept>,<concept>`, combinable with `readonly`. A concept
+  filter always includes the read operations of `companies`, `contacts`,
+  `accounts`, `projects` and `products` (the lookups other operations
+  take slugs and ids from); their writes show only when the concept is
+  chosen (ruling, 2026-09-29). They are read on every request and
+  nothing is stored.
   `fiken_write` is absent when the connection sees no write; the upload
   tools need `purchases` visible and a non-readonly connection. Unknown
   words get a 400 after login; an unauthenticated request to an invalid
@@ -413,7 +427,8 @@ Read:
 `get_inbox_document` (for documents that reached the inbox outside the
 widget, e.g. via the Fiken app: images returned as image content, PDFs
 as text extracted in memory per page; pages without text are named and
-the model is pointed to `upload_receipts`, since rendering them needs a
+the model is pointed to `upload_receipts` when that tool is available and
+otherwise to opening the document in Fiken, since rendering them needs a
 native canvas the Lambda does not have), `get_attachments` (on a
 purchase, sale, invoice or journal entry, exactly one id), `my_usage`.
 `list_invoices` filters by issue date range, customer, settled status

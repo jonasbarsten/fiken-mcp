@@ -45,7 +45,7 @@ export const creditNotesOperations: Operation[] = [
       companySlug,
       kind: z.enum(["full", "partial"]),
       issueDate: isoDate.describe("Issue date (YYYY-MM-DD)"),
-      invoiceId: z.number().int().optional().describe("Invoice to credit, from list_invoices"),
+      invoiceId: z.number().int().optional().describe("Invoice to credit, from list_invoices (via fiken_read)"),
       contactId: z.number().int().optional().describe("Customer contact id; partial only, when no invoiceId"),
       creditNoteText: z.string().optional(),
       lines: z.array(invoiceLine).min(1).optional().describe("Lines to credit; partial only"),

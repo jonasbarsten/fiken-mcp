@@ -36,6 +36,7 @@ export const OPERATIONS: readonly Operation[] = [
 
 const BY_NAME = new Map(OPERATIONS.map((op) => [op.name, op]));
 
+/** Any operation by name; the gateway uses its own map of visible operations, so this lookup serves the registry and tests. */
 export function getOperation(name: string): Operation | undefined {
   return BY_NAME.get(name);
 }

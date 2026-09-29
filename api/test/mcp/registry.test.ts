@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CONCEPTS } from "../../src/mcp/operations.js";
 import { OPERATIONS, getOperation } from "../../src/mcp/registry.js";
 import { HOT_PATH } from "../../src/mcp/server.js";
-import { connected, fakeFiken } from "./helpers.js";
+import { connected, fakeFiken, mentionedOperations, operationTexts } from "./helpers.js";
 
 const EXPECTED = [
   "list_companies", "list_projects", "list_accounts", "list_bank_accounts", "account_balances", "bank_balances",
@@ -30,6 +30,19 @@ describe("operation registry", () => {
     for (const op of OPERATIONS.filter((o) => o.kind === "write")) {
       expect(op.destructive, op.name).toBe(!notDestructive.includes(op.name));
       if (op.name !== "create_invoice_draft") expect(op.description, op.name).toContain("Consequential");
+    }
+  });
+
+  it("names the gateway wherever a text names an operation that is not a tool of its own", () => {
+    const names = OPERATIONS.map((o) => o.name);
+    for (const op of OPERATIONS) {
+      for (const text of operationTexts(op)) {
+        for (const { name, index } of mentionedOperations(text, names)) {
+          if (name === op.name || (HOT_PATH as readonly string[]).includes(name)) continue;
+          const after = text.slice(index + name.length, index + name.length + 60);
+          expect(after, `${op.name} mentions ${name} in "${text}"`).toMatch(/fiken_read|fiken_write/);
+        }
+      }
     }
   });
 

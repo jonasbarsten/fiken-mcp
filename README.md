@@ -28,12 +28,17 @@ action:
   read operation and `fiken_write` a write operation, each taking the
   operation's name and its `args`. They are separate tools because the
   host's confirmation prompt follows the tool's annotations. A write
-  operation sent to `fiken_read`, unknown names, unknown top-level keys and
-  args that do not match the operation's input are refused before any call
-  to Fiken. Invoice and purchase lines are strict too: a mistyped key in a
-  line is refused rather than dropped, so a misspelled price cannot issue
-  an invoice at list price. `fiken_write` is absent when the connection
-  has no visible write operation.
+  operation sent to `fiken_read`, unknown names, a key beside `operation`
+  and `args` (the reply says to put the inputs under `args`), and args
+  that do not match the operation's input are refused before any call to
+  Fiken; `args` sent as a JSON string is parsed. Unknown keys in args,
+  and in an invoice or purchase line, are refused rather than dropped, so
+  a misspelled price cannot issue an invoice at list price. The hot-path
+  tools refuse unknown keys the same way. Only the tools listed above can
+  be called by name; descriptions and replies that name any other
+  operation say which of `fiken_read` or `fiken_write` runs it.
+  `fiken_write` is absent when the connection has no visible write
+  operation.
 
 Operations by concept (`read` unless marked write):
 
@@ -86,8 +91,11 @@ options are read from the path on every request, so nothing is stored.
 
 Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
 `purchases`, `sales`, `invoices`, `credit_notes`, `payments`, `products`,
-`inbox`, `attachments`, `usage`. `companies` is always included, since
-every call needs a company slug. An unknown word gets a 400 naming the
+`inbox`, `attachments`, `usage`. A concept filter always includes the
+read lookups of `companies`, `contacts`, `accounts`, `projects` and
+`products`, since other operations take their slugs and ids from them;
+the writes of those concepts (such as `create_contact`) show only when
+the concept is chosen. An unknown word gets a 400 naming the
 valid ones, after login; an unauthenticated request to an invalid option
 path gets the plain `/mcp` login challenge. The upload tools need
 `purchases` visible and a connection that is not read-only.
@@ -125,8 +133,8 @@ Fiken tokens, your files or your accounting data; files pass through our
 server's memory on the way to Fiken and are not written or logged. We
 keep anonymous usage counters keyed by a salted hash of your email that
 we cannot reverse: pseudonymous monthly call counts per tool, and
-whether each call succeeded, against that pseudonym. Ask the `my_usage`
-tool for your own counters, or see the same counts aggregated across
+whether each call succeeded, against that pseudonym. Ask for your own
+counters with the `my_usage` operation (through `fiken_read`), or see the same counts aggregated across
 every user, with no per-user detail, at
 `https://api.fiken-mcp.byjoba.com/stats`. Revoke access at any time in
 Fiken under Rediger konto, API.

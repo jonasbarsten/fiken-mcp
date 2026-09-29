@@ -1,6 +1,8 @@
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { FikenQueue, createFikenClient } from "../../src/fiken/client.js";
+import { z } from "zod";
+import type { Operation } from "../../src/mcp/operations.js";
 import type { ConnectorOptions } from "../../src/mcp/options.js";
 import { getOperation } from "../../src/mcp/registry.js";
 import { HOT_PATH, createMcpServer } from "../../src/mcp/server.js";
@@ -49,7 +51,30 @@ export async function connected(
   return client;
 }
 
-const REAL_TOOLS = new Set<string>([...HOT_PATH, "fiken_explore", "fiken_read", "fiken_write", "upload_receipts", "get_upload_url"]);
+/** An operation's description and every description in its input schema: all the text a model reads about it. */
+export function operationTexts(op: Operation): string[] {
+  const texts = [op.description];
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) node.forEach(walk);
+    else if (node && typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) {
+        if (key === "description" && typeof value === "string") texts.push(value);
+        else walk(value);
+      }
+    }
+  };
+  walk(z.toJSONSchema(op.input, { io: "input" }));
+  return texts;
+}
+
+/** Every operation name in `text`, as a whole word (create_invoice does not match inside create_invoice_draft). */
+export function mentionedOperations(text: string, names: readonly string[]): Array<{ name: string; index: number }> {
+  return names.flatMap((name) =>
+    [...text.matchAll(new RegExp(`(?<![a-z_])${name}(?![a-z_])`, "g"))].map((m) => ({ name, index: m.index })),
+  );
+}
+
+const REAL_TOOLS =new Set<string>([...HOT_PATH, "fiken_explore", "fiken_read", "fiken_write", "upload_receipts", "get_upload_url"]);
 
 /** Calls `name` directly when it is a real tool, otherwise through fiken_read or fiken_write. */
 export async function callJson(client: Client, name: string, args: Record<string, unknown>) {

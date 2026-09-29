@@ -41,14 +41,17 @@ export function defineOperation<S extends z.ZodObject>(op: Operation<S>): Operat
   return op;
 }
 
-/** Registers an operation as a real MCP tool, counted under its own name. */
+/**
+ * Registers an operation as a real MCP tool, counted under its own name. The input is strict, as
+ * through the gateway, so a mistyped key is refused instead of silently dropped.
+ */
 export function registerOperationTool(server: McpServer, ctx: ToolContext, op: Operation): void {
   server.registerTool(
     op.name,
     {
       title: op.title,
       description: op.description,
-      inputSchema: op.input,
+      inputSchema: op.input.strict(),
       annotations: op.kind === "read" ? { readOnlyHint: true } : { readOnlyHint: false, destructiveHint: op.destructive },
     },
     counted(ctx, op.name, (args) => op.run(ctx, args as never)),

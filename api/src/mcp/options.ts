@@ -21,10 +21,18 @@ export function parseConnectorOptions(segment: string): { ok: ConnectorOptions }
   return { ok: concepts.size > 0 ? { readOnly, concepts } : { readOnly } };
 }
 
-/** All operations, minus writes when read-only, and only the chosen concepts plus companies (every call needs a slug). */
+/**
+ * Concepts whose reads every concept filter keeps: the slug, contact, account, project and product
+ * lookups that other operations take their ids from. Their writes show only when the concept is chosen.
+ */
+export const LOOKUP_CONCEPTS: ReadonlySet<Concept> = new Set<Concept>(["companies", "contacts", "accounts", "projects", "products"]);
+
+/** All operations, minus writes when read-only, and with a concept filter only the chosen concepts plus the lookup reads. */
 export function visibleOperations(options: ConnectorOptions): readonly Operation[] {
   const { readOnly, concepts } = options;
   return OPERATIONS.filter(
-    (op) => !(readOnly && op.kind === "write") && (!concepts || op.concept === "companies" || concepts.has(op.concept)),
+    (op) =>
+      !(readOnly && op.kind === "write") &&
+      (!concepts || concepts.has(op.concept) || (op.kind === "read" && LOOKUP_CONCEPTS.has(op.concept))),
   );
 }

@@ -169,9 +169,10 @@ describe("write tools", () => {
     });
     expect(r.isError).toBe(true);
     expect(r.text).toContain("Purchase 77 was created");
-    expect(r.text).toContain("attach_inbox_document");
-    expect(r.text).toContain("purchaseId 77");
     expect(r.text).toContain("inboxDocumentId 1234134");
+    expect(r.text).toContain(
+      'call fiken_write with {"operation":"attach_inbox_document","args":{"companySlug":"demo","purchaseId":77,"inboxDocumentId":1234134}}',
+    );
     expect(f.calls.filter((x) => x.url.endsWith("/purchases"))).toHaveLength(1);
   });
 
@@ -188,8 +189,20 @@ describe("write tools", () => {
     });
     expect(r.isError).toBe(true);
     expect(r.text).toContain("Purchase 77 was created");
-    expect(r.text).toContain("get_purchase with purchaseId 77");
+    expect(r.text).toContain('call fiken_read with {"operation":"get_purchase","args":{"companySlug":"demo","purchaseId":77}}');
     expect(r.text).not.toContain("attach_inbox_document");
+  });
+
+  it("create_purchase as a real tool refuses a mistyped top-level key before any Fiken call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const r = await c.callTool({ name: "create_purchase", arguments: {
+      companySlug: "demo", date: "2026-09-01", kind: "cash_purchase", paymentAccount: "1920:10001", paymentDate: "2026-09-01",
+      lines: [{ description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }], projectID: 3,
+    } });
+    expect(r.isError).toBe(true);
+    expect((r.content as Array<{ text: string }>)[0]?.text).toContain("projectID");
+    expect(f.calls).toHaveLength(0);
   });
 
   it("create_purchase leaves session.fikenUnauthorized false when the write succeeded but the attach got a Fiken 401", async () => {

@@ -25,7 +25,8 @@ export const accountsOperations: Operation[] = [
     destructive: false,
     title: "List accounts",
     description:
-      "Chart of accounts. Expense accounts (kostnadskonti) are 4000–7999; pass range like 4000-7999. Use the code as `account` on a purchase line.",
+      "Chart of accounts. Expense accounts (kostnadskonti) are 4000–7999; pass range like 4000-7999. Use the code as `account` on a purchase line. " +
+      "Balances per account: account_balances (via fiken_read).",
     input: z.object({
       companySlug,
       ...paging,
@@ -51,7 +52,8 @@ export const accountsOperations: Operation[] = [
     destructive: false,
     title: "List bank accounts",
     description:
-      "Bank and payment accounts. accountCode (e.g. 1920:10001) is what create_invoice, register_payment and a cash purchase take; bankAccountNumber is what create_invoice_draft takes.",
+      "Bank and payment accounts. accountCode (e.g. 1920:10001) is what a cash purchase, create_invoice and register_payment " +
+      "(both via fiken_write) take; bankAccountNumber is what create_invoice_draft (via fiken_write) takes.",
     input: z.object({ companySlug }),
     async run(ctx, { companySlug: slug }) {
       return withCompany(ctx, slug, async () => {

@@ -95,7 +95,7 @@ export const ledgerOperations: Operation[] = [
     kind: "read",
     destructive: false,
     title: "Get journal entries",
-    description: `Journal entries (bilag/posteringer) in a date range; journalEntryId is what attach_inbox_document takes. ${ORE}`,
+    description: `Journal entries (bilag/posteringer) in a date range; journalEntryId is what attach_inbox_document (via fiken_write) takes. ${ORE}`,
     input: z.object({
       companySlug,
       ...paging,

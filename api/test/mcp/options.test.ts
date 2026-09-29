@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { parseConnectorOptions, visibleOperations } from "../../src/mcp/options.js";
-import { connected, fakeFiken } from "./helpers.js";
+import { type ConnectorOptions, parseConnectorOptions, visibleOperations } from "../../src/mcp/options.js";
+import { OPERATIONS } from "../../src/mcp/registry.js";
+import { connected, fakeFiken, mentionedOperations, operationTexts } from "./helpers.js";
+
+function parsed(segment: string): ConnectorOptions {
+  const r = parseConnectorOptions(segment);
+  if (!("ok" in r)) throw new Error(r.error);
+  return r.ok;
+}
 
 describe("connector options", () => {
   it("parses readonly and concepts, and names an unknown word", () => {
@@ -13,13 +20,35 @@ describe("connector options", () => {
     expect("error" in bad && bad.error).toMatch(/^Unknown connector option "invoicez"\. Use readonly and any of: /);
   });
 
-  it("readonly hides every write; a concept filter keeps companies", () => {
-    const ro = parseConnectorOptions("readonly");
-    if (!("ok" in ro)) throw new Error("parse");
-    expect(visibleOperations(ro.ok).every((o) => o.kind === "read")).toBe(true);
-    const inv = parseConnectorOptions("invoices");
-    if (!("ok" in inv)) throw new Error("parse");
-    expect(new Set(visibleOperations(inv.ok).map((o) => o.concept))).toEqual(new Set(["invoices", "companies"]));
+  it("readonly hides every write; a concept filter keeps the lookup reads but not their writes", () => {
+    expect(visibleOperations(parsed("readonly")).every((o) => o.kind === "read")).toBe(true);
+    const inv = visibleOperations(parsed("invoices"));
+    expect(new Set(inv.map((o) => o.concept))).toEqual(new Set(["invoices", "companies", "contacts", "accounts", "projects", "products"]));
+    expect(inv.filter((o) => o.concept !== "invoices").every((o) => o.kind === "read")).toBe(true);
+    expect(inv.map((o) => o.name)).toEqual(expect.arrayContaining(["list_companies", "search_contacts", "get_contact", "list_accounts", "account_balances", "list_bank_accounts", "list_projects", "list_products"]));
+    expect(inv.map((o) => o.name)).not.toContain("create_contact");
+    expect(visibleOperations(parsed("contacts")).map((o) => o.name)).toContain("create_contact");
+    expect(visibleOperations(parsed("invoices,readonly")).some((o) => o.kind === "write")).toBe(false);
+  });
+
+  it("keeps visible every operation a visible operation says an id comes from", () => {
+    const names = OPERATIONS.map((o) => o.name);
+    // Under /mcp/purchases, inboxDocumentId comes from the upload widget (upload_receipts); list_inbox is
+    // not a lookup concept by ruling, so this reference is known to point outside the filter.
+    const known: Record<string, string[]> = { purchases: ["list_inbox"] };
+    for (const segment of ["invoices", "purchases"]) {
+      const visible = new Set(visibleOperations(parsed(segment)).map((o) => o.name));
+      for (const op of OPERATIONS.filter((o) => visible.has(o.name))) {
+        for (const text of operationTexts(op)) {
+          for (const [, clause] of text.matchAll(/(?<![a-z_])from ([^.;]*)/g)) {
+            for (const { name } of mentionedOperations(clause!, names)) {
+              if (known[segment]?.includes(name)) continue;
+              expect(visible.has(name), `/mcp/${segment}: ${op.name} takes an id from ${name}`).toBe(true);
+            }
+          }
+        }
+      }
+    }
   });
 
   it("a readonly server lists no writing tool and refuses a write through the gateway", async () => {

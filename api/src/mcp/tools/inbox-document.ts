@@ -59,7 +59,7 @@ export const inboxDocumentOperations: Operation[] = [
           type: "text",
           text:
             text === ""
-              ? `${UNTRUSTED}${label}, page ${i + 1} of ${pdf.numPages} has no text layer (a scan). Ask the user to upload the file through upload_receipts, which shows scanned pages as images.`
+              ? `${UNTRUSTED}${label}, page ${i + 1} of ${pdf.numPages} has no text layer (a scan). Ask the user to upload the file through upload_receipts if that tool is available; otherwise ask the user to open the document in Fiken.`
               : `${UNTRUSTED}${label}, page ${i + 1} of ${pdf.numPages} (text):\n${text}`,
         }));
         if (pdf.numPages > MAX_PDF_PAGES) {

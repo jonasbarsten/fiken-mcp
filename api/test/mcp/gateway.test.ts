@@ -89,6 +89,46 @@ describe("gateway", () => {
     expect((await usage.userMonths("anon"))[0]).toMatchObject({ calls: 4, errors: 4, tools: { fiken_read: 3, fiken_write: 1 } });
   });
 
+  it("refuses keys outside args, and args that are not a JSON object, with a hint and no Fiken call", async () => {
+    const usage = memoryUsageStore();
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl, { usage });
+    const hint = 'Put the operation\'s inputs under args, for example {"operation":"list_invoices","args":{"companySlug":"..."}}.';
+    const stray = await call(c, "fiken_read", { operation: "list_sales", companySlug: "demo" });
+    expect(stray).toMatchObject({ isError: true, text: hint });
+    const strayWrite = await call(c, "fiken_write", { operation: "send_invoice", args: { companySlug: "demo", invoiceId: 1 }, invoiceId: 1 });
+    expect(strayWrite).toMatchObject({ isError: true, text: hint });
+    const badString = await call(c, "fiken_read", { operation: "list_sales", args: "{companySlug: demo}" });
+    expect(badString).toMatchObject({ isError: true, text: hint });
+    expect(f.calls).toHaveLength(0);
+    expect((await usage.userMonths("anon"))[0]).toMatchObject({ calls: 3, errors: 3, tools: { fiken_read: 2, fiken_write: 1 } });
+  });
+
+  it("accepts args given as a JSON string", async () => {
+    const f = fakeFiken([{ match: /\/sales\?/, headers: { "Fiken-Api-Result-Count": "0" }, body: [] }]);
+    const c = await connected(f.fetchImpl);
+    const r = await call(c, "fiken_read", { operation: "list_sales", args: '{"companySlug":"demo"}' });
+    expect(r.isError).toBe(false);
+    expect(r.json()).toEqual({ items: [], total: 0, page: 0, pageSize: 25 });
+  });
+
+  it("advertises fiken_read and fiken_write as strict at the top level, with args an object", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const { tools } = await c.listTools();
+    for (const name of ["fiken_read", "fiken_write"]) {
+      const schema = tools.find((t) => t.name === name)?.inputSchema as { additionalProperties?: unknown; properties: Record<string, { type?: string }> };
+      expect(schema.additionalProperties, name).toBe(false);
+      expect(schema.properties.args?.type, name).toBe("object");
+    }
+  });
+
+  it("tells the model that only listed tools can be called by name", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const usage = (await call(c, "fiken_explore", {})).json() as { usage: string };
+    expect(usage.usage).toContain("only the tools in your tool list can be called by name");
+    expect(usage.usage).not.toContain("used directly");
+  });
+
   it("runs a write through fiken_write with the same validation and write guard", async () => {
     const session = { fikenUnauthorized: false, wrote: false };
     const f = fakeFiken([
@@ -102,6 +142,7 @@ describe("gateway", () => {
     } });
     expect(r.isError).toBe(true);
     expect(r.text).toContain("Invoice 77 was created");
+    expect(r.text).toContain('call fiken_read with {"operation":"get_invoice","args":{"companySlug":"demo","invoiceId":77}}');
     expect(session.fikenUnauthorized).toBe(false);
   });
 });

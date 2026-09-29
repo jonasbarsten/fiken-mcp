@@ -12,12 +12,12 @@ export const paymentsOperations: Operation[] = [
     title: "Register payment",
     description:
       "Register a payment on a sale (money received) or a purchase (money paid). Give exactly one of saleId and purchaseId; " +
-      "get_invoice and list_invoices give an invoice's saleId. NOK sales and purchases only: amount is what was paid, in øre. " +
+      "get_invoice and list_invoices (via fiken_read) give an invoice's saleId. NOK sales and purchases only: amount is what was paid, in øre. " +
       `Register payments on sales or purchases in other currencies in Fiken itself. ${CONFIRM}`,
     input: z.object({
       companySlug,
-      saleId: z.number().int().optional().describe("Sale id, from list_sales, or the saleId on get_invoice/list_invoices"),
-      purchaseId: z.number().int().optional().describe("Purchase id, from list_purchases"),
+      saleId: z.number().int().optional().describe("Sale id, from list_sales (via fiken_read), or the saleId on get_invoice or list_invoices (both via fiken_read)"),
+      purchaseId: z.number().int().optional().describe("Purchase id, from list_purchases (via fiken_read)"),
       date: isoDate.describe("Payment date (YYYY-MM-DD)"),
       account: z.string().min(1).describe("Bank account code, from list_bank_accounts"),
       amount: z.number().int().positive().describe(`Amount paid. ${ORE}`),

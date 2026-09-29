@@ -328,7 +328,10 @@ changed, and what it left open:
 - **`fiken_read` and `fiken_write` are separate tools.** The host's
   confirmation follows the tool's annotations (read-only or destructive).
   One combined tool would either prompt for every read or let a write
-  through unprompted.
+  through unprompted. The cost: `fiken_write` is always
+  `destructiveHint: true`, so hosts may now also ask before a draft
+  (`create_invoice_draft`) or a new contact (`create_contact`), which as
+  separate tools were not destructive and did not prompt.
 - **Options live in the URL path, not a query string.** The
   protected-resource metadata must match the URL the client was given,
   and OAuth discovery derives its URL from the path. `/mcp/readonly` gets
@@ -338,6 +341,27 @@ changed, and what it left open:
   stored. They limit what a connection offers the model and are not a
   security boundary against the token holder (the same token works on
   `/mcp`).
+- **Concept filters keep the lookups their operations need.** Any
+  concept filter always includes the read operations of `companies`,
+  `contacts`, `accounts`, `projects` and `products`; the writes of those
+  concepts show only when the concept is chosen. Found in the final
+  review: `/mcp/invoices` hid `search_contacts` and `list_bank_accounts`,
+  which every invoice needs. A test asserts that under `/mcp/invoices`
+  and `/mcp/purchases` every operation a visible description names as
+  "from <op>" is itself visible. One known exception: `create_purchase`
+  takes `inboxDocumentId` "from list_inbox", and `inbox` is not a lookup
+  concept, so under `/mcp/purchases` the id comes from the upload widget.
+- **Only real tools are called by name.** Every text that names an
+  operation which is not a hot-path tool says to run it through
+  `fiken_read` or `fiken_write`, and recovery texts give the exact call.
+  Found in the final review: descriptions told the model to "use
+  get_invoice", and a model that calls that as a tool gets "tool not
+  found".
+- **Strict top level everywhere.** `fiken_read`/`fiken_write` refuse a
+  key beside `operation` and `args` with a hint to nest it, and parse
+  `args` sent as a JSON string; the hot-path tools parse their input
+  strictly, so a mistyped key (`projectID`) is refused on the real tool
+  as it is through the gateway.
 - **The hot path stays as real tools.** The receipts flow (list
   companies, accounts, bank accounts, projects, search contacts, list
   inbox, create purchase) runs on a phone, where an extra

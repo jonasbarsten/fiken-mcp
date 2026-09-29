@@ -2,7 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
 import { errorText, toolJson } from "../context.js";
-import { companySlug, CONFIRM, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
+import { companySlug, CONFIRM, gatewayCall, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
 
 interface FikenPurchaseLine {
   description: string;
@@ -46,14 +46,15 @@ function trimPurchase(p: FikenPurchase) {
  * The purchase POST already succeeded when this is called: attaching the receipt or reading the purchase back failed.
  * Names the created purchaseId so the model doesn't retry create_purchase and book the receipt twice.
  */
-function createdPurchaseFollowUpFailed(id: number, pendingInboxDocumentId: number | undefined, err: unknown): CallToolResult {
+function createdPurchaseFollowUpFailed(slug: string, id: number, pendingInboxDocumentId: number | undefined, err: unknown): CallToolResult {
   const message = errorText(err);
   const text =
     pendingInboxDocumentId !== undefined
       ? `Purchase ${id} was created, but the receipt (inboxDocumentId ${pendingInboxDocumentId}) could not be attached: ${message}. ` +
-        `Do not create the purchase again; call attach_inbox_document with purchaseId ${id} and inboxDocumentId ${pendingInboxDocumentId}.`
+        `Do not create the purchase again; ` +
+        `${gatewayCall("fiken_write", "attach_inbox_document", { companySlug: slug, purchaseId: id, inboxDocumentId: pendingInboxDocumentId })}.`
       : `Purchase ${id} was created (and its receipt attached, if one was given); fetching it back failed: ${message}. ` +
-        `Do not create it again; use get_purchase with purchaseId ${id}.`;
+        `Do not create it again; ${gatewayCall("fiken_read", "get_purchase", { companySlug: slug, purchaseId: id })}.`;
   return toolText(text);
 }
 
@@ -87,7 +88,7 @@ export const purchasesOperations: Operation[] = [
     destructive: false,
     title: "Get purchase",
     description: `A single purchase by id, with its attachments. ${ORE}`,
-    input: z.object({ companySlug, purchaseId: z.number().int().describe("Purchase id, from list_purchases") }),
+    input: z.object({ companySlug, purchaseId: z.number().int().describe("Purchase id, from list_purchases (via fiken_read)") }),
     async run(ctx, { companySlug: slug, purchaseId }) {
       return withCompany(ctx, slug, async () => {
         const purchase = await ctx.fiken.json<FikenPurchase>(`/companies/${slug}/purchases/${purchaseId}`);
@@ -181,7 +182,7 @@ export const purchasesOperations: Operation[] = [
             attachedInboxDocumentId: inboxDocumentId,
           });
         } catch (err) {
-          return createdPurchaseFollowUpFailed(id, pendingInboxDocumentId, err);
+          return createdPurchaseFollowUpFailed(slug, id, pendingInboxDocumentId, err);
         }
       });
     },

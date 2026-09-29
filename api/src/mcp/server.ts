@@ -12,7 +12,7 @@ export const HOT_PATH = ["list_companies", "list_projects", "list_accounts", "li
 const HOT = new Set<string>(HOT_PATH);
 
 /** Registers the visible hot-path operations as real tools and the gateway over everything visible. */
-export function registerAllTools(server: McpServer, ctx: ToolContext, visible: readonly Operation[]): void {
+function registerAllTools(server: McpServer, ctx: ToolContext, visible: readonly Operation[]): void {
   for (const op of visible) if (HOT.has(op.name)) registerOperationTool(server, ctx, op);
   registerGateway(server, ctx, visible);
 }

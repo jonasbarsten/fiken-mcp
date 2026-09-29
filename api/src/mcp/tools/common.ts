@@ -11,6 +11,13 @@ export const paging = {
 export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const CONFIRM = "Consequential: before calling, restate the exact action with every value to the user and get explicit confirmation.";
 export const ORE = "Amounts are integers in øre (10000 = 100,00 kr).";
+/** Where an invoiceId comes from; none of these is a tool of its own, so each names its gateway. */
+export const INVOICE_ID_SOURCES = "from list_invoices (via fiken_read), create_invoice or create_invoice_from_draft (via fiken_write)";
+
+/** The exact gateway call a recovery text asks for, e.g. `call fiken_read with {"operation":"get_invoice","args":{...}}`. */
+export function gatewayCall(gateway: "fiken_read" | "fiken_write", operation: string, args: Record<string, unknown>): string {
+  return `call ${gateway} with ${JSON.stringify({ operation, args })}`;
+}
 
 /** A tool error result carrying `text`. */
 export function toolText(text: string): CallToolResult {

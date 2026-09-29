@@ -2,7 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
 import { errorText, toolJson, type ToolContext } from "../context.js";
-import { companySlug, CONFIRM, defined, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
+import { companySlug, CONFIRM, defined, gatewayCall, INVOICE_ID_SOURCES, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
 
 /** Invoice and credit note amounts follow the invoice's currency, not always NOK. */
 const LINE_MONEY = "Amounts are integers in the invoice currency's smallest unit (øre for NOK).";
@@ -38,7 +38,7 @@ interface FikenInvoice {
 
 /** Strict, so a mistyped key (netPrice, discunt) is refused instead of silently dropped. */
 export const invoiceLine = z.strictObject({
-  productId: z.number().int().optional().describe("Product id from list_products; supplies description, price, VAT type and income account"),
+  productId: z.number().int().optional().describe("Product id, from list_products (via fiken_read); supplies description, price, VAT type and income account"),
   description: z.string().min(1).optional(),
   quantity: z.number().positive(),
   unitPrice: z.number().int().optional().describe("Net price per unit, in the invoice currency's smallest unit (øre for NOK)"),
@@ -111,15 +111,18 @@ export function invoiceLines(lines: InvoiceLine[]): Array<Record<string, unknown
 }
 
 /** The invoice POST already succeeded when this is called; names the invoiceId so the model doesn't issue it twice. */
-function createdInvoiceFollowUpFailed(id: number, err: unknown): CallToolResult {
-  return toolText(`Invoice ${id} was created; fetching it back failed: ${errorText(err)}. Do not create it again; use get_invoice with invoiceId ${id}.`);
+function createdInvoiceFollowUpFailed(slug: string, id: number, err: unknown): CallToolResult {
+  return toolText(
+    `Invoice ${id} was created; fetching it back failed: ${errorText(err)}. Do not create it again; ` +
+      `${gatewayCall("fiken_read", "get_invoice", { companySlug: slug, invoiceId: id })}.`,
+  );
 }
 
 async function readBack(ctx: ToolContext, slug: string, id: number): Promise<CallToolResult> {
   try {
     return toolJson(trimInvoiceDetail(await ctx.fiken.json<FikenInvoice>(`/companies/${slug}/invoices/${id}`)));
   } catch (err) {
-    return createdInvoiceFollowUpFailed(id, err);
+    return createdInvoiceFollowUpFailed(slug, id, err);
   }
 }
 
@@ -163,7 +166,7 @@ export const invoicesOperations: Operation[] = [
     destructive: false,
     title: "Get invoice",
     description: `A single invoice by id, with its lines. ${ORE}`,
-    input: z.object({ companySlug, invoiceId: z.number().int().describe("Invoice id, from list_invoices") }),
+    input: z.object({ companySlug, invoiceId: z.number().int().describe("Invoice id, from list_invoices (via fiken_read)") }),
     async run(ctx, { companySlug: slug, invoiceId }) {
       return withCompany(ctx, slug, async () => {
         return toolJson(trimInvoiceDetail(await ctx.fiken.json<FikenInvoice>(`/companies/${slug}/invoices/${invoiceId}`)));
@@ -178,7 +181,7 @@ export const invoicesOperations: Operation[] = [
     destructive: true,
     title: "Create invoice",
     description:
-      "Issue an invoice (faktura) in Fiken: it gets an invoice number and is booked at once, but it is not sent; use send_invoice for that. " +
+      "Issue an invoice (faktura) in Fiken: it gets an invoice number and is booked at once, but it is not sent; use send_invoice (via fiken_write) for that. " +
       "An issued invoice cannot be deleted, only credited. bankAccountCode comes from list_bank_accounts; customerId is a contact with " +
       "customer true (search_contacts). A cash invoice (cash true) needs paymentAccount. Each line needs productId, or description, " +
       `unitPrice, vatType and incomeAccount. ${LINE_MONEY} ${CONFIRM}`,
@@ -214,7 +217,7 @@ export const invoicesOperations: Operation[] = [
     kind: "write",
     destructive: false,
     title: "Create invoice draft",
-    description: "Create an invoice draft the user can review in Fiken before it is issued; create_invoice_from_draft issues it.",
+    description: "Create an invoice draft the user can review in Fiken before it is issued; create_invoice_from_draft (via fiken_write) issues it.",
     input: z.object({
       companySlug,
       customerId: z.number().int().describe("Customer contact id, from search_contacts"),
@@ -247,7 +250,7 @@ export const invoicesOperations: Operation[] = [
     destructive: true,
     title: "Issue invoice from draft",
     description: `Issue the invoice from a draft. The invoice is booked and numbered but not sent. ${CONFIRM}`,
-    input: z.object({ companySlug, draftId: z.number().int().describe("Draft id, from create_invoice_draft") }),
+    input: z.object({ companySlug, draftId: z.number().int().describe("Draft id, from create_invoice_draft (via fiken_write)") }),
     async run(ctx, { companySlug: slug, draftId }) {
       return withCompany(ctx, slug, async () => {
         const { id } = await ctx.fiken.create(`/companies/${slug}/invoices/drafts/${draftId}/createInvoice`, undefined);
@@ -267,7 +270,7 @@ export const invoicesOperations: Operation[] = [
       `The customer receives it at once; this cannot be undone. ${CONFIRM}`,
     input: z.object({
       companySlug,
-      invoiceId: z.number().int().describe("Invoice id, from list_invoices, create_invoice or create_invoice_from_draft"),
+      invoiceId: z.number().int().describe(`Invoice id, ${INVOICE_ID_SOURCES}`),
       method: z.array(z.enum(["auto", "email", "ehf", "efaktura", "sms", "letter"])).min(1).default(["auto"]),
       includeDocumentAttachments: z.boolean().default(true),
       recipientEmail: z.string().min(1).optional(),

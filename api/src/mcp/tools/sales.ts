@@ -43,7 +43,7 @@ export const salesOperations: Operation[] = [
     kind: "read",
     destructive: false,
     title: "List sales",
-    description: `Sales (salg) in the company, including invoiced ones: outstandingBalance is what the customer still owes. saleId is what register_payment and attach_inbox_document take. ${ORE}`,
+    description: `Sales (salg) in the company, including invoiced ones: outstandingBalance is what the customer still owes. saleId is what register_payment and attach_inbox_document (both via fiken_write) take. ${ORE}`,
     input: z.object({
       companySlug,
       ...paging,

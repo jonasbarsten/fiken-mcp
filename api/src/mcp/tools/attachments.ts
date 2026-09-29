@@ -2,7 +2,7 @@ import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
 import { toolJson } from "../context.js";
-import { companySlug, CONFIRM, toolText, withCompany } from "./common.js";
+import { companySlug, CONFIRM, INVOICE_ID_SOURCES, toolText, withCompany } from "./common.js";
 
 interface FikenInboxDocument {
   filename: string;
@@ -18,10 +18,10 @@ interface FikenAttachment {
 }
 
 const targetSchema = {
-  purchaseId: z.number().int().optional().describe("Purchase id, from list_purchases"),
-  saleId: z.number().int().optional().describe("Sale id, from list_sales"),
-  invoiceId: z.number().int().optional().describe("Invoice id, from list_invoices, create_invoice or create_invoice_from_draft"),
-  journalEntryId: z.number().int().optional().describe("Journal entry id, from get_journal_entries"),
+  purchaseId: z.number().int().optional().describe("Purchase id, from list_purchases (via fiken_read)"),
+  saleId: z.number().int().optional().describe("Sale id, from list_sales (via fiken_read)"),
+  invoiceId: z.number().int().optional().describe(`Invoice id, ${INVOICE_ID_SOURCES}`),
+  journalEntryId: z.number().int().optional().describe("Journal entry id, from get_journal_entries (via fiken_read)"),
 };
 
 type TargetArgs = { purchaseId?: number; saleId?: number; invoiceId?: number; journalEntryId?: number };
@@ -54,8 +54,7 @@ export const attachmentsOperations: Operation[] = [
     description:
       "Attach an inbox document to a booked purchase, sale, invoice or journal entry (exactly one id). Purchases, sales and " +
       "journal entries take it from the inbox; an invoice gets a copy and the document stays in the inbox. An invoice's " +
-      "attachments go out with it when sent with includeDocumentAttachments. An invoiceId comes from list_invoices, create_invoice or " +
-      `create_invoice_from_draft. ${CONFIRM}`,
+      `attachments go out with it when sent with includeDocumentAttachments. An invoiceId comes ${INVOICE_ID_SOURCES}. ${CONFIRM}`,
     input: z.object({
       companySlug,
       ...targetSchema,
@@ -104,7 +103,7 @@ export const attachmentsOperations: Operation[] = [
     destructive: false,
     title: "Get attachments",
     description:
-      "The attachments on a purchase, sale, invoice or journal entry (exactly one id). An invoiceId comes from list_invoices, create_invoice or create_invoice_from_draft.",
+      `The attachments on a purchase, sale, invoice or journal entry (exactly one id). An invoiceId comes ${INVOICE_ID_SOURCES}.`,
     input: z.object({ companySlug, ...targetSchema }),
     async run(ctx, { companySlug: slug, ...ids }) {
       const target = pickTarget(ids);

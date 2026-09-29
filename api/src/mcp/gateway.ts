@@ -5,9 +5,24 @@ import { counted, type ToolContext } from "./context.js";
 import { CONCEPTS, type Concept, type Operation } from "./operations.js";
 import { CONFIRM, toolText } from "./tools/common.js";
 
-const DIRECT = "Operation names can also be used directly when an earlier result names them.";
-const USAGE_READ_WRITE = `Pass an operation name and its args to fiken_read (reads) or fiken_write (writes). ${DIRECT}`;
-const USAGE_READ_ONLY = `Pass an operation name and its args to fiken_read. ${DIRECT}`;
+const direct = (gateways: string) =>
+  `An operation named in an earlier result (for example "use get_invoice") can be passed to ${gateways} without exploring first; only the tools in your tool list can be called by name.`;
+const USAGE_READ_WRITE = `Pass an operation name and its args to fiken_read (reads) or fiken_write (writes). ${direct("fiken_read or fiken_write")}`;
+const USAGE_READ_ONLY = `Pass an operation name and its args to fiken_read. ${direct("fiken_read")}`;
+const ARGS_HINT = 'Put the operation\'s inputs under args, for example {"operation":"list_invoices","args":{"companySlug":"..."}}.';
+
+/** `args` as an object: missing is empty, a JSON string is parsed; undefined when it is neither an object nor a JSON object. */
+function argsObject(args: unknown): Record<string, unknown> | undefined {
+  let value: unknown = args ?? {};
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  }
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
+}
 
 /**
  * The JSON Schema of what a caller passes: `io: "input"` keeps defaulted fields (page, pageSize)
@@ -72,10 +87,15 @@ export function registerGateway(server: McpServer, ctx: ToolContext, visible: re
     }),
   );
 
-  const runInput = z.object({
-    operation: z.string().min(1),
-    args: z.record(z.string(), z.unknown()).default({}),
-  });
+  // Advertised as strict with an object args, but accepted loosely so the handler can answer a key
+  // outside args, or args sent as a JSON string, with its own hint instead of the SDK's validation error.
+  const runInput = z
+    .object({
+      operation: z.string().min(1),
+      args: z.unknown().optional().meta({ type: "object", description: "The operation's inputs, as fiken_explore shows them" }),
+    })
+    .loose()
+    .meta({ additionalProperties: false });
 
   const registerRunner = (gateway: "fiken_read" | "fiken_write", kind: Operation["kind"], title: string, description: string) => {
     const other = kind === "read" ? "fiken_write" : "fiken_read";
@@ -87,8 +107,10 @@ export function registerGateway(server: McpServer, ctx: ToolContext, visible: re
         inputSchema: runInput,
         annotations: kind === "read" ? { readOnlyHint: true } : { readOnlyHint: false, destructiveHint: true },
       },
-      async ({ operation, args }: z.output<typeof runInput>, extra: unknown) => {
+      async ({ operation, args: rawArgs, ...stray }: z.output<typeof runInput>, extra: unknown) => {
         const refuse = (text: string) => counted(ctx, gateway, async () => toolText(text))(undefined, extra);
+        const args = argsObject(rawArgs);
+        if (!args || Object.keys(stray).length > 0) return refuse(ARGS_HINT);
         const op = byName.get(operation);
         if (!op) return refuse(`Unknown operation "${operation}". Call fiken_explore to see what exists.`);
         if (op.kind !== kind) return refuse(`${op.name} is a ${op.kind} operation; call it with ${other}.`);

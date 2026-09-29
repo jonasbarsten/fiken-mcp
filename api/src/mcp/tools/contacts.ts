@@ -37,7 +37,7 @@ export const contactsOperations: Operation[] = [
     title: "Search contacts",
     description:
       "Find suppliers or customers. Fiken matches name, organizationNumber and email exactly (case-insensitive), not by substring; " +
-      "try the exact name printed on the receipt and create_contact when nothing matches.",
+      "try the exact name printed on the receipt and create_contact (via fiken_write) when nothing matches.",
     input: z.object({
       companySlug,
       ...paging,
