@@ -15,7 +15,8 @@ notes and payments are next.
 
 Read: `list_companies`, `list_projects`, `list_accounts`,
 `list_bank_accounts`, `search_contacts`, `get_contact`, `list_purchases`,
-`get_purchase`, `list_inbox`, `my_usage` (your own pseudonymous monthly
+`get_purchase`, `list_inbox`, `list_sales`, `list_products`,
+`account_balances`, `bank_balances`, `get_journal_entries`, `my_usage` (your own pseudonymous monthly
 call counts on this server).
 
 Write (each asks the model to restate the action and get your explicit
