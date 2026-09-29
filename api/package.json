@@ -7,7 +7,6 @@
     "build:widget": "node scripts/build-widget.mjs",
     "pretest": "npm run build:widget",
     "test": "vitest run",
-    "presynth": "npm run build:widget",
     "synth": "cdk synth --quiet",
     "gen:fiken-types": "openapi-typescript https://api.fiken.no/api/v2/docs/swagger.yaml -o src/fiken/types.d.ts"
   },

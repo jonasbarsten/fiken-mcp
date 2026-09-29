@@ -1,3 +1,5 @@
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { App, Tags } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { describe, expect, it } from "vitest";
@@ -117,6 +119,20 @@ describe("ApiStack", () => {
     t.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: "ANY /" });
     t.hasResourceProperties("AWS::ApiGatewayV2::Api", { DisableExecuteApiEndpoint: true });
     expect(Object.keys(t.findOutputs("ApiUrl")).length).toBe(1);
+  });
+
+  it("bundles the generated widget and the icon next to the handler, without any npm hook", () => {
+    // The deploy workflow runs `cdk deploy` directly, so the widget must be built by bundling itself.
+    const app = new App();
+    new ApiStack(app, "fiken-mcp-api", { env: { account: "209479295726", region: "eu-west-1" }, synthesizer: synthesizer() });
+    const assembly = app.synth();
+    const assetDirs = readdirSync(assembly.directory).filter((name) => name.startsWith("asset."));
+    const withWidget = assetDirs.filter((dir) => existsSync(join(assembly.directory, dir, "assets", "upload.html")));
+    expect(withWidget).toHaveLength(1);
+    const dir = join(assembly.directory, withWidget[0]!);
+    expect(existsSync(join(dir, "index.mjs"))).toBe(true);
+    expect(existsSync(join(dir, "assets", "icon.png"))).toBe(true);
+    expect(statSync(join(dir, "assets", "upload.html")).size).toBeGreaterThan(500_000);
   });
 
   it("tags the function with Project=fiken-mcp", () => {

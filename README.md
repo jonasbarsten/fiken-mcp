@@ -89,8 +89,10 @@ npm run typecheck
 ```
 
 `api/` is the Lambda and its CDK stack; `iac/` is the shared
-infrastructure stack. `npm test` first builds the upload widget
-(`api/src/assets/upload.html`, generated and gitignored) by inlining the
-MCP Apps and pdf.js bundles into `api/src/widget/upload.template.html`.
-Deployments run from GitHub Actions only; see `docs/setup.md` for the
-one-time setup.
+infrastructure stack. The upload widget (`api/src/assets/upload.html`,
+generated and gitignored) is built by `api/scripts/build-widget.mjs`,
+which inlines the MCP Apps and pdf.js bundles into
+`api/src/widget/upload.template.html`. `npm test` runs it first, and the
+CDK bundling step runs it again before every synth or deploy, so the
+Lambda bundle always carries a fresh widget. Deployments run from GitHub
+Actions only; see `docs/setup.md` for the one-time setup.
