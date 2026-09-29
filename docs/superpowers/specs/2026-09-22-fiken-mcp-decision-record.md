@@ -343,14 +343,14 @@ changed, and what it left open:
   `/mcp`).
 - **Concept filters keep the lookups their operations need.** Any
   concept filter always includes the read operations of `companies`,
-  `contacts`, `accounts`, `projects` and `products`; the writes of those
-  concepts show only when the concept is chosen. Found in the final
-  review: `/mcp/invoices` hid `search_contacts` and `list_bank_accounts`,
-  which every invoice needs. A test asserts that under `/mcp/invoices`
+  `contacts`, `accounts`, `projects`, `products` and `inbox`; the writes
+  of those concepts show only when the concept is chosen. Found in the
+  final review: `/mcp/invoices` hid `search_contacts` and
+  `list_bank_accounts`, which every invoice needs, and `/mcp/purchases`
+  hid `list_inbox`, where `create_purchase` takes `inboxDocumentId`
+  from. A test asserts, with no exceptions, that under `/mcp/invoices`
   and `/mcp/purchases` every operation a visible description names as
-  "from <op>" is itself visible. One known exception: `create_purchase`
-  takes `inboxDocumentId` "from list_inbox", and `inbox` is not a lookup
-  concept, so under `/mcp/purchases` the id comes from the upload widget.
+  "from <op>" is itself visible.
 - **Only real tools are called by name.** Every text that names an
   operation which is not a hot-path tool says to run it through
   `fiken_read` or `fiken_write`, and recovery texts give the exact call.

@@ -92,8 +92,8 @@ options are read from the path on every request, so nothing is stored.
 Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
 `purchases`, `sales`, `invoices`, `credit_notes`, `payments`, `products`,
 `inbox`, `attachments`, `usage`. A concept filter always includes the
-read lookups of `companies`, `contacts`, `accounts`, `projects` and
-`products`, since other operations take their slugs and ids from them;
+read lookups of `companies`, `contacts`, `accounts`, `projects`,
+`products` and `inbox`, since other operations take their slugs and ids from them;
 the writes of those concepts (such as `create_contact`) show only when
 the concept is chosen. An unknown word gets a 400 naming the
 valid ones, after login; an unauthenticated request to an invalid option

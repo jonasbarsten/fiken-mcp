@@ -141,18 +141,23 @@ describe("POST /mcp", () => {
   });
 
   it("accepts a comma sent as %2C and refuses malformed percent-encoding as an invalid option", async () => {
-    const list = (path: string) =>
+    const rpc = (path: string, method: string, params: Record<string, unknown>) =>
       app.request(path, {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
       });
+    const list = (path: string) => rpc(path, "tools/list", {});
     const encoded = await list("/mcp/invoices%2Creadonly");
     expect(encoded.status).toBe(200);
     const names = ((await encoded.json()).result.tools as Array<{ name: string }>).map((t) => t.name);
     expect(names).toContain("fiken_read");
     expect(names).not.toContain("fiken_write");
-    expect(names).not.toContain("list_inbox");
+    // Every hidden-by-concept read is a gateway operation, so the concept filter shows in fiken_explore.
+    const explore = await rpc("/mcp/invoices%2Creadonly", "tools/call", { name: "fiken_explore", arguments: {} });
+    const concepts = (JSON.parse((await explore.json()).result.content[0].text) as { concepts: Array<{ name: string }> }).concepts.map((c) => c.name);
+    expect(concepts).toContain("invoices");
+    expect(concepts).not.toContain("sales");
     const malformed = await list("/mcp/readonly%E0%A4%A");
     expect(malformed.status).toBe(400);
     expect((await malformed.json()).error).toBe("invalid_connector_options");

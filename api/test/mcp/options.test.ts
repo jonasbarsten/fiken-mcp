@@ -23,9 +23,9 @@ describe("connector options", () => {
   it("readonly hides every write; a concept filter keeps the lookup reads but not their writes", () => {
     expect(visibleOperations(parsed("readonly")).every((o) => o.kind === "read")).toBe(true);
     const inv = visibleOperations(parsed("invoices"));
-    expect(new Set(inv.map((o) => o.concept))).toEqual(new Set(["invoices", "companies", "contacts", "accounts", "projects", "products"]));
+    expect(new Set(inv.map((o) => o.concept))).toEqual(new Set(["invoices", "companies", "contacts", "accounts", "projects", "products", "inbox"]));
     expect(inv.filter((o) => o.concept !== "invoices").every((o) => o.kind === "read")).toBe(true);
-    expect(inv.map((o) => o.name)).toEqual(expect.arrayContaining(["list_companies", "search_contacts", "get_contact", "list_accounts", "account_balances", "list_bank_accounts", "list_projects", "list_products"]));
+    expect(inv.map((o) => o.name)).toEqual(expect.arrayContaining(["list_companies", "search_contacts", "get_contact", "list_accounts", "account_balances", "list_bank_accounts", "list_projects", "list_products", "list_inbox", "get_inbox_document"]));
     expect(inv.map((o) => o.name)).not.toContain("create_contact");
     expect(visibleOperations(parsed("contacts")).map((o) => o.name)).toContain("create_contact");
     expect(visibleOperations(parsed("invoices,readonly")).some((o) => o.kind === "write")).toBe(false);
@@ -33,16 +33,12 @@ describe("connector options", () => {
 
   it("keeps visible every operation a visible operation says an id comes from", () => {
     const names = OPERATIONS.map((o) => o.name);
-    // Under /mcp/purchases, inboxDocumentId comes from the upload widget (upload_receipts); list_inbox is
-    // not a lookup concept by ruling, so this reference is known to point outside the filter.
-    const known: Record<string, string[]> = { purchases: ["list_inbox"] };
     for (const segment of ["invoices", "purchases"]) {
       const visible = new Set(visibleOperations(parsed(segment)).map((o) => o.name));
       for (const op of OPERATIONS.filter((o) => visible.has(o.name))) {
         for (const text of operationTexts(op)) {
           for (const [, clause] of text.matchAll(/(?<![a-z_])from ([^.;]*)/g)) {
             for (const { name } of mentionedOperations(clause!, names)) {
-              if (known[segment]?.includes(name)) continue;
               expect(visible.has(name), `/mcp/${segment}: ${op.name} takes an id from ${name}`).toBe(true);
             }
           }
