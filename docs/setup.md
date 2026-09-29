@@ -56,6 +56,12 @@ normal development.
 
 ### First deploy: things that may bite
 
+- The upload widget is generated (`api/src/assets/upload.html`,
+  gitignored). The deploy workflow calls `cdk deploy` directly, which
+  skips npm's `pre*` hooks, so the CDK bundling step builds the widget
+  itself (`beforeBundling` in `api/lib/api-stack.ts`); a stack test
+  checks the bundled asset contains it. The first deploy of the receipts
+  flow (2026-09-29) shipped without it and every request answered 500.
 - The execution role reads `/cdk-bootstrap/fikenmcp/version` in SSM
   when CloudFormation checks the bootstrap version. The `Parameters`
   statement in `iac/lib/exec-policy.ts` covers

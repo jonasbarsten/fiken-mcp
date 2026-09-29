@@ -64,8 +64,11 @@ export class ApiStack extends Stack {
         // src/assets.ts (the only module allowed to read assets; it sits at the src root) reads
         // ./assets/* relative to itself. The bundle is one flat index.mjs, so the folder must sit
         // next to it. A test in api/test/assets.test.ts guards the src-root rule.
+        // The widget (src/assets/upload.html) is generated and gitignored, so it is built here,
+        // inside bundling, where no workflow can skip it: a deploy that ran `cdk deploy` without
+        // the npm `presynth` hook once shipped a bundle without it, and every request answered 500.
         commandHooks: {
-          beforeBundling: () => [],
+          beforeBundling: (inputDir) => [`node ${inputDir}/api/scripts/build-widget.mjs`],
           beforeInstall: () => [],
           afterBundling: (inputDir, outputDir) => [`cp -r ${inputDir}/api/src/assets ${outputDir}/assets`],
         },
