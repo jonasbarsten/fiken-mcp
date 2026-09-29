@@ -146,3 +146,29 @@ hand-run `cdk deploy fiken-mcp-iac`, not in the workflow.
   in and the consent page names Claude.
 - Revoking "Fiken MCP" in Fiken and then calling a tool makes Claude
   re-authenticate instead of showing an error.
+
+## Verify after deploying the remaining-tools plan
+
+Do all of this against the demo company.
+
+- Reads: `list_sales`, `list_products`, `account_balances` (date plus a
+  range such as 3000-3999), `bank_balances`, `get_journal_entries`.
+- `create_invoice_draft`, then `create_invoice_from_draft`, to a test
+  customer. Check whether an invoice line without `productId` is
+  accepted with `description` alone or Fiken also wants `productName`.
+- `send_invoice` only with your own email as the recipient.
+- A full `create_credit_note` on that invoice.
+- `register_payment` on the sale.
+- `attach_inbox_document` to the invoice (it gets a copy; the document
+  stays in the inbox), then `get_attachments` on the invoice.
+- `get_inbox_document` on a PDF and a photo mailed to the company's inbox
+  address. Confirm what `documentUrl` looks like for a real inbox
+  document (host `fiken.no` or `api.fiken.no`). A refusal saying
+  "refusing to fetch a URL outside the Fiken API" means Fiken uses a
+  third host and `fikenFileBaseUrl` needs changing.
+- Check a cold start's Init Duration in CloudWatch for the Lambda. The
+  bundle grew from 1.5 MB to 5.1 MB with pdf.js (about 135 ms to load
+  locally).
+- Expect a few unstructured pdf.js warnings about `@napi-rs/canvas` or
+  `DOMMatrix` on the first PDF per container. They are harmless and
+  carry no document content.

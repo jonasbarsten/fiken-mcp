@@ -41,5 +41,9 @@ executed 2026-09-28 (widget, upload, booking tools; see
 `docs/superpowers/plans/2026-09-28-fiken-mcp-receipts-flow.md`).
 Usage-and-CIMD plan executed 2026-09-28 (counters, `my_usage`, `/stats`,
 401 refresh, CIMD; see
-`docs/superpowers/plans/2026-09-28-fiken-mcp-usage-and-cimd.md`). Next:
-the remaining Fiken tools listed in spec section 14.
+`docs/superpowers/plans/2026-09-28-fiken-mcp-usage-and-cimd.md`).
+Remaining-tools plan executed 2026-09-29 (invoices, credit notes,
+payments, balances, journal entries, attachments, `get_inbox_document`,
+write guard; see
+`docs/superpowers/plans/2026-09-29-fiken-mcp-remaining-tools.md`). Next:
+what spec section 14 lists as still to build.

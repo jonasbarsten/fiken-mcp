@@ -267,7 +267,11 @@ changed, and what it left open:
   anonymous id. Since 2026-09-28 a Fiken 401 during a tool call is
   answered as HTTP 401 with the challenge, so the client refreshes and
   re-sends; the flag is only set on paths where nothing was written,
-  because the re-send repeats the call.
+  because the re-send repeats the call. Since 2026-09-29 that is one
+  write guard instead of per-tool reasoning: after any successful
+  non-GET Fiken call in a request, a Fiken 401 stays a tool error and
+  never becomes an HTTP 401, because the client would re-send and repeat
+  the write.
 - **The upload ticket travels in `structuredContent` (accepted, with a
   follow-up, 2026-09-28).** The spec prescribes it and the spike proved
   it reaches the widget that way, but `structuredContent` is part of the
@@ -288,7 +292,37 @@ changed, and what it left open:
   DynamoDB round trip after Fiken has answered. A store failure is
   logged and never fails the tool.
 
+## Rulings in the remaining-tools plan (2026-09-29)
+
+- **`get_upload_url` stays inbox-only.** The spec let it target a
+  purchase, sale, invoice or journal entry directly. With
+  `attach_inbox_document` reaching every target, inbox then attach
+  covers the same ground with one ticket shape and one upload route.
+- **`get_inbox_document` returns no page images for scanned PDFs.**
+  Rendering a page needs a native canvas the Lambda does not have. The
+  tool names the pages without text and points to `upload_receipts`,
+  whose widget renders them on the device.
+- **Attaching an inbox document to an invoice copies the file.** Fiken's
+  `addAttachmentToInvoice` takes only a file, not `inboxDocumentId`, so
+  the tool downloads the document and uploads it. The inbox document
+  stays in the inbox and the result says so.
+- **`download()` fetches only from Fiken's hosts.** The API host
+  (`https://api.fiken.no/api/v2`) and the file host
+  (`https://fiken.no/api/v2`, config `fikenFileBaseUrl`, taken from
+  every example in Fiken's swagger). Node 24's fetch drops Authorization
+  on a cross-origin redirect (verified locally), so a redirect to
+  storage cannot carry the token.
+- **The bigger bundle is accepted.** pdf.js took the bundle from 1.5 MB
+  to 5.1 MB (about 135 ms to load locally). There is one container and
+  cold starts are rare. If they ever matter, the fix is to move pdf.js
+  out as an external node module.
+
 ## Things we decided not to do, on purpose
+
+- No guard against a PDF decompression bomb in `get_inbox_document`. The
+  10 MB download cap bounds the file, not the decoded streams, so a bomb
+  can exhaust memory or time out that one request. Nothing leaks and no
+  code runs, and pdf.js offers no cheap per-page limit.
 
 - No inbox as a required step for users. It remains usable.
 - No HEIC conversion in version one. (Reversed 2026-09-28: the widget

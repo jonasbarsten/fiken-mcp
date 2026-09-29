@@ -20,18 +20,21 @@ that did not come through the upload widget: images as images, PDFs as
 text per page, read in memory), `list_sales`, `list_products`,
 `list_invoices`, `get_invoice`, `get_attachments` (on a purchase, sale,
 invoice or journal entry),
-`account_balances`, `bank_balances`, `get_journal_entries`, `my_usage` (your own pseudonymous monthly
-call counts on this server).
+`account_balances` (date and an account range such as 3000-3999),
+`bank_balances`, `get_journal_entries`, `my_usage` (your own pseudonymous
+monthly call counts on this server). `get_inbox_document` reads text PDFs
+and images but not scanned PDFs: those pages are named, and the widget
+(`upload_receipts`) handles them.
 
 Write (each asks the model to restate the action and get your explicit
 confirmation first): `create_contact`, `create_purchase` (optionally
 attaching an inbox document), `attach_inbox_document` (to a purchase,
 sale, invoice or journal entry; an invoice gets a copy and the document
 stays in the inbox), `create_invoice`
-(issued and booked, not sent), `create_invoice_draft`,
-`create_invoice_from_draft`, `send_invoice` (the customer receives it at
+(final in Fiken once created; issued and booked, not sent), `create_invoice_draft`,
+`create_invoice_from_draft`, `send_invoice` (final: the customer receives it at
 once), `create_credit_note` (full or partial, booked but not sent),
-`register_payment` (on a sale or a purchase).
+`register_payment` (on a sale or a purchase, positive amounts only).
 
 Receipts: `upload_receipts` opens a picker inside the chat (photos,
 camera, PDFs). Each file goes to the company's Fiken inbox and its

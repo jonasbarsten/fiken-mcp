@@ -362,14 +362,22 @@ Read:
 `get_journal_entries`, `list_projects`, `list_inbox`,
 `get_inbox_document` (for documents that reached the inbox outside the
 widget, e.g. via the Fiken app: images returned as image content, PDFs
-as text extracted in memory, page images for pages without text),
-`get_attachments`, `my_usage`.
+as text extracted in memory per page; pages without text are named and
+the model is pointed to `upload_receipts`, since rendering them needs a
+native canvas the Lambda does not have), `get_attachments` (on a
+purchase, sale, invoice or journal entry, exactly one id), `my_usage`.
+`list_invoices` filters by issue date range, customer, settled status
+or invoice number; `get_invoice` returns one invoice with its lines.
 
 Write:
 `create_contact`, `create_invoice_draft`, `create_invoice_from_draft`,
-`create_invoice`, `send_invoice` (destructive), `create_credit_note`,
-`create_purchase` (takes optional `inboxDocumentId`), `register_payment`,
-`attach_inbox_document` (to a purchase, sale, invoice or journal entry),
+`create_invoice`, `send_invoice` (destructive), `create_credit_note`
+(`kind` full or partial; booked, not sent),
+`create_purchase` (takes optional `inboxDocumentId`), `register_payment`
+(on a sale or a purchase, positive amounts only),
+`attach_inbox_document` (to a purchase, sale, invoice or journal entry;
+Fiken takes only a file for an invoice, so an invoice gets a copy and the
+document stays in the inbox),
 `upload_receipts` (renders the widget; see section 9),
 `get_upload_url` (secondary path for shell clients; see section 9).
 
@@ -444,9 +452,11 @@ clears it from the inbox.
 ### Secondary path for clients without widgets
 
 Claude Code and shell-capable clients: `get_upload_url` returns a signed
-15-minute URL bound to a target (purchase, sale, invoice, journal entry,
-or inbox) and a curl command. The agent reads files locally and uploads
-them itself. The Lambda forwards to Fiken as above.
+15-minute URL bound to the company's inbox and a curl command. The agent
+reads files locally and uploads them itself. The Lambda forwards to the
+inbox as above, and `attach_inbox_document` then places the document on
+a purchase, sale, invoice or journal entry. There are no direct targets:
+one ticket shape and one upload route cover the same ground.
 
 ### What is not supported
 
@@ -478,9 +488,10 @@ too if you suspect a device or account was compromised.
 ## 12. Error handling
 
 - Fiken 401: return 401 with `WWW-Authenticate` so the client refreshes,
-  set only when nothing was written in that call; after a successful
-  create, a failing follow-up stays a tool error so the client's re-send
-  cannot repeat the write. Legacy JSON-RPC batch bodies are refused with
+  set only when nothing was written in that request: after any
+  successful non-GET Fiken call (the write guard, `session.wrote`), a
+  Fiken 401 stays a tool error so the client's re-send cannot repeat the
+  write. Legacy JSON-RPC batch bodies are refused with
   400 so one body can never mix a write with the 401 mapping.
 - Fiken 429: retry once after 1 s, then surface as tool error.
 - Fiken 4xx validation: pass Fiken's message through as `isError`.
@@ -508,7 +519,8 @@ widget, the upload ticket and `/upload`, `get_upload_url`, and the tools
 `list_projects`, `list_accounts`, `list_bank_accounts`,
 `search_contacts`, `get_contact`, `create_contact`, `list_purchases`,
 `get_purchase`, `create_purchase`, `attach_inbox_document`, `list_inbox`.
-`attach_inbox_document` covers purchases only so far.
+(`attach_inbox_document` covered purchases only then; see the next
+plan.)
 
 Done by the usage-and-cimd plan (2026-09-28,
 `docs/superpowers/plans/2026-09-28-fiken-mcp-usage-and-cimd.md`): the
@@ -516,14 +528,19 @@ usage counters, `my_usage`, `GET /stats`, the Fiken 401 → HTTP 401
 mapping, and Client ID Metadata Documents (Claude's "published
 identity").
 
-Still to build from section 8: invoices (`list_invoices`, `get_invoice`,
-`create_invoice_draft`, `create_invoice_from_draft`, `create_invoice`,
-`send_invoice`), `list_sales`, `list_products`, `account_balances`,
-`bank_balances`, `get_journal_entries`, `get_inbox_document`,
-`get_attachments`, `create_credit_note`, `register_payment`,
-attachments to sales, invoices and journal entries. `get_upload_url`
-only ever reaches the inbox: uploading straight to a sale, an invoice or
-a journal entry still has to be built.
+Done by the remaining-tools plan (2026-09-29,
+`docs/superpowers/plans/2026-09-29-fiken-mcp-remaining-tools.md`): the
+write guard; the tools `list_sales`, `list_products`, `account_balances`,
+`bank_balances`, `get_journal_entries`, `list_invoices`, `get_invoice`,
+`create_invoice`, `create_invoice_draft`, `create_invoice_from_draft`,
+`send_invoice`, `create_credit_note`, `register_payment`,
+`attach_inbox_document` to sales, invoices and journal entries as well,
+`get_attachments` and `get_inbox_document`. `get_upload_url` stays
+inbox-only by decision (see the decision record).
+
+Still to build: offers, order confirmations, recurring invoices, time
+tracking, deletes and EHF (section 8's "left out" list), ChatGPT
+verification, and the website.
 
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.
