@@ -323,7 +323,6 @@ changed, and what it left open:
   10 MB download cap bounds the file, not the decoded streams, so a bomb
   can exhaust memory or time out that one request. Nothing leaks and no
   code runs, and pdf.js offers no cheap per-page limit.
-
 - No inbox as a required step for users. It remains usable.
 - No HEIC conversion in version one. (Reversed 2026-09-28: the widget
   re-encodes to JPEG on the device, which costs a few lines because the

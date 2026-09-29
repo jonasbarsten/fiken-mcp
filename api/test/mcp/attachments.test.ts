@@ -24,6 +24,16 @@ describe("attachments", () => {
     expect(f.calls[1]?.url).toBe("https://api.test/v2/companies/demo/journalEntries/11/attachments?inboxDocumentId=9");
   });
 
+  it("succeeds on a 201 without a Location, for every kind of target", async () => {
+    const f = fakeFiken([{ match: /\/attachments/, status: 201 }]);
+    const c = await connected(f.fetchImpl);
+    for (const args of [{ purchaseId: 77 }, { saleId: 3 }, { journalEntryId: 11 }]) {
+      const r = await callJson(c, "attach_inbox_document", { companySlug: "demo", inboxDocumentId: 9, ...args });
+      expect(r.isError).toBe(false);
+      expect(r.json()).toEqual({ ...args, inboxDocumentId: 9 });
+    }
+  });
+
   it("copies an inbox document onto an invoice", async () => {
     const f = fakeFiken([
       { match: /\/inbox\/9$/, body: { documentId: 9, name: "timeliste", filename: "timeliste.pdf", documentUrl: "https://files.test/v2/files/f9" } },

@@ -7,14 +7,14 @@ describe("sales, products, balances, journal entries", () => {
   it("list_sales filters and trims", async () => {
     const f = fakeFiken([{ match: /\/sales\?/, headers: count(1), body: [{
       saleId: 3, saleNumber: "10001", date: "2026-09-01", kind: "invoice", netAmount: 10000, vatAmount: 2500, currency: "NOK",
-      settled: false, totalPaid: 0, outstandingBalance: 12500, dueDate: "2026-09-15", customer: { contactId: 7, name: "Kunde AS", email: "k@x" },
+      settled: false, deleted: false, totalPaid: 0, outstandingBalance: 12500, dueDate: "2026-09-15", customer: { contactId: 7, name: "Kunde AS", email: "k@x" },
       lines: [{ x: 1 }], salePayments: [], saleAttachments: [],
     }] }]);
     const c = await connected(f.fetchImpl);
     const r = await callJson(c, "list_sales", { companySlug: "demo", settled: false, dateGe: "2026-09-01" });
     expect(r.json()).toEqual({ items: [{
       saleId: 3, saleNumber: "10001", date: "2026-09-01", kind: "invoice", netAmount: 10000, vatAmount: 2500, currency: "NOK",
-      settled: false, totalPaid: 0, outstandingBalance: 12500, dueDate: "2026-09-15", customer: { contactId: 7, name: "Kunde AS" },
+      settled: false, deleted: false, totalPaid: 0, outstandingBalance: 12500, dueDate: "2026-09-15", customer: { contactId: 7, name: "Kunde AS" },
     }], total: 1, page: 0, pageSize: 25 });
     expect(f.calls[0]?.url).toBe("https://api.test/v2/companies/demo/sales?page=0&pageSize=25&dateGe=2026-09-01&settled=false");
   });
@@ -70,7 +70,7 @@ describe("sales, products, balances, journal entries", () => {
       items: [{ bankAccountId: 9, bankAccountCode: "1920:10001", date: "2026-09-29", amount: 1234500, source: "bank" }], total: 1, page: 0, pageSize: 25,
     });
     expect((await callJson(c, "get_journal_entries", { companySlug: "demo", dateGe: "2026-09-01", dateLe: "2026-09-30" })).json()).toEqual({
-      items: [{ journalEntryId: 11, journalEntryNumber: 5, date: "2026-09-02", description: "Husleie", lines: [{ amount: 800000, account: undefined, debitAccount: "6300", creditAccount: "1920:10001" }], attachments: 1 }],
+      items: [{ journalEntryId: 11, journalEntryNumber: 5, date: "2026-09-02", description: "Husleie", lines: [{ amount: 800000, debitAccount: "6300", creditAccount: "1920:10001" }], attachments: 1 }],
       total: 1, page: 0, pageSize: 25,
     });
     expect(f.calls[1]?.url).toBe("https://api.test/v2/companies/demo/journalEntries?page=0&pageSize=25&dateGe=2026-09-01&dateLe=2026-09-30");

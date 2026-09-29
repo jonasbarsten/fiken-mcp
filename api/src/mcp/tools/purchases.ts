@@ -1,7 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, toolError, toolJson, type ToolContext } from "../server.js";
-import { companySlug, CONFIRM, isoDate, ORE, paged, paging, withCompany } from "./common.js";
+import { counted, errorText, toolJson, type ToolContext } from "../server.js";
+import { companySlug, CONFIRM, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
 
 interface FikenPurchaseLine {
   description: string;
@@ -46,14 +46,14 @@ function trimPurchase(p: FikenPurchase) {
  * Names the created purchaseId so the model doesn't retry create_purchase and book the receipt twice.
  */
 function createdPurchaseFollowUpFailed(id: number, pendingInboxDocumentId: number | undefined, err: unknown): CallToolResult {
-  const message = (toolError(err).content[0] as { text: string }).text;
+  const message = errorText(err);
   const text =
     pendingInboxDocumentId !== undefined
       ? `Purchase ${id} was created, but the receipt (inboxDocumentId ${pendingInboxDocumentId}) could not be attached: ${message}. ` +
         `Do not create the purchase again; call attach_inbox_document with purchaseId ${id} and inboxDocumentId ${pendingInboxDocumentId}.`
       : `Purchase ${id} was created (and its receipt attached, if one was given); fetching it back failed: ${message}. ` +
         `Do not create it again; use get_purchase with purchaseId ${id}.`;
-  return { content: [{ type: "text", text }], isError: true };
+  return toolText(text);
 }
 
 export function registerPurchases(server: McpServer, ctx: ToolContext): void {
@@ -65,8 +65,8 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
       inputSchema: z.object({
         companySlug,
         ...paging,
-        dateGe: z.string().optional().describe("Only purchases on or after this date (YYYY-MM-DD)"),
-        dateLe: z.string().optional().describe("Only purchases on or before this date (YYYY-MM-DD)"),
+        dateGe: isoDate.optional().describe("Only purchases on or after this date (YYYY-MM-DD)"),
+        dateLe: isoDate.optional().describe("Only purchases on or before this date (YYYY-MM-DD)"),
         paid: z.boolean().optional().describe("Filter to paid (or unpaid) purchases"),
       }),
       annotations: { readOnlyHint: true },

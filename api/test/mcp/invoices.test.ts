@@ -4,13 +4,13 @@ import { callJson, connected, fakeFiken } from "./helpers.js";
 const invoice77 = {
   invoiceId: 77, invoiceNumber: 10042, issueDate: "2026-09-29", dueDate: "2026-10-13", net: 100000, vat: 25000, gross: 125000,
   currency: "NOK", cash: false, kid: "123", sentManually: false, customer: { contactId: 7, name: "Kunde AS", email: "k@x" },
-  sale: { settled: false, outstandingBalance: 125000 }, invoicePdf: { uuid: "p" },
+  sale: { saleId: 3, settled: false, outstandingBalance: 125000 }, invoicePdf: { uuid: "p" },
   lines: [{ description: "Konsulenttimer", quantity: 1, unitPrice: 100000, net: 100000, vat: 25000, vatType: "HIGH", incomeAccount: "3000", grossInNok: 125000 }],
   attachments: [],
 };
 const trimmed77 = {
   invoiceId: 77, invoiceNumber: 10042, issueDate: "2026-09-29", dueDate: "2026-10-13", net: 100000, vat: 25000, gross: 125000,
-  currency: "NOK", cash: false, kid: "123", sentManually: false, customer: { contactId: 7, name: "Kunde AS" }, settled: false, outstandingBalance: 125000,
+  currency: "NOK", cash: false, kid: "123", sentManually: false, customer: { contactId: 7, name: "Kunde AS" }, saleId: 3, settled: false, outstandingBalance: 125000,
 };
 const line = { description: "Konsulenttimer", quantity: 1, unitPrice: 100000, vatType: "HIGH", incomeAccount: "3000" };
 const createArgs = { companySlug: "demo", customerId: 7, issueDate: "2026-09-29", dueDate: "2026-10-13", bankAccountCode: "1920:10001", lines: [line] };
@@ -143,6 +143,15 @@ describe("send, credit, pay", () => {
     const bad = await callJson(c, "create_credit_note", { companySlug: "demo", kind: "partial", issueDate: "2026-09-29", invoiceId: 77, lines: [{ description: "x", quantity: 1, vatType: "HIGH" }] });
     expect(bad.isError).toBe(true);
     expect(bad.text).toBe("Line 1 has no productId and is missing unitPrice, incomeAccount.");
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("a partial credit note needs unitPrice on every line, even with a productId", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_credit_note", { companySlug: "demo", kind: "partial", issueDate: "2026-09-29", invoiceId: 77, lines: [line, { productId: 4, quantity: 1 }] });
+    expect(r.isError).toBe(true);
+    expect(r.text).toBe("Line 2 is missing unitPrice.");
     expect(f.calls).toHaveLength(0);
   });
 

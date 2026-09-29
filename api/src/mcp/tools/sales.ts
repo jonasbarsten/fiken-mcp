@@ -12,6 +12,7 @@ interface FikenSale {
   vatAmount: number;
   currency: string;
   settled: boolean;
+  deleted?: boolean;
   totalPaid: number;
   outstandingBalance: number;
   dueDate?: string;
@@ -28,6 +29,7 @@ function trimSale(s: FikenSale) {
     vatAmount: s.vatAmount,
     currency: s.currency,
     settled: s.settled,
+    deleted: s.deleted,
     totalPaid: s.totalPaid,
     outstandingBalance: s.outstandingBalance,
     dueDate: s.dueDate,

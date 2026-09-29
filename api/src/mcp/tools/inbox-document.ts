@@ -3,19 +3,15 @@ import { z } from "zod";
 import { MAX_PDF_PAGES, pdfPageTexts, UNTRUSTED } from "../../inbox/pdf-text.js";
 import { detectType } from "../../upload/detect.js";
 import { counted, type ToolContext } from "../server.js";
-import { companySlug, withCompany } from "./common.js";
+import { companySlug, toolText as refusal, withCompany } from "./common.js";
 
 /** 5 MB once base64-encoded. */
 const MAX_IMAGE_BYTES = Math.floor(3.75 * 1024 * 1024);
 
 interface FikenInboxDocument {
-  name: string;
+  name?: string;
   filename: string;
   documentUrl: string;
-}
-
-function refusal(text: string): CallToolResult {
-  return { content: [{ type: "text", text }], isError: true };
 }
 
 export function registerInboxDocument(server: McpServer, ctx: ToolContext): void {
@@ -36,6 +32,7 @@ export function registerInboxDocument(server: McpServer, ctx: ToolContext): void
       return withCompany(ctx, slug, async () => {
         const doc = await ctx.fiken.json<FikenInboxDocument>(`/companies/${slug}/inbox/${inboxDocumentId}`);
         const { bytes } = await ctx.fiken.download(doc.documentUrl);
+        const label = doc.name ?? doc.filename;
         const type = detectType(bytes);
         if (!type) return refusal(`${doc.filename} is not a PDF, PNG, JPEG or GIF.`);
 
@@ -46,7 +43,7 @@ export function registerInboxDocument(server: McpServer, ctx: ToolContext): void
           }
           return {
             content: [
-              { type: "text", text: `${UNTRUSTED}${doc.name} (inboxDocumentId ${inboxDocumentId}, image)` },
+              { type: "text", text: `${UNTRUSTED}${label} (inboxDocumentId ${inboxDocumentId}, image)` },
               { type: "image", data: Buffer.from(bytes).toString("base64"), mimeType: type.mime },
             ],
           };
@@ -62,11 +59,11 @@ export function registerInboxDocument(server: McpServer, ctx: ToolContext): void
           type: "text",
           text:
             text === ""
-              ? `${UNTRUSTED}${doc.name}, page ${i + 1} of ${pdf.numPages} has no text layer (a scan). Ask the user to upload the file through upload_receipts, which shows scanned pages as images.`
-              : `${UNTRUSTED}${doc.name}, page ${i + 1} of ${pdf.numPages} (text):\n${text}`,
+              ? `${UNTRUSTED}${label}, page ${i + 1} of ${pdf.numPages} has no text layer (a scan). Ask the user to upload the file through upload_receipts, which shows scanned pages as images.`
+              : `${UNTRUSTED}${label}, page ${i + 1} of ${pdf.numPages} (text):\n${text}`,
         }));
         if (pdf.numPages > MAX_PDF_PAGES) {
-          content.push({ type: "text", text: `${UNTRUSTED}${doc.name}: pages ${MAX_PDF_PAGES + 1}-${pdf.numPages} not shown.` });
+          content.push({ type: "text", text: `${UNTRUSTED}${label}: pages ${MAX_PDF_PAGES + 1}-${pdf.numPages} not shown.` });
         }
         return { content };
       });

@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, toolError, toolJson, type ToolContext } from "../server.js";
-import { companySlug, CONFIRM, isoDate, ORE, withCompany } from "./common.js";
-import { defined, invoiceLine, invoiceLines, missingLineFields, toolText } from "./invoices.js";
+import { counted, errorText, toolJson, type ToolContext } from "../server.js";
+import { companySlug, CONFIRM, defined, isoDate, toolText, withCompany } from "./common.js";
+import { invoiceLine, invoiceLines, missingLineFields } from "./invoices.js";
 
 interface FikenCreditNote {
   creditNoteId: number;
@@ -37,7 +37,8 @@ export function registerCreditNotes(server: McpServer, ctx: ToolContext): void {
       title: "Create credit note",
       description:
         "Credit an issued invoice, fully (kind full) or by the given lines (kind partial). The credit note is booked at once and is not sent. " +
-        `full needs invoiceId and no lines; partial needs lines and invoiceId or contactId. ${ORE} ${CONFIRM}`,
+        `full needs invoiceId and no lines; partial needs lines (each with unitPrice, even with a productId) and invoiceId or contactId. ` +
+        `Amounts are integers in the invoice currency's smallest unit (øre for NOK). ${CONFIRM}`,
       inputSchema: z.object({
         companySlug,
         kind: z.enum(["full", "partial"]),
@@ -56,7 +57,7 @@ export function registerCreditNotes(server: McpServer, ctx: ToolContext): void {
       } else {
         if (!lines) return toolText("A partial credit note needs lines.");
         if (rest.invoiceId === undefined && rest.contactId === undefined) return toolText("A partial credit note needs invoiceId or contactId.");
-        const missing = missingLineFields(lines);
+        const missing = missingLineFields(lines, { requireUnitPrice: true });
         if (missing) return toolText(missing);
       }
       return withCompany(ctx, slug, async () => {
@@ -65,8 +66,7 @@ export function registerCreditNotes(server: McpServer, ctx: ToolContext): void {
         try {
           return toolJson(trimCreditNote(await ctx.fiken.json<FikenCreditNote>(`/companies/${slug}/creditNotes/${id}`)));
         } catch (err) {
-          const message = (toolError(err).content[0] as { text: string }).text;
-          return toolText(`Credit note ${id} was created; fetching it back failed: ${message}. Do not create it again.`);
+          return toolText(`Credit note ${id} was created; fetching it back failed: ${errorText(err)}. Do not create it again.`);
         }
       });
     }),

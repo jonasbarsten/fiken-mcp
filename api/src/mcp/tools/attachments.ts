@@ -1,7 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { counted, toolJson, type ToolContext } from "../server.js";
-import { companySlug, CONFIRM, withCompany } from "./common.js";
+import { companySlug, CONFIRM, toolText, withCompany } from "./common.js";
 
 interface FikenInboxDocument {
   filename: string;
@@ -19,7 +19,7 @@ interface FikenAttachment {
 const targetSchema = {
   purchaseId: z.number().int().optional().describe("Purchase id, from list_purchases"),
   saleId: z.number().int().optional().describe("Sale id, from list_sales"),
-  invoiceId: z.number().int().optional().describe("Invoice id, from list_invoices"),
+  invoiceId: z.number().int().optional().describe("Invoice id, from list_invoices, create_invoice or create_invoice_from_draft"),
   journalEntryId: z.number().int().optional().describe("Journal entry id, from get_journal_entries"),
 };
 
@@ -41,10 +41,7 @@ function pickTarget(args: TargetArgs): Target | undefined {
   return { key, segment: SEGMENTS[key], id: args[key]! };
 }
 
-const NEED_ONE_TARGET: CallToolResult = {
-  content: [{ type: "text", text: "Give exactly one of purchaseId, saleId, invoiceId, journalEntryId." }],
-  isError: true,
-};
+const NEED_ONE_TARGET: CallToolResult = toolText("Give exactly one of purchaseId, saleId, invoiceId, journalEntryId.");
 
 export function registerAttachments(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
@@ -54,7 +51,8 @@ export function registerAttachments(server: McpServer, ctx: ToolContext): void {
       description:
         "Attach an inbox document to a booked purchase, sale, invoice or journal entry (exactly one id). Purchases, sales and " +
         "journal entries take it from the inbox; an invoice gets a copy and the document stays in the inbox. An invoice's " +
-        `attachments go out with it when sent with includeDocumentAttachments. ${CONFIRM}`,
+        "attachments go out with it when sent with includeDocumentAttachments. An invoiceId comes from list_invoices, create_invoice or " +
+        `create_invoice_from_draft. ${CONFIRM}`,
       inputSchema: z.object({
         companySlug,
         ...targetSchema,
@@ -72,16 +70,16 @@ export function registerAttachments(server: McpServer, ctx: ToolContext): void {
       if (target.segment === "purchases" || target.segment === "sales") {
         // Fiken refuses an attachment that documents neither; say so before calling.
         if (!attachToSale && !attachToPayment) {
-          return { content: [{ type: "text", text: "At least one of attachToSale and attachToPayment must be true." }], isError: true };
+          return toolText("At least one of attachToSale and attachToPayment must be true.");
         }
         return withCompany(ctx, slug, async () => {
-          await ctx.fiken.upload(base, new FormData(), { inboxDocumentId, attachToSale, attachToPayment });
+          await ctx.fiken.attach(base, new FormData(), { inboxDocumentId, attachToSale, attachToPayment });
           return toolJson(result);
         });
       }
       if (target.segment === "journalEntries") {
         return withCompany(ctx, slug, async () => {
-          await ctx.fiken.upload(base, new FormData(), { inboxDocumentId });
+          await ctx.fiken.attach(base, new FormData(), { inboxDocumentId });
           return toolJson(result);
         });
       }
@@ -92,7 +90,7 @@ export function registerAttachments(server: McpServer, ctx: ToolContext): void {
         const form = new FormData();
         form.set("filename", doc.filename);
         form.set("file", new File([bytes], doc.filename, contentType ? { type: contentType } : undefined));
-        await ctx.fiken.upload(base, form);
+        await ctx.fiken.attach(base, form);
         return toolJson({ ...result, note: "The file was copied onto the invoice; the inbox document stays in the inbox." });
       });
     }),
@@ -102,7 +100,8 @@ export function registerAttachments(server: McpServer, ctx: ToolContext): void {
     "get_attachments",
     {
       title: "Get attachments",
-      description: "The attachments on a purchase, sale, invoice or journal entry (exactly one id).",
+      description:
+        "The attachments on a purchase, sale, invoice or journal entry (exactly one id). An invoiceId comes from list_invoices, create_invoice or create_invoice_from_draft.",
       inputSchema: z.object({ companySlug, ...targetSchema }),
       annotations: { readOnlyHint: true },
     },

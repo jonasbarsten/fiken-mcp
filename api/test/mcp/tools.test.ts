@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FikenError } from "../../src/fiken/client.js";
-import { noteFikenError } from "../../src/mcp/server.js";
+import { counted, noteFikenError, type ToolContext } from "../../src/mcp/server.js";
+import { memoryUsageStore } from "../../src/usage/memory.js";
 import { callJson, connected, fakeFiken } from "./helpers.js";
 
 describe("read tools", () => {
@@ -86,6 +87,18 @@ describe("read tools", () => {
     const r = await callJson(c, "list_projects", { companySlug: "nope" });
     expect(r.isError).toBe(true);
     expect(r.text).toContain("Known company slugs: demo, other-as");
+  });
+
+  it("a 404 for a company the user has is an id problem, not a missing company", async () => {
+    const f = fakeFiken([
+      { match: /\/invoices\/999$/, status: 404, body: { message: "not found" } },
+      { match: /\/companies$/, body: [{ name: "Demo", slug: "demo" }] },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "get_invoice", { companySlug: "demo", invoiceId: 999 });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("check the id you passed");
+    expect(r.text).not.toContain("was not found");
   });
 
   it("every tool carries annotations and the øre note where amounts appear", async () => {
@@ -212,11 +225,12 @@ describe("write tools", () => {
   it("consequential tools are marked destructive and demand confirmation", async () => {
     const c = await connected(fakeFiken([]).fetchImpl);
     const tools = (await c.listTools()).tools;
-    for (const name of ["create_purchase", "attach_inbox_document"]) {
+    for (const name of ["create_purchase", "create_invoice", "create_invoice_from_draft", "send_invoice", "create_credit_note", "register_payment", "attach_inbox_document"]) {
       const t = tools.find((x) => x.name === name)!;
       expect(t.annotations?.destructiveHint, name).toBe(true);
       expect(t.description, name).toContain("explicit confirmation");
     }
+    expect(tools.find((x) => x.name === "create_invoice_draft")?.annotations?.destructiveHint).toBe(false);
     expect(tools.find((x) => x.name === "create_contact")?.description).toContain("explicit confirmation");
   });
 });
@@ -229,6 +243,22 @@ describe("write guard", () => {
     const fresh = { session: { fikenUnauthorized: false, wrote: false } } as unknown as Parameters<typeof noteFikenError>[0];
     noteFikenError(fresh, new FikenError(401, "expired"));
     expect(fresh.session.fikenUnauthorized).toBe(true);
+  });
+
+  it("counted() does not flag a Fiken 401 thrown out of a handler that already wrote", async () => {
+    const ctx = { anonId: "anon", usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false } } as unknown as ToolContext;
+    const handler = counted(ctx, "probe", async () => {
+      ctx.session.wrote = true;
+      throw new FikenError(401, "x");
+    });
+    const result = await handler({}, undefined);
+    expect(result.isError).toBe(true);
+    expect(ctx.session.fikenUnauthorized).toBe(false);
+    const readOnly = { anonId: "anon", usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false } } as unknown as ToolContext;
+    await counted(readOnly, "probe", async () => {
+      throw new FikenError(401, "x");
+    })({}, undefined);
+    expect(readOnly.session.fikenUnauthorized).toBe(true);
   });
 
   it("connected() marks the session as written after a successful POST", async () => {

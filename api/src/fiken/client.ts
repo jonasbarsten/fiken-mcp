@@ -34,6 +34,8 @@ export interface FikenClient {
   create(path: string, body: unknown, query?: Query): Promise<{ id: number; location: string }>;
   /** POST JSON to an action endpoint that answers 2xx without a Location. */
   send(path: string, body: unknown): Promise<void>;
+  /** POST multipart to an attachments endpoint; resolves on any 2xx, whether or not Fiken sends a Location. */
+  attach(path: string, form: FormData, query?: Query): Promise<void>;
   /** Location of the created resource; `id` only when its last path segment is numeric (inbox documents yes, attachments carry a UUID). */
   upload(path: string, form: FormData, query?: Query): Promise<{ id: number | undefined; location: string }>;
   /**
@@ -53,10 +55,13 @@ function withQuery(path: string, query: Query = {}): string {
   return qs ? `${path}?${qs}` : path;
 }
 
+const NO_LOCATION =
+  "Fiken accepted the request (HTTP 2xx) but returned no usable Location, so it was most likely created. Do not repeat it; check with the matching list or get tool.";
+
 function locatedId(res: Response): { id: number; location: string } {
   const location = res.headers.get("location");
   const m = location ? /\/(\d+)\/?$/.exec(location) : null;
-  if (!location || !m) throw new FikenError(502, "Location header missing or without a numeric id");
+  if (!location || !m) throw new FikenError(502, NO_LOCATION);
   return { id: Number(m[1]), location };
 }
 
@@ -114,11 +119,15 @@ export function createFikenClient(opts: {
       const res = await doFetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) throw new FikenError(res.status, await res.text());
     },
+    async attach(path: string, form: FormData, query?: Query) {
+      const res = await doFetch(withQuery(path, query), { method: "POST", body: form });
+      if (!res.ok) throw new FikenError(res.status, await res.text());
+    },
     async upload(path: string, form: FormData, query?: Query) {
       const res = await doFetch(withQuery(path, query), { method: "POST", body: form });
       if (!res.ok) throw new FikenError(res.status, await res.text());
       const location = res.headers.get("location");
-      if (!location) throw new FikenError(502, "Location header missing");
+      if (!location) throw new FikenError(502, NO_LOCATION);
       const m = /\/(\d+)\/?$/.exec(location);
       return { id: m ? Number(m[1]) : undefined, location };
     },

@@ -370,14 +370,16 @@ purchase, sale, invoice or journal entry, exactly one id), `my_usage`.
 or invoice number; `get_invoice` returns one invoice with its lines.
 
 Write:
-`create_contact`, `create_invoice_draft`, `create_invoice_from_draft`,
-`create_invoice`, `send_invoice` (destructive), `create_credit_note`
-(`kind` full or partial; booked, not sent),
-`create_purchase` (takes optional `inboxDocumentId`), `register_payment`
-(on a sale or a purchase, positive amounts only),
-`attach_inbox_document` (to a purchase, sale, invoice or journal entry;
-Fiken takes only a file for an invoice, so an invoice gets a copy and the
-document stays in the inbox),
+`create_contact`, `create_invoice_draft` (not destructive: a draft is
+reviewed in Fiken), `create_invoice_from_draft` (destructive),
+`create_invoice` (destructive), `send_invoice` (destructive),
+`create_credit_note` (destructive; `kind` full or partial; booked, not sent),
+`create_purchase` (destructive; takes optional `inboxDocumentId`),
+`register_payment` (destructive; on a sale or a purchase, positive
+amounts only, NOK only),
+`attach_inbox_document` (destructive; to a purchase, sale, invoice or
+journal entry; Fiken takes only a file for an invoice, so an invoice gets
+a copy and the document stays in the inbox),
 `upload_receipts` (renders the widget; see section 9),
 `get_upload_url` (secondary path for shell clients; see section 9).
 

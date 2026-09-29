@@ -36,7 +36,7 @@ export function toolJson(value: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
 }
 
-function errorText(err: unknown): string {
+export function errorText(err: unknown): string {
   if (err instanceof FikenError) {
     if (err.status === 401) return "Fiken rejected the login (401). Ask the user to disconnect and reconnect the Fiken connector, then retry.";
     return `Fiken responded ${err.status}: ${err.body}`;

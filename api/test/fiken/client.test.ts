@@ -126,11 +126,29 @@ describe("createFikenClient", () => {
     const p1 = client.create("/companies/x/purchases", {});
     p1.catch(() => {}); // Suppress unhandled rejection
     await vi.runAllTimersAsync();
-    await expect(p1).rejects.toMatchObject({ status: 502 });
+    await expect(p1).rejects.toMatchObject({ status: 502, body: expect.stringContaining("most likely created. Do not repeat it") });
     const p2 = client.create("/companies/x/purchases", {});
     p2.catch(() => {}); // Suppress unhandled rejection
     await vi.runAllTimersAsync();
     await expect(p2).rejects.toMatchObject({ status: 400, body: "bad request" });
+  });
+
+  it("attach resolves on a 2xx with or without Location and throws on a refusal", async () => {
+    const { fetchImpl, calls } = fakeFetch([
+      () => new Response(null, { status: 201 }),
+      () => new Response("no", { status: 400 }),
+    ]);
+    const writes: string[] = [];
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0), onWrite: () => writes.push("w") });
+    const ok = client.attach("/companies/x/sales/1/attachments", new FormData(), { inboxDocumentId: 7 });
+    await vi.runAllTimersAsync();
+    await expect(ok).resolves.toBeUndefined();
+    expect(calls[0]?.url).toBe("https://api.test/v2/companies/x/sales/1/attachments?inboxDocumentId=7");
+    expect(writes).toEqual(["w"]);
+    const bad = client.attach("/companies/x/sales/1/attachments", new FormData());
+    bad.catch(() => {});
+    await vi.runAllTimersAsync();
+    await expect(bad).rejects.toMatchObject({ status: 400, body: "no" });
   });
 
   it("upload posts multipart form data untouched and appends query params", async () => {

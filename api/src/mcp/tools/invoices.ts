@@ -1,7 +1,10 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, toolError, toolJson, type ToolContext } from "../server.js";
-import { companySlug, CONFIRM, isoDate, ORE, paged, paging, withCompany } from "./common.js";
+import { counted, errorText, toolJson, type ToolContext } from "../server.js";
+import { companySlug, CONFIRM, defined, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
+
+/** Invoice and credit note amounts follow the invoice's currency, not always NOK. */
+const LINE_MONEY = "Amounts are integers in the invoice currency's smallest unit (øre for NOK).";
 
 interface FikenInvoiceLine {
   description?: string;
@@ -27,7 +30,7 @@ interface FikenInvoice {
   kid?: string;
   sentManually?: boolean;
   customer?: { contactId: number; name: string };
-  sale?: { settled: boolean; outstandingBalance: number };
+  sale?: { saleId: number; settled: boolean; outstandingBalance: number };
   lines?: FikenInvoiceLine[];
   attachments?: unknown[];
 }
@@ -36,7 +39,7 @@ export const invoiceLine = z.object({
   productId: z.number().int().optional().describe("Product id from list_products; supplies description, price, VAT type and income account"),
   description: z.string().min(1).optional(),
   quantity: z.number().positive(),
-  unitPrice: z.number().int().optional().describe(`Net price per unit. ${ORE}`),
+  unitPrice: z.number().int().optional().describe("Net price per unit, in the invoice currency's smallest unit (øre for NOK)"),
   vatType: z.string().min(1).optional().describe("Sales VAT type: HIGH (25%), MEDIUM (15%), LOW (12%), NONE, EXEMPT, OUTSIDE, EXEMPT_IMPORT_EXPORT"),
   incomeAccount: z.string().min(1).optional().describe("Income account code, e.g. 3000; from list_accounts range 3000-3999"),
   discount: z.number().min(0).max(100).optional().describe("Percent"),
@@ -46,11 +49,18 @@ type InvoiceLine = z.infer<typeof invoiceLine>;
 
 const LINE_FIELDS = ["description", "unitPrice", "vatType", "incomeAccount"] as const;
 
-/** Names the first problem of every line that has no productId and lacks a field Fiken needs; undefined when all lines are complete. */
-export function missingLineFields(lines: InvoiceLine[]): string | undefined {
+/**
+ * Names the problem of every line that lacks a field Fiken needs; undefined when all lines are complete.
+ * A line with a productId inherits its fields from the product, except unitPrice when `requireUnitPrice`
+ * is set (credit note lines).
+ */
+export function missingLineFields(lines: InvoiceLine[], opts: { requireUnitPrice?: boolean } = {}): string | undefined {
   const problems: string[] = [];
   lines.forEach((l, i) => {
-    if (l.productId !== undefined) return;
+    if (l.productId !== undefined) {
+      if (opts.requireUnitPrice && l.unitPrice === undefined) problems.push(`Line ${i + 1} is missing unitPrice.`);
+      return;
+    }
     const missing = LINE_FIELDS.filter((f) => l[f] === undefined);
     if (missing.length > 0) problems.push(`Line ${i + 1} has no productId and is missing ${missing.join(", ")}.`);
   });
@@ -71,6 +81,7 @@ export function trimInvoice(i: FikenInvoice) {
     kid: i.kid,
     sentManually: i.sentManually,
     customer: i.customer ? { contactId: i.customer.contactId, name: i.customer.name } : undefined,
+    saleId: i.sale?.saleId,
     settled: i.sale?.settled,
     outstandingBalance: i.sale?.outstandingBalance,
   };
@@ -93,23 +104,13 @@ function trimInvoiceDetail(i: FikenInvoice) {
   };
 }
 
-/** Drops keys whose value is undefined so Fiken only sees what the caller gave. */
-export function defined(fields: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
-}
-
 export function invoiceLines(lines: InvoiceLine[]): Array<Record<string, unknown>> {
   return lines.map((l) => defined(l));
 }
 
-export function toolText(text: string): CallToolResult {
-  return { content: [{ type: "text", text }], isError: true };
-}
-
 /** The invoice POST already succeeded when this is called; names the invoiceId so the model doesn't issue it twice. */
 function createdInvoiceFollowUpFailed(id: number, err: unknown): CallToolResult {
-  const message = (toolError(err).content[0] as { text: string }).text;
-  return toolText(`Invoice ${id} was created; fetching it back failed: ${message}. Do not create it again; use get_invoice with invoiceId ${id}.`);
+  return toolText(`Invoice ${id} was created; fetching it back failed: ${errorText(err)}. Do not create it again; use get_invoice with invoiceId ${id}.`);
 }
 
 async function readBack(ctx: ToolContext, slug: string, id: number): Promise<CallToolResult> {
@@ -176,7 +177,7 @@ export function registerInvoices(server: McpServer, ctx: ToolContext): void {
         "Issue an invoice (faktura) in Fiken: it gets an invoice number and is booked at once, but it is not sent; use send_invoice for that. " +
         "An issued invoice cannot be deleted, only credited. bankAccountCode comes from list_bank_accounts; customerId is a contact with " +
         "customer true (search_contacts). A cash invoice (cash true) needs paymentAccount. Each line needs productId, or description, " +
-        `unitPrice, vatType and incomeAccount. ${ORE} ${CONFIRM}`,
+        `unitPrice, vatType and incomeAccount. ${LINE_MONEY} ${CONFIRM}`,
       inputSchema: z.object({
         companySlug,
         customerId: z.number().int().describe("Customer contact id, from search_contacts"),
@@ -216,7 +217,7 @@ export function registerInvoices(server: McpServer, ctx: ToolContext): void {
         daysUntilDueDate: z.number().int().min(0).describe("Days from the issue date until the invoice is due"),
         type: z.enum(["invoice", "cash_invoice"]).default("invoice"),
         issueDate: isoDate.optional().describe("Issue date (YYYY-MM-DD)"),
-        lines: z.array(invoiceLine).optional().describe(`Draft lines. ${ORE}`),
+        lines: z.array(invoiceLine).optional().describe(`Draft lines. ${LINE_MONEY}`),
         paymentAccount: z.string().min(1).optional().describe("Bank account code, from list_bank_accounts; cash invoices only"),
         currency: z.string().min(1).default("NOK"),
         ourReference: z.string().optional(),
@@ -261,7 +262,7 @@ export function registerInvoices(server: McpServer, ctx: ToolContext): void {
         `The customer receives it at once; this cannot be undone. ${CONFIRM}`,
       inputSchema: z.object({
         companySlug,
-        invoiceId: z.number().int().describe("Invoice id, from list_invoices or create_invoice"),
+        invoiceId: z.number().int().describe("Invoice id, from list_invoices, create_invoice or create_invoice_from_draft"),
         method: z.array(z.enum(["auto", "email", "ehf", "efaktura", "sms", "letter"])).min(1).default(["auto"]),
         includeDocumentAttachments: z.boolean().default(true),
         recipientEmail: z.string().min(1).optional(),
