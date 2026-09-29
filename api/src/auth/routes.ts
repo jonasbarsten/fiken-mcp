@@ -6,6 +6,7 @@ import { BlobError, signBlob, verifyBlob } from "../crypto/blob.js";
 import { verifyPkce } from "../crypto/pkce.js";
 import { FikenOAuthError, exchangeFikenCode, fetchFikenUser, fikenAuthorizeUrl } from "../fiken/oauth.js";
 import { log } from "../log.js";
+import { parseConnectorOptions } from "../mcp/options.js";
 import { anonymousId } from "./anon.js";
 import { resolveClient } from "./cimd.js";
 import { type ClientWire, clientLabel, isAllowedRedirectUri } from "./clients.js";
@@ -76,9 +77,19 @@ function tokenFields(raw: Record<string, unknown>): Record<(typeof TOKEN_FIELDS)
 export function authRoutes(cfg: Config): Hono {
   const app = new Hono();
 
-  app.get("/.well-known/oauth-protected-resource", (c) =>
-    c.json({ resource: `${cfg.publicUrl}/mcp`, authorization_servers: [cfg.publicUrl], bearer_methods_supported: ["header"] }),
-  );
+  const protectedResource = (resourcePath: string) => ({
+    resource: `${cfg.publicUrl}${resourcePath}`,
+    authorization_servers: [cfg.publicUrl],
+    bearer_methods_supported: ["header"],
+  });
+
+  app.get("/.well-known/oauth-protected-resource", (c) => c.json(protectedResource("/mcp")));
+  app.get("/.well-known/oauth-protected-resource/mcp", (c) => c.json(protectedResource("/mcp")));
+  // Mirrors the connector option path (RFC 9728 section 3.1): the resource is the raw path the client connected to.
+  app.get("/.well-known/oauth-protected-resource/mcp/:options", (c) => {
+    if ("error" in parseConnectorOptions(c.req.param("options"))) return c.notFound();
+    return c.json(protectedResource(new URL(c.req.url).pathname.slice("/.well-known/oauth-protected-resource".length)));
+  });
 
   app.get("/.well-known/oauth-authorization-server", (c) =>
     c.json({

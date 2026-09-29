@@ -116,6 +116,50 @@ describe("POST /mcp", () => {
     expect(res.headers.get("www-authenticate")).toBeNull();
   });
 
+  it("serves option paths: a 401 points at their own metadata, an unknown option is a 400", async () => {
+    const unauth = await app.request("/mcp/readonly", { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" }, body: "{}" });
+    expect(unauth.status).toBe(401);
+    expect(unauth.headers.get("www-authenticate")).toBe('Bearer error="invalid_token", resource_metadata="https://fiken-mcp.test/.well-known/oauth-protected-resource/mcp/readonly"');
+    const bad = await app.request("/mcp/invoicez", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toBe("invalid_connector_options");
+    const ro = await app.request("/mcp/readonly", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+    const names = ((await ro.json()).result.tools as Array<{ name: string }>).map((t) => t.name);
+    expect(names).toContain("fiken_read");
+    expect(names).not.toContain("fiken_write");
+  });
+
+  it("accepts a comma sent as %2C and refuses malformed percent-encoding as an invalid option", async () => {
+    const list = (path: string) =>
+      app.request(path, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+      });
+    const encoded = await list("/mcp/invoices%2Creadonly");
+    expect(encoded.status).toBe(200);
+    const names = ((await encoded.json()).result.tools as Array<{ name: string }>).map((t) => t.name);
+    expect(names).toContain("fiken_read");
+    expect(names).not.toContain("fiken_write");
+    expect(names).not.toContain("list_inbox");
+    const malformed = await list("/mcp/readonly%E0%A4%A");
+    expect(malformed.status).toBe(400);
+    expect((await malformed.json()).error).toBe("invalid_connector_options");
+  });
+
+  it("returns 405 for GET and DELETE on an option path", async () => {
+    expect((await app.request("/mcp/readonly", { headers: { authorization: `Bearer ${token}` } })).status).toBe(405);
+    expect((await app.request("/mcp/readonly", { method: "DELETE", headers: { authorization: `Bearer ${token}` } })).status).toBe(405);
+  });
+
   it("refuses a legacy JSON-RPC batch body with 400 and makes no Fiken call", async () => {
     const before = fikenCalls;
     const res = await rpc([{ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_companies", arguments: {} } }]);

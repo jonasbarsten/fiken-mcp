@@ -26,8 +26,8 @@ function describeOperation(op: Operation) {
 }
 
 /**
- * Registers `fiken_explore`, `fiken_read` and `fiken_write`. `visible` is what the
- * gateway may show and run; anything else is an unknown operation.
+ * Registers `fiken_explore`, `fiken_read` and, when anything visible writes, `fiken_write`.
+ * `visible` is what the gateway may show and run; anything else is an unknown operation.
  */
 export function registerGateway(server: McpServer, ctx: ToolContext, visible: readonly Operation[]): void {
   const byName = new Map(visible.map((op) => [op.name, op]));
@@ -101,6 +101,7 @@ export function registerGateway(server: McpServer, ctx: ToolContext, visible: re
   };
 
   registerRunner("fiken_read", "read", "Run a Fiken read", "Run a read operation found with fiken_explore, with its args. Reads never change anything in Fiken.");
+  if (!visible.some((op) => op.kind === "write")) return;
   registerRunner(
     "fiken_write",
     "write",
