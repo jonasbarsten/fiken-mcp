@@ -16,12 +16,15 @@ notes and payments are next.
 Read: `list_companies`, `list_projects`, `list_accounts`,
 `list_bank_accounts`, `search_contacts`, `get_contact`, `list_purchases`,
 `get_purchase`, `list_inbox`, `list_sales`, `list_products`,
+`list_invoices`, `get_invoice`,
 `account_balances`, `bank_balances`, `get_journal_entries`, `my_usage` (your own pseudonymous monthly
 call counts on this server).
 
 Write (each asks the model to restate the action and get your explicit
 confirmation first): `create_contact`, `create_purchase` (optionally
-attaching an inbox document), `attach_inbox_document`.
+attaching an inbox document), `attach_inbox_document`, `create_invoice`
+(issued and booked, not sent), `create_invoice_draft`,
+`create_invoice_from_draft`.
 
 Receipts: `upload_receipts` opens a picker inside the chat (photos,
 camera, PDFs). Each file goes to the company's Fiken inbox and its
