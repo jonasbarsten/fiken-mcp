@@ -441,15 +441,18 @@ Added by the coverage plan (2026-09-29), reads:
 `list_contact_persons`, `list_invoice_drafts`, `get_invoice_draft`,
 `get_counters` (`{ current, next }` per series, or null; null can also
 mean a wrong company slug), `list_credit_notes`, `get_credit_note`,
-`list_offers`, `list_order_confirmations`, `list_recurring_invoices`,
+`list_offers`, `list_offer_drafts`, `list_order_confirmations`,
+`list_order_confirmation_drafts`, `list_recurring_invoices`,
 `list_time_users`, `list_activities`, `list_time_entries`,
 `list_ehf_documents`, `get_ehf_document`.
 
 Writes added by the coverage plan: `create_sale` (NOK only),
-`settle_sale`, `write_off_sale` (booked as a loss, not a delete),
+`settle_sale` (sends Fiken's required `settledDate` query parameter),
+`write_off_sale` (booked as a loss, not a delete),
 `create_journal_entry` (balanced before any call, no VAT codes, description
-at most 169 characters), `create_accrual` (takes a `lineId` from
-`get_sale` or `get_purchase`), `create_purchase_draft` (NOK only, not
+at most 166 characters, since Fiken's 200-character limit includes its
+34-character prefix), `create_accrual` (takes a `lineId` from
+`get_sale` or `get_purchase`, and the required `account`), `create_purchase_draft` (NOK only, not
 destructive), `create_purchase_from_draft`, `create_project`,
 `update_project`, `create_product`, `update_product`, `update_contact`,
 `add_contact_person`, `update_invoice_draft` (not destructive),

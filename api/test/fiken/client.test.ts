@@ -221,7 +221,7 @@ describe("createFikenClient", () => {
     await expect(client.send("/companies/demo/other", {})).rejects.toMatchObject({ status: 400 });
   });
 
-  it("patch sends PATCH with an optional body, resolves on 2xx and throws otherwise", async () => {
+  it("patch sends PATCH with an optional body and query, resolves on 2xx and throws otherwise", async () => {
     vi.useRealTimers();
     const seen: Array<{ url: string; method: string | undefined; body: unknown }> = [];
     let writes = 0;
@@ -229,14 +229,16 @@ describe("createFikenClient", () => {
       baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0), onWrite: () => { writes++; },
       fetch: async (input, init) => {
         seen.push({ url: String(input), method: init?.method, body: init?.body });
-        return String(input).endsWith("/settled") ? new Response(null, { status: 200 }) : new Response("nei", { status: 400 });
+        return String(input).includes("/settled") ? new Response(null, { status: 200 }) : new Response("nei", { status: 400 });
       },
     });
     await client.patch("/companies/demo/sales/9/settled");
     expect(seen[0]).toEqual({ url: "https://api.test/v2/companies/demo/sales/9/settled", method: "PATCH", body: undefined });
+    await client.patch("/companies/demo/sales/9/settled", undefined, { settledDate: "2026-09-29", skipped: undefined });
+    expect(seen[1]).toEqual({ url: "https://api.test/v2/companies/demo/sales/9/settled?settledDate=2026-09-29", method: "PATCH", body: undefined });
     await expect(client.patch("/companies/demo/sales/9/writeOff", { type: "x" })).rejects.toMatchObject({ status: 400 });
-    expect(seen[1]?.body).toBe(JSON.stringify({ type: "x" }));
-    expect(writes).toBe(1);
+    expect(seen[2]?.body).toBe(JSON.stringify({ type: "x" }));
+    expect(writes).toBe(2);
   });
 
   it("put sends PUT with a JSON body, resolves on 2xx and throws otherwise", async () => {

@@ -22,6 +22,7 @@ interface FikenJournalEntry {
   journalEntryNumber: number;
   date: string;
   description: string;
+  transactionId?: number;
   lines: Array<{ amount: number; account?: string; vatCode?: string; debitAccount?: string; creditAccount?: string }>;
   attachments?: unknown[];
 }
@@ -42,6 +43,7 @@ function trimJournalEntry(j: FikenJournalEntry) {
     journalEntryNumber: j.journalEntryNumber,
     date: j.date,
     description: j.description,
+    transactionId: j.transactionId,
     lines: j.lines.map((l) => ({ amount: l.amount, account: l.account, vatCode: l.vatCode, debitAccount: l.debitAccount, creditAccount: l.creditAccount })),
     attachments: (j.attachments ?? []).length,
   };
@@ -136,7 +138,9 @@ export const ledgerOperations: Operation[] = [
     kind: "read",
     destructive: false,
     title: "Get journal entries",
-    description: `Journal entries (bilag/posteringer) in a date range; journalEntryId is what attach_inbox_document (via fiken_write) takes. ${ORE}`,
+    description:
+      "Journal entries (bilag/posteringer) in a date range; journalEntryId is what attach_inbox_document (via fiken_write) takes, " +
+      `transactionId what get_transaction (via fiken_read) takes. ${ORE}`,
     input: z.object({
       companySlug,
       ...paging,
@@ -162,7 +166,7 @@ export const ledgerOperations: Operation[] = [
     kind: "read",
     destructive: false,
     title: "Get journal entry",
-    description: `One journal entry (bilag) with its lines. ${ORE}`,
+    description: `One journal entry (bilag) with its lines; transactionId leads to get_transaction (via fiken_read). ${ORE}`,
     input: z.object({ companySlug, journalEntryId: z.number().int().describe("Journal entry id, from get_journal_entries (via fiken_read)") }),
     async run(ctx, { companySlug: slug, journalEntryId }) {
       return withCompany(ctx, slug, async () => toolJson(trimJournalEntry(await ctx.fiken.json<FikenJournalEntry>(`/companies/${slug}/journalEntries/${journalEntryId}`))));
@@ -181,7 +185,7 @@ export const ledgerOperations: Operation[] = [
       `Fiken prefixes the description with 'Fri postering registrert via API: '. No VAT: book VAT through create_purchase or create_sale (via fiken_write). ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,
-      description: z.string().min(1).max(169).describe("At most 169 characters: Fiken's 200-character limit includes its ~31-character prefix"),
+      description: z.string().min(1).max(166).describe("At most 166 characters: Fiken's 200-character limit includes its 34-character prefix"),
       date: isoDate.describe("Entry date (YYYY-MM-DD)"),
       lines: z.array(journalEntryLine).min(1),
       open: z.boolean().optional().describe("Whether the entry is left open"),
@@ -226,13 +230,19 @@ export const ledgerOperations: Operation[] = [
       lineId: z.number().int().describe("The line to spread, from get_sale or get_purchase (via fiken_read)"),
       startDate: isoDate.describe("First month of the accrual (YYYY-MM-DD)"),
       periods: z.number().int().min(2).max(120).describe("Number of monthly periods, 2 to 120"),
-      account: z.string().min(1).optional().describe("Account to accrue to; see the description for the allowed codes"),
+      account: z
+        .string()
+        .min(1)
+        .describe(
+          "Account to accrue the amount to (required): the balance account that holds the amount while it is spread. " +
+            "Must be one of the accounts Fiken offers for the kind of trade: for purchases 1397, 1700, 1710, 1742, 1743, 1744, 1749 or 2961; for sales 1530 or 2965",
+        ),
     }),
     async run(ctx, { companySlug: slug, saleId, purchaseId, lineId, startDate, periods, account }) {
       if ((saleId === undefined) === (purchaseId === undefined)) return toolText("Give exactly one of saleId and purchaseId.");
       const path = saleId !== undefined ? `sales/${saleId}` : `purchases/${purchaseId}`;
       return withCompany(ctx, slug, async () => {
-        const { id } = await ctx.fiken.create(`/companies/${slug}/${path}/accruals`, defined({ lineId, startDate, periods, account }));
+        const { id } = await ctx.fiken.create(`/companies/${slug}/${path}/accruals`, { lineId, startDate, periods, account });
         return toolJson({ accrualId: id });
       });
     },

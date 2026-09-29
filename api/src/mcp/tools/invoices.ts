@@ -7,6 +7,7 @@ import {
   createInvoiceishDraft,
   draftRequest,
   type FikenDraft,
+  type FikenInvoiceLine,
   invoiceLine,
   invoiceLines,
   LINE_MONEY,
@@ -16,20 +17,10 @@ import {
   sendDocumentInput,
   trimDraft,
   trimDraftDetail,
+  trimInvoiceLine,
 } from "./documents.js";
 
 const DRAFT_ID_SOURCES = "from list_invoice_drafts (via fiken_read); create_invoice_draft (via fiken_write) returns one";
-
-interface FikenInvoiceLine {
-  description?: string;
-  productName?: string;
-  quantity: number;
-  unitPrice: number;
-  net: number;
-  vat: number;
-  vatType: string;
-  incomeAccount?: string;
-}
 
 interface FikenInvoice {
   invoiceId: number;
@@ -72,16 +63,7 @@ export function trimInvoice(i: FikenInvoice) {
 function trimInvoiceDetail(i: FikenInvoice) {
   return {
     ...trimInvoice(i),
-    lines: (i.lines ?? []).map((l) => ({
-      description: l.description,
-      productName: l.productName,
-      quantity: l.quantity,
-      unitPrice: l.unitPrice,
-      net: l.net,
-      vat: l.vat,
-      vatType: l.vatType,
-      incomeAccount: l.incomeAccount,
-    })),
+    lines: (i.lines ?? []).map(trimInvoiceLine),
     attachments: (i.attachments ?? []).length,
   };
 }

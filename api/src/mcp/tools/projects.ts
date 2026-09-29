@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
-import { errorText, toolJson } from "../context.js";
-import { companySlug, CONFIRM, defined, gatewayCall, isoDate, paged, paging, toolText, withCompany } from "./common.js";
+import { toolJson } from "../context.js";
+import { companySlug, CONFIRM, defined, isoDate, paged, paging, readBackFailed, toolText, withCompany } from "./common.js";
 
 interface FikenProject {
   projectId: number;
@@ -29,11 +29,8 @@ function trimProject(p: FikenProject) {
   };
 }
 
-const readBackFailed = (slug: string, id: number, did: string, err: unknown) =>
-  toolText(
-    `Project ${id} was ${did}; fetching it back failed: ${errorText(err)}. Do not repeat it; ` +
-      `${gatewayCall("fiken_read", "get_project", { companySlug: slug, projectId: id })}.`,
-  );
+const projectReadBackFailed = (slug: string, id: number, did: string, err: unknown) =>
+  readBackFailed(`Project ${id}`, did, err, "get_project", { companySlug: slug, projectId: id });
 
 export const projectsOperations: Operation[] = [
   defineOperation({
@@ -107,7 +104,7 @@ export const projectsOperations: Operation[] = [
         try {
           return toolJson(trimProject(await ctx.fiken.json<FikenProject>(`/companies/${slug}/projects/${id}`)));
         } catch (err) {
-          return readBackFailed(slug, id, "created", err);
+          return projectReadBackFailed(slug, id, "created", err);
         }
       });
     },
@@ -138,7 +135,7 @@ export const projectsOperations: Operation[] = [
         try {
           return toolJson(trimProject(await ctx.fiken.json<FikenProject>(`/companies/${slug}/projects/${projectId}`)));
         } catch (err) {
-          return readBackFailed(slug, projectId, "updated", err);
+          return projectReadBackFailed(slug, projectId, "updated", err);
         }
       });
     },

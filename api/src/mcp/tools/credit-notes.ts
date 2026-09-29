@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
 import { errorText, toolJson } from "../context.js";
 import { companySlug, CONFIRM, defined, gatewayCall, isoDate, paged, paging, toolText, withCompany } from "./common.js";
-import { invoiceLine, invoiceLines, LINE_MONEY, missingLineFields, sendDocument, sendDocumentInput } from "./documents.js";
+import { type FikenInvoiceLine, invoiceLine, invoiceLines, LINE_MONEY, missingLineFields, sendDocument, sendDocumentInput, trimInvoiceLine } from "./documents.js";
 
 const CREDIT_NOTE_ID_SOURCES = "from list_credit_notes (via fiken_read); create_credit_note (via fiken_write) returns one";
 
@@ -21,16 +21,7 @@ interface FikenCreditNote {
   creditNoteText?: string;
   yourReference?: string;
   ourReference?: string;
-  lines?: Array<{
-    description?: string;
-    productName?: string;
-    quantity: number;
-    unitPrice: number;
-    net: number;
-    vat: number;
-    vatType: string;
-    incomeAccount?: string;
-  }>;
+  lines?: FikenInvoiceLine[];
 }
 
 function trimCreditNote(n: FikenCreditNote) {
@@ -55,16 +46,7 @@ function trimCreditNoteDetail(n: FikenCreditNote) {
     creditNoteText: n.creditNoteText,
     yourReference: n.yourReference,
     ourReference: n.ourReference,
-    lines: (n.lines ?? []).map((l) => ({
-      description: l.description,
-      productName: l.productName,
-      quantity: l.quantity,
-      unitPrice: l.unitPrice,
-      net: l.net,
-      vat: l.vat,
-      vatType: l.vatType,
-      incomeAccount: l.incomeAccount,
-    })),
+    lines: (n.lines ?? []).map(trimInvoiceLine),
   };
 }
 

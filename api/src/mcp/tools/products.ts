@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
-import { errorText, toolJson } from "../context.js";
-import { companySlug, CONFIRM, defined, gatewayCall, ORE, paged, paging, toolText, withCompany } from "./common.js";
+import { toolJson } from "../context.js";
+import { companySlug, CONFIRM, defined, ORE, paged, paging, readBackFailed, toolText, withCompany } from "./common.js";
 
 interface FikenProduct {
   productId: number;
@@ -40,11 +40,8 @@ function trimProduct(p: FikenProduct) {
 
 const productDetail = (p: FikenProduct) => ({ ...trimProduct(p), note: p.note, stock: p.stock });
 
-const readBackFailed = (slug: string, id: number, did: string, err: unknown) =>
-  toolText(
-    `Product ${id} was ${did}; fetching it back failed: ${errorText(err)}. Do not repeat it; ` +
-      `${gatewayCall("fiken_read", "get_product", { companySlug: slug, productId: id })}.`,
-  );
+const productReadBackFailed = (slug: string, id: number, did: string, err: unknown) =>
+  readBackFailed(`Product ${id}`, did, err, "get_product", { companySlug: slug, productId: id });
 
 export const productsOperations: Operation[] = [
   defineOperation({
@@ -95,7 +92,7 @@ export const productsOperations: Operation[] = [
         try {
           return toolJson(productDetail(await ctx.fiken.json<FikenProduct>(`/companies/${slug}/products/${id}`)));
         } catch (err) {
-          return readBackFailed(slug, id, "created", err);
+          return productReadBackFailed(slug, id, "created", err);
         }
       });
     },
@@ -128,7 +125,7 @@ export const productsOperations: Operation[] = [
         try {
           return toolJson(productDetail(await ctx.fiken.json<FikenProduct>(path)));
         } catch (err) {
-          return readBackFailed(slug, productId, "updated", err);
+          return productReadBackFailed(slug, productId, "updated", err);
         }
       });
     },

@@ -87,12 +87,12 @@ describe("accruals", () => {
     expect(sale.json()).toEqual({ accrualId: 44 });
     expect(f.calls[0]?.url).toBe("https://api.test/v2/companies/demo/sales/9/accruals");
     expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual(body);
-    await callJson(c, "create_accrual", { companySlug: "demo", purchaseId: 77, lineId: 5, startDate: "2026-10-01", periods: 2 });
+    await callJson(c, "create_accrual", { companySlug: "demo", purchaseId: 77, lineId: 5, startDate: "2026-10-01", periods: 2, account: "1700" });
     expect(f.calls[1]?.url).toBe("https://api.test/v2/companies/demo/purchases/77/accruals");
-    expect(JSON.parse(String(f.calls[1]?.init?.body))).toEqual({ lineId: 5, startDate: "2026-10-01", periods: 2 });
+    expect(JSON.parse(String(f.calls[1]?.init?.body))).toEqual({ lineId: 5, startDate: "2026-10-01", periods: 2, account: "1700" });
   });
 
-  it("needs exactly one of saleId and purchaseId and at least two periods, before any call", async () => {
+  it("needs account, exactly one of saleId and purchaseId and at least two periods, before any call", async () => {
     const f = fakeFiken([]);
     const c = await connected(f.fetchImpl);
     const both = await callJson(c, "create_accrual", { companySlug: "demo", saleId: 9, purchaseId: 77, ...body });
@@ -101,6 +101,8 @@ describe("accruals", () => {
     const neither = await callJson(c, "create_accrual", { companySlug: "demo", ...body });
     expect(neither.isError).toBe(true);
     expect((await callJson(c, "create_accrual", { companySlug: "demo", saleId: 9, ...body, periods: 1 })).isError).toBe(true);
+    const { account: _account, ...noAccount } = body;
+    expect((await callJson(c, "create_accrual", { companySlug: "demo", saleId: 9, ...noAccount })).isError).toBe(true);
     expect(f.calls).toHaveLength(0);
   });
 });

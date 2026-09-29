@@ -46,9 +46,11 @@ Operations by concept (`read` unless marked write):
 - `contacts`: `search_contacts`, `get_contact`, `create_contact` (write),
   `update_contact` (write; only the given fields change, the rest of the
   contact is sent back as it was, groups included. Fiken never returns a
-  contact's currency or member number, so send them again when you
-  update the contact; contact persons are not sent back), `list_contact_persons`,
-  `add_contact_person` (write)
+  contact's phone number, currency or member number, so send them again
+  when you update the contact; contact persons are not sent back, and until
+  it is verified that Fiken keeps them, check `list_contact_persons` first
+  and add any lost ones back with `add_contact_person`),
+  `list_contact_persons`, `add_contact_person` (write)
 - `projects`: `list_projects`, `get_project`, `create_project` (write),
   `update_project` (write; only the given fields change)
 - `accounts`: `list_accounts`, `list_bank_accounts` (with the account
@@ -57,10 +59,14 @@ Operations by concept (`read` unless marked write):
 - `ledger`: `get_journal_entries`, `get_journal_entry`,
   `create_journal_entry` (write; a manual fri postering, refused unless
   debits and credits balance; no VAT codes, so book VAT through
-  `create_purchase` or `create_sale`; the description is at most 169
-  characters), `list_transactions`, `get_transaction`,
+  `create_purchase` or `create_sale`; the description is at most 166
+  characters, since Fiken's 200-character limit includes its 34-character
+  prefix), `list_transactions`, `get_transaction` (journal entries carry
+  the `transactionId` it takes),
   `create_accrual` (write; spreads a sale or purchase line over months,
-  the line id comes from `get_sale` or `get_purchase`)
+  the line id comes from `get_sale` or `get_purchase`; the balance account
+  to accrue to is required: 1397, 1700, 1710, 1742, 1743, 1744, 1749 or
+  2961 for purchases, 1530 or 2965 for sales)
 - `ehf`: `list_ehf_documents`, `get_ehf_document` (incoming EHF
   e-invoices; `attach_inbox_document` takes an `ehfDocumentId` for
   purchases, sales and journal entries, not invoices)
@@ -71,7 +77,9 @@ Operations by concept (`read` unless marked write):
 - `sales`: `list_sales`, `get_sale` (with lines and payment count),
   `create_sale` (write; income not invoiced through Fiken: a cash sale or an
   invoice issued elsewhere; NOK only), `settle_sale` (write; settle without a
-  payment), `write_off_sale` (write; books a loss)
+  payment on a given `settledDate`), `write_off_sale` (write; books a loss
+  for one of Fiken's four reasons, on a sale that is not a cash sale, not
+  settled or written off, and still has an outstanding balance)
 - `invoices`: `list_invoices`, `get_invoice`, `create_invoice` (write;
   final in Fiken once created, issued and booked, not sent),
   `send_invoice` (write; final: the customer receives it at once),
@@ -88,11 +96,12 @@ Operations by concept (`read` unless marked write):
 - `credit_notes`: `list_credit_notes`, `get_credit_note`,
   `create_credit_note` (write; full or partial, booked but not sent),
   `send_credit_note` (write; final: the customer receives it at once)
-- `offers`: `list_offers`, `create_offer_draft` (write; the bank account is
-  optional), `create_offer_from_draft` (write), `send_offer` (write; final:
-  the customer receives it at once)
+- `offers`: `list_offers`, `list_offer_drafts`, `create_offer_draft` (write;
+  the bank account is optional), `create_offer_from_draft` (write),
+  `send_offer` (write; final: the customer receives it at once)
 - `order_confirmations`: `list_order_confirmations`,
-  `create_order_confirmation_draft` (write), `create_order_confirmation_from_draft`
+  `list_order_confirmation_drafts`, `create_order_confirmation_draft`
+  (write), `create_order_confirmation_from_draft`
   (write), `create_invoice_draft_from_order_confirmation` (write; makes an
   invoice draft that `create_invoice_from_draft` issues)
 - `recurring_invoices`: `list_recurring_invoices` (jobs, schedule, status),
@@ -130,9 +139,13 @@ contact attachments, the product sales report and creating bank accounts.
 
 Every write asks the model to restate the action and get your explicit
 confirmation first, except the draft operations (`create_invoice_draft`,
-`update_invoice_draft`, `create_offer_draft`, `create_order_confirmation_draft`,
+`update_invoice_draft`, `create_purchase_draft`, `create_offer_draft`,
+`create_order_confirmation_draft`,
 `create_invoice_draft_from_order_confirmation`,
-`create_invoice_draft_from_time_entries`), since a draft is reviewed in Fiken.
+`create_invoice_draft_from_time_entries`), since a draft is reviewed in
+Fiken. These, `create_contact` and `add_contact_person` are the writes the
+host is told are not destructive (easy to undo in Fiken); the two contact
+writes still ask for confirmation.
 
 ### Connector URL options
 
@@ -156,6 +169,15 @@ word gets a 400 naming the valid ones, after login; an unauthenticated
 request to an invalid option path gets the plain `/mcp` login challenge.
 The upload tools need `purchases` chosen (or no filter) and a connection
 that is not read-only.
+
+Some tasks write in two areas, so choose both:
+
+| Task | Filter |
+| --- | --- |
+| Set up a recurring invoice (its draft is an invoice draft) | `recurring_invoices,invoice_drafts` |
+| Invoice tracked hours and issue the invoice | `time_tracking,invoice_drafts` |
+| Invoice an order confirmation and issue the invoice | `order_confirmations,invoice_drafts` |
+| Attach an incoming EHF document (`ehf` has only reads) | `ehf,attachments` |
 
 These options limit what a connection offers the model. They are not a
 security boundary against whoever holds the token: the same login token

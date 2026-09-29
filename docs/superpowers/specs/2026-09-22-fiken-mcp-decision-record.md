@@ -404,8 +404,9 @@ changed, and what it left open:
 - **Manual journal entries are balanced before the call.** The tool
   refuses unbalanced lines without asking Fiken. No VAT codes: VAT is
   booked through `create_purchase` or `create_sale`, where Fiken checks
-  it. The description is capped at 169 characters because Fiken adds a
-  prefix.
+  it. The description is capped at 166 characters because Fiken's
+  200-character limit includes its 34-character prefix
+  `Fri postering registrert via API: `.
 - **Write-off is a booking, not a delete.** `write_off_sale` books the
   loss; nothing is removed. Deletes, reversals and cancelling stay out
   until Jonas decides.

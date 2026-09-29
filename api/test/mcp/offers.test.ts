@@ -4,7 +4,26 @@ import { callJson, connected, fakeFiken } from "./helpers.js";
 const line = { description: "Timer", quantity: 3, unitPrice: 100000, vatType: "HIGH", incomeAccount: "3000" };
 const base = { companySlug: "demo", customerId: 7, daysUntilDueDate: 14 };
 
+/** An invoiceishDraftResult of the given type, with fields the trim leaves out. */
+const draftOf = (type: string, draftId: number) => ({
+  draftId, uuid: `u-${draftId}`, type, lastModifiedDate: "2026-09-28", issueDate: "2026-09-29", daysUntilDueDate: 14, invoiceText: "Takk", currency: "NOK",
+  lines: [{ description: "Timer", quantity: 3, unitPrice: 100000, vatType: "HIGH", incomeAccount: "3000" }], net: 300000, gross: 375000,
+  customers: [{ contactId: 7, name: "Kunde AS" }], attachments: [],
+});
+const trimmedDraft = (type: string, draftId: number) => ({
+  draftId, uuid: `u-${draftId}`, type, issueDate: "2026-09-29", daysUntilDueDate: 14, customerId: 7, currency: "NOK", net: 300000, gross: 375000, lines: 1,
+});
+
 describe("offers", () => {
+  it("list_offer_drafts pages and trims each draft", async () => {
+    const f = fakeFiken([{ match: /\/offers\/drafts\?/, body: [draftOf("offer", 31)], headers: { "fiken-api-result-count": "1" } }]);
+    const c = await connected(f.fetchImpl);
+    expect((await callJson(c, "list_offer_drafts", { companySlug: "demo", page: 1, pageSize: 10 })).json()).toEqual({
+      items: [trimmedDraft("offer", 31)], total: 1, page: 1, pageSize: 10,
+    });
+    expect(f.calls[0]?.url).toBe("https://api.test/v2/companies/demo/offers/drafts?page=1&pageSize=10");
+  });
+
   it("create_offer_draft posts type offer, with the bank account optional", async () => {
     const f = fakeFiken([{ match: /\/offers\/drafts$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/offers/drafts/31" } }]);
     const c = await connected(f.fetchImpl);
@@ -48,6 +67,15 @@ describe("offers", () => {
 });
 
 describe("order confirmations", () => {
+  it("list_order_confirmation_drafts pages and trims each draft", async () => {
+    const f = fakeFiken([{ match: /\/orderConfirmations\/drafts\?/, body: [draftOf("order_confirmation", 51)], headers: { "fiken-api-result-count": "1" } }]);
+    const c = await connected(f.fetchImpl);
+    expect((await callJson(c, "list_order_confirmation_drafts", { companySlug: "demo" })).json()).toEqual({
+      items: [trimmedDraft("order_confirmation", 51)], total: 1, page: 0, pageSize: 25,
+    });
+    expect(f.calls[0]?.url).toBe("https://api.test/v2/companies/demo/orderConfirmations/drafts?page=0&pageSize=25");
+  });
+
   it("create_order_confirmation_draft posts type order_confirmation", async () => {
     const f = fakeFiken([{ match: /\/orderConfirmations\/drafts$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/orderConfirmations/drafts/51" } }]);
     const c = await connected(f.fetchImpl);
@@ -85,9 +113,10 @@ describe("explore", () => {
       const r = await c.callTool({ name: "fiken_explore", arguments: { path } });
       return JSON.parse((r.content as Array<{ text: string }>)[0]?.text ?? "") as { operations: Array<{ name: string }> };
     };
-    expect((await explore("offers")).operations.map((o) => o.name).sort()).toEqual(["create_offer_draft", "create_offer_from_draft", "list_offers", "send_offer"]);
+    expect((await explore("offers")).operations.map((o) => o.name).sort()).toEqual(["create_offer_draft", "create_offer_from_draft", "list_offer_drafts", "list_offers", "send_offer"]);
     expect((await explore("order_confirmations")).operations.map((o) => o.name).sort()).toEqual([
-      "create_invoice_draft_from_order_confirmation", "create_order_confirmation_draft", "create_order_confirmation_from_draft", "list_order_confirmations",
+      "create_invoice_draft_from_order_confirmation", "create_order_confirmation_draft", "create_order_confirmation_from_draft",
+      "list_order_confirmation_drafts", "list_order_confirmations",
     ]);
   });
 });

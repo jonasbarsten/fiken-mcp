@@ -2,11 +2,12 @@ import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
 import { toolJson } from "../context.js";
 import { companySlug, CONFIRM, isoDate, paged, paging, toolText, withCompany } from "./common.js";
-import { createInvoiceishDraft, invoiceLine, LINE_MONEY, missingLineFields, sendDocument, sendDocumentInput } from "./documents.js";
+import { createInvoiceishDraft, type FikenDraft, invoiceLine, LINE_MONEY, missingLineFields, sendDocument, sendDocumentInput, trimDraft } from "./documents.js";
 
-const OFFER_DRAFT_ID_SOURCES = "from create_offer_draft (via fiken_write)";
+const OFFER_DRAFT_ID_SOURCES = "from list_offer_drafts (via fiken_read); create_offer_draft (via fiken_write) returns one";
 const OFFER_ID_SOURCES = "from list_offers (via fiken_read); create_offer_from_draft (via fiken_write) returns one";
-const CONFIRMATION_DRAFT_ID_SOURCES = "from create_order_confirmation_draft (via fiken_write)";
+const CONFIRMATION_DRAFT_ID_SOURCES =
+  "from list_order_confirmation_drafts (via fiken_read); create_order_confirmation_draft (via fiken_write) returns one";
 const CONFIRMATION_ID_SOURCES = "from list_order_confirmations (via fiken_read); create_order_confirmation_from_draft (via fiken_write) returns one";
 
 /** The create_invoice_draft input without `type`, and with the bank account optional: an offer or confirmation is not paid. */
@@ -63,6 +64,22 @@ export const offersOperations: Operation[] = [
       const missing = lines ? missingLineFields(lines) : undefined;
       if (missing) return toolText(missing);
       return withCompany(ctx, slug, async () => toolJson({ draftId: await createInvoiceishDraft(ctx, slug, "offers", "offer", { ...rest, lines }) }));
+    },
+  }),
+
+  defineOperation({
+    name: "list_offer_drafts",
+    concept: "offers",
+    kind: "read",
+    destructive: false,
+    title: "List offer drafts",
+    description: `Offer drafts not yet turned into offers. ${LINE_MONEY}`,
+    input: z.object({ companySlug, ...paging }),
+    async run(ctx, { companySlug: slug, page, pageSize }) {
+      return withCompany(ctx, slug, async () => {
+        const { items, total } = await ctx.fiken.list<FikenDraft>(`/companies/${slug}/offers/drafts`, { page, pageSize });
+        return paged(items.map(trimDraft), total, page, pageSize);
+      });
     },
   }),
 
@@ -146,6 +163,22 @@ export const offersOperations: Operation[] = [
       return withCompany(ctx, slug, async () =>
         toolJson({ draftId: await createInvoiceishDraft(ctx, slug, "orderConfirmations", "order_confirmation", { ...rest, lines }) }),
       );
+    },
+  }),
+
+  defineOperation({
+    name: "list_order_confirmation_drafts",
+    concept: "order_confirmations",
+    kind: "read",
+    destructive: false,
+    title: "List order confirmation drafts",
+    description: `Order confirmation drafts not yet turned into order confirmations. ${LINE_MONEY}`,
+    input: z.object({ companySlug, ...paging }),
+    async run(ctx, { companySlug: slug, page, pageSize }) {
+      return withCompany(ctx, slug, async () => {
+        const { items, total } = await ctx.fiken.list<FikenDraft>(`/companies/${slug}/orderConfirmations/drafts`, { page, pageSize });
+        return paged(items.map(trimDraft), total, page, pageSize);
+      });
     },
   }),
 

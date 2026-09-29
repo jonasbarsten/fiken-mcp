@@ -49,6 +49,32 @@ export function invoiceLines(lines: InvoiceLine[]): Array<Record<string, unknown
   return lines.map((l) => defined(l));
 }
 
+/** A line of an issued invoice or credit note, as Fiken returns it. */
+export interface FikenInvoiceLine {
+  description?: string;
+  productName?: string;
+  quantity: number;
+  unitPrice: number;
+  net: number;
+  vat: number;
+  vatType: string;
+  incomeAccount?: string;
+}
+
+/** The result fields of an issued invoice's or credit note's line. */
+export function trimInvoiceLine(l: FikenInvoiceLine) {
+  return {
+    description: l.description,
+    productName: l.productName,
+    quantity: l.quantity,
+    unitPrice: l.unitPrice,
+    net: l.net,
+    vat: l.vat,
+    vatType: l.vatType,
+    incomeAccount: l.incomeAccount,
+  };
+}
+
 const sendShape = {
   method: z.array(z.enum(["auto", "email", "ehf", "efaktura", "sms", "letter"])).min(1).default(["auto"]),
   includeDocumentAttachments: z.boolean().default(true),

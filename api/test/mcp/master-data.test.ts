@@ -13,6 +13,8 @@ describe("contact and product updates keep what they do not change", () => {
     const c = await connected(f.fetchImpl);
     const r = await callJson(c, "update_contact", { companySlug: "demo", contactId: 5, email: "new@x.no", address: { city: "Bergen" } });
     expect(r.isError).toBe(false);
+    // currency is writeOnly in Fiken's contact schema, so the result does not claim to show it.
+    expect(r.json()).not.toHaveProperty("currency");
     const put = f.calls.find((x) => x.init?.method === "PUT");
     expect(JSON.parse(String(put?.init?.body))).toEqual({
       name: "Kunde AS", email: "new@x.no", organizationNumber: "123", customer: true, supplier: false, inactive: false, bankAccountNumber: "12345678903",

@@ -144,11 +144,15 @@ export const salesOperations: Operation[] = [
     description:
       "Mark a sale as settled without registering a payment (for example when it was settled by offsetting). " +
       `To record money received use register_payment (via fiken_write). ${CONFIRM}`,
-    input: z.object({ companySlug, saleId: z.number().int().describe("Sale id, from list_sales (via fiken_read)") }),
-    async run(ctx, { companySlug: slug, saleId }) {
+    input: z.object({
+      companySlug,
+      saleId: z.number().int().describe("Sale id, from list_sales (via fiken_read)"),
+      settledDate: isoDate.describe("Settlement date (YYYY-MM-DD)"),
+    }),
+    async run(ctx, { companySlug: slug, saleId, settledDate }) {
       return withCompany(ctx, slug, async () => {
-        await ctx.fiken.patch(`/companies/${slug}/sales/${saleId}/settled`);
-        return toolJson({ saleId, settled: true });
+        await ctx.fiken.patch(`/companies/${slug}/sales/${saleId}/settled`, undefined, { settledDate });
+        return toolJson({ saleId, settled: true, settledDate });
       });
     },
   }),
@@ -163,7 +167,16 @@ export const salesOperations: Operation[] = [
     input: z.object({
       companySlug,
       saleId: z.number().int().describe("Sale id, from list_sales (via fiken_read)"),
-      type: z.enum(WRITE_OFF_TYPES).describe("Reason for the loss"),
+      type: z
+        .enum(WRITE_OFF_TYPES)
+        .describe(
+          "Reason for the write-off (tapsføring): " +
+            "OVERDUE_6_MONTHS = at least 6 months past due date, and at least 3 reminders or collection notices have been sent; " +
+            "COLLECTION_FAILED = debt collection has been attempted without success; " +
+            "CUSTOMER_BANKRUPTCY = the customer has been declared bankrupt and the estate cannot cover the outstanding amount; " +
+            "DEEMED_IRRECOVERABLE = based on an overall assessment, the receivable will clearly not be collected. " +
+            "The sale must not be a cash sale, must not already be written off, settled or deleted, and must have an outstanding balance.",
+        ),
       date: isoDate.describe("Write-off date (YYYY-MM-DD)"),
       comment: z.string().min(1).optional(),
     }),

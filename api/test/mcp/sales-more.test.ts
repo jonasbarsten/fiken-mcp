@@ -56,13 +56,18 @@ describe("sales", () => {
     expect(r.json()).toMatchObject({ lines: [{ lineId: 1 }] });
   });
 
-  it("settle_sale and write_off_sale patch the sale", async () => {
-    const f = fakeFiken([{ match: /\/sales\/9\/(settled|writeOff)$/, status: 200 }]);
+  it("settle_sale (with Fiken's required settledDate) and write_off_sale patch the sale", async () => {
+    const f = fakeFiken([{ match: /\/sales\/9\/(settled|writeOff)(\?|$)/, status: 200 }]);
     const c = await connected(f.fetchImpl);
-    expect((await callJson(c, "settle_sale", { companySlug: "demo", saleId: 9 })).json()).toEqual({ saleId: 9, settled: true });
+    expect((await callJson(c, "settle_sale", { companySlug: "demo", saleId: 9 })).isError).toBe(true);
+    expect(f.calls).toHaveLength(0);
+    expect((await callJson(c, "settle_sale", { companySlug: "demo", saleId: 9, settledDate: "2026-09-29" })).json()).toEqual({ saleId: 9, settled: true, settledDate: "2026-09-29" });
     expect(f.calls[0]?.init?.method).toBe("PATCH");
+    expect(f.calls[0]?.url).toBe("https://api.test/v2/companies/demo/sales/9/settled?settledDate=2026-09-29");
+    expect(f.calls[0]?.init?.body).toBeUndefined();
     const w = await callJson(c, "write_off_sale", { companySlug: "demo", saleId: 9, type: "COLLECTION_FAILED", date: "2026-09-29" });
     expect(w.json()).toEqual({ saleId: 9, writtenOff: true, type: "COLLECTION_FAILED" });
+    expect(f.calls[1]?.url).toBe("https://api.test/v2/companies/demo/sales/9/writeOff");
     expect(JSON.parse(String(f.calls[1]?.init?.body))).toEqual({ type: "COLLECTION_FAILED", date: "2026-09-29" });
   });
 
