@@ -538,5 +538,10 @@ a journal entry still has to be built.
   we are a third-party integration, and the connector is already named
   "Fiken MCP".
 - The API lives at `api.fiken-mcp.byjoba.com` (certificate in eu-west-1,
-  requested by hand). `fiken-mcp.byjoba.com` is reserved for a CloudFront
-  site, which needs its own certificate in us-east-1.
+  requested by hand).
+- **Website at `https://fiken-mcp.byjoba.com` (to build, section 10).**
+  Static site on CloudFront: what the connector does, how to add it in
+  Claude and ChatGPT, the privacy statement (section 11), and the live
+  counters from `GET /stats`. Needs its own certificate in us-east-1
+  (requested by hand, like the API's), an S3 bucket and distribution in
+  the iac stack, and the A record on the apex. Its own plan.
