@@ -106,7 +106,7 @@ export function registerOperationTool(server: McpServer, ctx: ToolContext, op: O
 export const OPERATIONS: readonly Operation[]; // every operation from every tools/*.ts file, in the order registerAllTools used
 export function getOperation(name: string): Operation | undefined;
 ```
-Concept of each current tool: `list_companies` companies; `search_contacts`, `get_contact`, `create_contact` contacts; `list_projects` projects; `list_accounts`, `list_bank_accounts`, `account_balances`, `bank_balances` accounts; `get_journal_entries` ledger; `list_purchases`, `get_purchase`, `create_purchase` purchases; `list_sales` sales; `list_invoices`, `get_invoice`, `create_invoice`, `create_invoice_draft`, `create_invoice_from_draft`, `send_invoice` invoices; `create_credit_note` credit_notes; `register_payment` payments; `list_products` products; `list_inbox`, `get_inbox_document` inbox; `attach_inbox_document`, `get_attachments` attachments; `my_usage` usage. `destructive` is `true` for every write except `create_invoice_draft`; `create_contact` keeps whatever annotations it has today (read `contacts.ts`).
+Concept of each current tool: `list_companies` companies; `search_contacts`, `get_contact`, `create_contact` contacts; `list_projects` projects; `list_accounts`, `list_bank_accounts`, `account_balances`, `bank_balances` accounts; `get_journal_entries` ledger; `list_purchases`, `get_purchase`, `create_purchase` purchases; `list_sales` sales; `list_invoices`, `get_invoice`, `create_invoice`, `create_invoice_draft`, `create_invoice_from_draft`, `send_invoice` invoices; `create_credit_note` credit_notes; `register_payment` payments; `list_products` products; `list_inbox`, `get_inbox_document` inbox; `attach_inbox_document`, `get_attachments` attachments; `my_usage` usage. `destructive` is `true` for every write except `create_invoice_draft` and `create_contact`, which today carry `destructiveHint: false` (checked 2026-09-29); `create_contact` keeps its `CONFIRM`.
 
 - [ ] **Step 1: Failing test** (`api/test/mcp/registry.test.ts`):
 ```ts
@@ -136,11 +136,12 @@ describe("operation registry", () => {
   });
 
   it("marks consequential writes and asks for confirmation in them", () => {
-    for (const op of OPERATIONS.filter((o) => o.kind === "write" && o.name !== "create_invoice_draft")) {
-      expect(op.destructive, op.name).toBe(true);
-      expect(op.description, op.name).toContain("Consequential");
+    // Drafts and new contacts are writes that are easy to undo in Fiken, so they are not destructive (unchanged from today).
+    const notDestructive = ["create_invoice_draft", "create_contact"];
+    for (const op of OPERATIONS.filter((o) => o.kind === "write")) {
+      expect(op.destructive, op.name).toBe(!notDestructive.includes(op.name));
+      if (op.name !== "create_invoice_draft") expect(op.description, op.name).toContain("Consequential");
     }
-    expect(getOperation("create_invoice_draft")?.destructive).toBe(false);
   });
 
   it("registers every operation as a tool with the same annotations as before", async () => {
@@ -154,8 +155,6 @@ describe("operation registry", () => {
   });
 });
 ```
-If `create_contact` does not contain `CONFIRM` today, exclude it in the second test with a comment rather than changing its description in this task (no behaviour change here); Task 4 decides.
-
 - [ ] **Step 2** run to fail. **Step 3** convert the files one by one; after each file run its existing test file. **Step 4** `npm test` and `npm run typecheck` from the root: every existing test passes unchanged except imports of removed `registerX` functions (there should be none outside `server.ts`). **Step 5: Commit** `Operations: every tool is an Operation in one registry (no behaviour change)`
 
 ---
@@ -372,8 +371,7 @@ describe("connector options", () => {
 
 ### Task 4: Docs
 
-**Files:** `README.md` (the tool list becomes: the hot-path tools, the upload tools, and `fiken_explore`/`fiken_read`/`fiken_write` with the concepts and their operations listed underneath; a "Connector URL options" section: `https://api.fiken-mcp.byjoba.com/mcp` for everything, `/mcp/readonly`, `/mcp/invoices,sales`, `/mcp/invoices,readonly`, with the concept names), `docs/superpowers/specs/2026-09-22-fiken-mcp-design.md` (section 8 describes the gateway, the hot path and the registry; section 14 records this plan as done and names the next plan: adding the Fiken areas not yet covered as operations, deletes and reversals excluded until decided), `docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md` (why progressive disclosure through tool results and not dynamic tool lists (Claude's cached tool list, the stateless server); why read and write are separate gateway tools (host confirmation follows annotations); why options live in the path and not a query string (protected resource metadata must match the URL the client was given); what the hot path is and why), `CLAUDE.md` (process line), `docs/setup.md` ("Verify after deploying the operations plan": re-add the connector (tool lists are cached) and check the new tool list; ask Claude to "send invoice 10042" and confirm it explores, then uses `fiken_write` with a confirmation; add a second connector with `/mcp/readonly` in Claude and confirm login works and no write tool appears; run the receipts flow on a phone and confirm it still needs no `fiken_explore`). Decide `create_contact`'s `CONFIRM` (Task 1 note): add it if missing, since creating a contact is a write the user should see first, and update Task 1's registry test exclusion.
-
+**Files:** `README.md` (the tool list becomes: the hot-path tools, the upload tools, and `fiken_explore`/`fiken_read`/`fiken_write` with the concepts and their operations listed underneath; a "Connector URL options" section: `https://api.fiken-mcp.byjoba.com/mcp` for everything, `/mcp/readonly`, `/mcp/invoices,sales`, `/mcp/invoices,readonly`, with the concept names), `docs/superpowers/specs/2026-09-22-fiken-mcp-design.md` (section 8 describes the gateway, the hot path and the registry; section 14 records this plan as done and names the next plan: adding the Fiken areas not yet covered as operations, deletes and reversals excluded until decided), `docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md` (why progressive disclosure through tool results and not dynamic tool lists (Claude's cached tool list, the stateless server); why read and write are separate gateway tools (host confirmation follows annotations); why options live in the path and not a query string (protected resource metadata must match the URL the client was given); what the hot path is and why), `CLAUDE.md` (process line), `docs/setup.md` ("Verify after deploying the operations plan": re-add the connector (tool lists are cached) and check the new tool list; ask Claude to "send invoice 10042" and confirm it explores, then uses `fiken_write` with a confirmation; add a second connector with `/mcp/readonly` in Claude and confirm login works and no write tool appears; run the receipts flow on a phone and confirm it still needs no `fiken_explore`).
 - [ ] **Commit** `Docs: the operations gateway and connector URL options`
 
 ---
