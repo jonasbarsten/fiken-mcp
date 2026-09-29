@@ -363,6 +363,48 @@ description); MCP annotations (`readOnlyHint`, `destructiveHint`) on
 every tool; failures return `isError: true` with Fiken's own message and,
 where useful, recovery hints such as the user's company slugs.
 
+### The gateway, the hot path and the registry
+
+Every Fiken action is an `Operation` in one registry
+(`api/src/mcp/registry.ts`): name, concept, `read` or `write`,
+destructive flag, zod input and `run`. The tool list stays fixed and
+short: the hot-path tools, the upload tools, and three gateway tools.
+
+- `fiken_explore` returns the concepts, then one concept's operations
+  with compact JSON Schema inputs (defaulted fields optional, extra keys
+  refused). Disclosure happens in tool results, not in a changing tool
+  list (decision record).
+- `fiken_read` and `fiken_write` take an operation name and `args`,
+  validate `args` against the operation's zod schema and run it through
+  the same `counted()` wrapper, read-backs and write guard as before. A
+  write operation sent to `fiken_read` is refused before any Fiken call;
+  unknown names, unknown top-level keys and invalid args are refused and
+  counted under the gateway's name as errors. Invoice and purchase lines
+  are strict, so a mistyped key is refused instead of dropped.
+- The hot path (`HOT_PATH` in `api/src/mcp/server.ts`) is `list_companies`,
+  `list_projects`, `list_accounts`, `list_bank_accounts`,
+  `search_contacts`, `list_inbox`, `create_purchase`. They stay real
+  tools because the receipts flow calls them on a phone and should not
+  spend a round trip on `fiken_explore`. Every operation, these too, is
+  also reachable through the gateway.
+- Concepts (`CONCEPTS` in `operations.ts`): companies, contacts,
+  projects, accounts, ledger, purchases, sales, invoices, credit_notes,
+  payments, products, inbox, attachments, usage.
+- Connector options live in the URL path: `/mcp/readonly`,
+  `/mcp/<concept>,<concept>`, combinable with `readonly`; `companies` is
+  always included. They are read on every request and nothing is stored.
+  `fiken_write` is absent when the connection sees no write; the upload
+  tools need `purchases` visible and a non-readonly connection. Unknown
+  words get a 400 after login; an unauthenticated request to an invalid
+  option path gets the plain `/mcp` challenge. The protected-resource
+  metadata mirrors the path
+  (`/.well-known/oauth-protected-resource/mcp/<options>`). The options
+  narrow what a connection offers the model; they are not a security
+  boundary against the token holder, since the same token works on
+  `/mcp`.
+
+The operations, by kind:
+
 Read:
 `list_companies`, `search_contacts`, `get_contact`, `list_invoices`,
 `get_invoice`, `list_sales`, `list_purchases`, `get_purchase`,
@@ -553,9 +595,25 @@ write guard; the tools `list_sales`, `list_products`, `account_balances`,
 `get_attachments` and `get_inbox_document`. `get_upload_url` stays
 inbox-only by decision (see the decision record).
 
-Still to build: offers, order confirmations, recurring invoices, time
-tracking, deletes and EHF (section 8's "left out" list), ChatGPT
-verification, and the website.
+Done by the operations plan (2026-09-29,
+`docs/superpowers/plans/2026-09-29-fiken-mcp-operations.md`): the
+registry, `fiken_explore`, `fiken_read` and `fiken_write` with the hot
+path kept as real tools, strict invoice and purchase lines, and connector
+URL options (`/mcp/readonly`, `/mcp/<concepts>`). Live fixes after
+production testing: `get_journal_entries` lines carry `account` and
+`vatCode` again, and `create_invoice_draft` requires `bankAccountNumber`
+(from `list_bank_accounts`).
+
+Next plan: the Fiken areas not covered yet, added as operations: sales
+without an invoice, manual journal entries (`createGeneralJournalEntry`),
+purchase drafts, projects and products create and update, contact updates
+and contact persons, sending credit notes, invoice and credit note
+counters, marking sales settled or written off, invoice draft list and
+update, single sale lookup, payments lookup, transactions (read), offers
+and order confirmations, recurring invoices, time tracking, the EHF inbox
+and accruals. Deletes and reversals stay out until Jonas decides.
+
+Still to build after that: ChatGPT verification and the website.
 
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.

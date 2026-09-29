@@ -45,5 +45,8 @@ Usage-and-CIMD plan executed 2026-09-28 (counters, `my_usage`, `/stats`,
 Remaining-tools plan executed 2026-09-29 (invoices, credit notes,
 payments, balances, journal entries, attachments, `get_inbox_document`,
 write guard; see
-`docs/superpowers/plans/2026-09-29-fiken-mcp-remaining-tools.md`). Next:
-what spec section 14 lists as still to build.
+`docs/superpowers/plans/2026-09-29-fiken-mcp-remaining-tools.md`).
+Operations plan executed 2026-09-29 (registry, `fiken_explore`,
+`fiken_read`, `fiken_write`, hot-path tools, connector URL options; see
+`docs/superpowers/plans/2026-09-29-fiken-mcp-operations.md`). Next: the
+Fiken areas spec section 14 lists as not covered yet, as operations.

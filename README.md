@@ -13,29 +13,88 @@ payments are covered too.
 
 ## What it can do
 
-Read: `list_companies`, `list_projects`, `list_accounts`,
-`list_bank_accounts`, `search_contacts`, `get_contact`, `list_purchases`,
-`get_purchase`, `list_inbox`, `get_inbox_document` (an inbox document
-that did not come through the upload widget: images as images, PDFs as
-text per page, read in memory), `list_sales`, `list_products`,
-`list_invoices`, `get_invoice`, `get_attachments` (on a purchase, sale,
-invoice or journal entry),
-`account_balances` (date and an account range such as 3000-3999),
-`bank_balances`, `get_journal_entries`, `my_usage` (your own pseudonymous
-monthly call counts on this server). `get_inbox_document` reads text PDFs
-and images but not scanned PDFs: those pages are named, and the widget
-(`upload_receipts`) handles them.
+The server offers a short, fixed tool list instead of one tool per Fiken
+action:
 
-Write (each asks the model to restate the action and get your explicit
+- The hot-path tools, real tools the receipts flow needs without an extra
+  round trip: `list_companies`, `list_projects`, `list_accounts`,
+  `list_bank_accounts`, `search_contacts`, `list_inbox`, `create_purchase`.
+- The upload tools: `upload_receipts` and `get_upload_url` (see below).
+- The gateway: `fiken_explore`, `fiken_read` and `fiken_write`. Every
+  operation below, the hot-path ones included, is reachable through it.
+  `fiken_explore` lists the concepts, then a concept's operations with
+  their inputs (compact JSON; each input is a JSON Schema that marks
+  defaulted fields optional and refuses extra keys). `fiken_read` runs a
+  read operation and `fiken_write` a write operation, each taking the
+  operation's name and its `args`. They are separate tools because the
+  host's confirmation prompt follows the tool's annotations. A write
+  operation sent to `fiken_read`, unknown names, unknown top-level keys and
+  args that do not match the operation's input are refused before any call
+  to Fiken. Invoice and purchase lines are strict too: a mistyped key in a
+  line is refused rather than dropped, so a misspelled price cannot issue
+  an invoice at list price. `fiken_write` is absent when the connection
+  has no visible write operation.
+
+Operations by concept (`read` unless marked write):
+
+- `companies`: `list_companies`
+- `contacts`: `search_contacts`, `get_contact`, `create_contact` (write)
+- `projects`: `list_projects`
+- `accounts`: `list_accounts`, `list_bank_accounts` (with the account
+  number an invoice draft needs), `account_balances` (date and an account
+  range such as 3000-3999), `bank_balances`
+- `ledger`: `get_journal_entries`
+- `purchases`: `list_purchases`, `get_purchase`, `create_purchase` (write;
+  optionally attaching an inbox document)
+- `sales`: `list_sales`
+- `invoices`: `list_invoices`, `get_invoice`, `create_invoice` (write;
+  final in Fiken once created, issued and booked, not sent),
+  `create_invoice_draft` (write; needs `bankAccountNumber` from
+  `list_bank_accounts`, since Fiken refuses to issue a draft without one),
+  `create_invoice_from_draft` (write), `send_invoice` (write; final: the
+  customer receives it at once)
+- `credit_notes`: `create_credit_note` (write; full or partial, booked but
+  not sent)
+- `payments`: `register_payment` (write; on a sale or a purchase, positive
+  amounts only, NOK only)
+- `products`: `list_products`
+- `inbox`: `list_inbox`, `get_inbox_document` (an inbox document that did
+  not come through the upload widget: images as images, PDFs as text per
+  page, read in memory; scanned PDFs are named, and the widget handles
+  them)
+- `attachments`: `get_attachments` (on a purchase, sale, invoice or journal
+  entry), `attach_inbox_document` (write; an invoice gets a copy and the
+  document stays in the inbox)
+- `usage`: `my_usage` (your own pseudonymous monthly call counts on this
+  server)
+
+Every write asks the model to restate the action and get your explicit
 confirmation first, except `create_invoice_draft`, since a draft is
-reviewed in Fiken): `create_contact`, `create_purchase` (optionally
-attaching an inbox document), `attach_inbox_document` (to a purchase,
-sale, invoice or journal entry; an invoice gets a copy and the document
-stays in the inbox), `create_invoice`
-(final in Fiken once created; issued and booked, not sent), `create_invoice_draft`,
-`create_invoice_from_draft`, `send_invoice` (final: the customer receives it at
-once), `create_credit_note` (full or partial, booked but not sent),
-`register_payment` (on a sale or a purchase, positive amounts only, NOK only).
+reviewed in Fiken.
+
+### Connector URL options
+
+The connector URL can narrow what a connection offers the model. The
+options are read from the path on every request, so nothing is stored.
+
+| URL | What the connection offers |
+| --- | --- |
+| `https://api.fiken-mcp.byjoba.com/mcp` | Everything |
+| `https://api.fiken-mcp.byjoba.com/mcp/readonly` | Reads only; no write operation, no `fiken_write`, no upload tools |
+| `https://api.fiken-mcp.byjoba.com/mcp/invoices,sales` | Only those concepts |
+| `https://api.fiken-mcp.byjoba.com/mcp/invoices,readonly` | Those concepts, reads only |
+
+Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
+`purchases`, `sales`, `invoices`, `credit_notes`, `payments`, `products`,
+`inbox`, `attachments`, `usage`. `companies` is always included, since
+every call needs a company slug. An unknown word gets a 400 naming the
+valid ones, after login; an unauthenticated request to an invalid option
+path gets the plain `/mcp` login challenge. The upload tools need
+`purchases` visible and a connection that is not read-only.
+
+These options limit what a connection offers the model. They are not a
+security boundary against whoever holds the token: the same login token
+works on `/mcp`. To stop a token, revoke access in Fiken.
 
 Receipts: `upload_receipts` opens a picker inside the chat (photos,
 camera, PDFs). Each file goes to the company's Fiken inbox and its
@@ -91,6 +150,10 @@ Claude Code:
 ```
 claude mcp add --transport http fiken https://api.fiken-mcp.byjoba.com/mcp
 ```
+
+To add a narrower connection, use one of the option URLs above instead
+(for example `/mcp/readonly`). Claude caches a connector's tool list, so
+after an update remove and re-add the connector to see the new one.
 
 ChatGPT: Settings, Apps, Advanced settings, Developer mode, add the same
 URL. Needs Plus or higher.
