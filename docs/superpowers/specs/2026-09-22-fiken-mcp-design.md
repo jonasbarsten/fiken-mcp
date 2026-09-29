@@ -305,6 +305,14 @@ during another's in-flight call is throttled by Lambda and surfaces to
 the client as a tool error the model can retry. Acceptable under the
 5-user dev cap. When applying for production status, ask Fiken whether
 the limit is per user; if so, raise concurrency and queue per token.
+A single user hits this too: clients fire independent tool calls in
+parallel (Claude Code sent six at once on 2026-09-29 and five
+succeeded), and the throttled one surfaces as a 503 the model has to
+retry. If that proves annoying in practice, the fix is a small
+reserved concurrency (say 3) with a cross-container lock on Fiken calls
+(a DynamoDB conditional write on an expiry timestamp checked in the
+condition itself; DynamoDB's TTL deletes items up to about 48 hours late
+and cannot expire a lock), not a bigger queue in one container.
 
 Concurrency 1 also means anyone can starve the service by hammering it.
 Controls: API Gateway stage throttling (20 requests per second, burst
@@ -487,7 +495,12 @@ too if you suspect a device or account was compromised.
 - Unknown company slug: error text lists the user's slugs.
 - Upload ticket invalid or expired: 401 to the widget; the widget shows
   it and the model can call `upload_receipts` again.
-- Lambda throttled (concurrency): API Gateway 429; the model retries.
+- Lambda throttled (concurrency): API Gateway answers 503 "Service
+  Unavailable" (observed 2026-09-29 when Claude Code fired six tool calls
+  at once), not 429. The call never reaches the Lambda and is not
+  counted. Clients show the error instead of retrying, so a client that
+  parallelises tool calls loses all but one of them; see section 7 for
+  the trade-off.
 
 ## 13. Testing
 
@@ -538,5 +551,10 @@ a journal entry still has to be built.
   we are a third-party integration, and the connector is already named
   "Fiken MCP".
 - The API lives at `api.fiken-mcp.byjoba.com` (certificate in eu-west-1,
-  requested by hand). `fiken-mcp.byjoba.com` is reserved for a CloudFront
-  site, which needs its own certificate in us-east-1.
+  requested by hand).
+- **Website at `https://fiken-mcp.byjoba.com` (to build, section 10).**
+  Static site on CloudFront: what the connector does, how to add it in
+  Claude and ChatGPT, the privacy statement (section 11), and the live
+  counters from `GET /stats`. Needs its own certificate in us-east-1
+  (requested by hand, like the API's), an S3 bucket and distribution in
+  the iac stack, and the A record on the apex. Its own plan.

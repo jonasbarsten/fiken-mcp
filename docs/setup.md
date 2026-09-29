@@ -137,6 +137,26 @@ GitHub asks, and watch the `deploy` workflow. The certificate lives in
 the iac stack, so its DNS validation (a few minutes) happens during the
 hand-run `cdk deploy fiken-mcp-iac`, not in the workflow.
 
+## Verified 2026-09-29 (after hotfix #24, from Claude Code)
+
+- Login from Claude Code with dynamic registration: consent page, Fiken
+  login, continue page, callback. Tools appeared without a manual step.
+- Against the demo company: `list_companies`, `list_accounts`,
+  `list_bank_accounts`, `search_contacts`, `list_purchases`,
+  `list_inbox`, `get_upload_url`, a PNG uploaded through the ticketed
+  `POST /upload` (201 with `documentId`), `create_purchase` as a cash
+  purchase with `inboxDocumentId` (booked, one attachment, inbox document
+  marked used), `my_usage`, and `GET /stats` (counts match, cache header
+  present).
+- `list_projects` answers Fiken's 402 "Project/time-tracking module not
+  activated" on the demo company; activate the module in Fiken to test
+  booking on a project.
+- Six tool calls fired in parallel: one was refused with API Gateway's
+  503 "Service Unavailable" (reserved concurrency 1). The call never
+  reached the Lambda, so it is not counted. The client showed the error
+  rather than retrying. Not yet verified: the widget on Desktop and iOS,
+  HEIC, a supplier-kind purchase, CIMD login, revoke-then-reauth.
+
 ## Verify after deploying the usage-and-cimd plan
 
 - `curl https://api.fiken-mcp.byjoba.com/stats` shows `totalUsers` and
