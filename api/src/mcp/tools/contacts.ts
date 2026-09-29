@@ -6,7 +6,7 @@ import { companySlug, CONFIRM, defined, gatewayCall, paged, paging, toolText, wi
 /** Fields Fiken computes or manages elsewhere; the contact PUT must not carry them. */
 const READ_ONLY_CONTACT_FIELDS = [
   "contactId", "createdDate", "lastModifiedDate", "customerNumber", "supplierNumber", "customerAccountCode", "supplierAccountCode",
-  "notes", "documents", "contactPerson", "groups",
+  "notes", "documents", "contactPerson",
 ];
 
 interface FikenContact {
@@ -170,7 +170,9 @@ export const contactsOperations: Operation[] = [
     title: "Update contact",
     description:
       "Change a contact. Only the fields you give change, everything else Fiken holds stays as it is; at least one is required. " +
-      `Address fields merge into the existing address. ${CONFIRM}`,
+      "Address fields merge into the existing address. " +
+      "Fiken does not return a contact's currency or member number, so an update may reset them; if the contact has either set, pass it again. " +
+      `Contact persons are managed with add_contact_person (via fiken_write). ${CONFIRM}`,
     input: z.object({
       companySlug,
       contactId: z.number().int().describe("Contact id, from search_contacts"),
@@ -182,6 +184,8 @@ export const contactsOperations: Operation[] = [
       supplier: z.boolean().optional(),
       inactive: z.boolean().optional().describe("true deactivates the contact"),
       bankAccountNumber: z.string().optional(),
+      currency: z.string().regex(/^[A-Z]{3}$/).optional().describe("ISO 4217 code, e.g. EUR: the default foreign currency for invoices to this contact"),
+      memberNumberString: z.string().optional().describe("Member number"),
       daysUntilInvoicingDueDate: z.number().int().optional().describe("Default number of days until an invoice to this contact is due"),
       address: z
         .strictObject({
@@ -198,12 +202,13 @@ export const contactsOperations: Operation[] = [
       const addressChanges = defined(address ?? {});
       if (Object.keys(changes).length === 0 && Object.keys(addressChanges).length === 0) {
         return toolText(
-          "Give at least one field to change: name, email, organizationNumber, phoneNumber, customer, supplier, inactive, bankAccountNumber, daysUntilInvoicingDueDate or address.",
+          "Give at least one field to change: name, email, organizationNumber, phoneNumber, customer, supplier, inactive, bankAccountNumber, currency, memberNumberString, daysUntilInvoicingDueDate or address.",
         );
       }
       return withCompany(ctx, slug, async () => {
         const path = `/companies/${slug}/contacts/${contactId}`;
         // Fiken's PUT replaces the whole contact, so what the caller did not give is sent back unchanged.
+        // Fiken has no ETag: an edit made in Fiken between this GET and the PUT is overwritten.
         const current = await ctx.fiken.json<Record<string, unknown>>(path);
         const body = Object.fromEntries(Object.entries(current).filter(([key]) => !READ_ONLY_CONTACT_FIELDS.includes(key)));
         Object.assign(body, changes);

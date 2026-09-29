@@ -122,6 +122,7 @@ export const productsOperations: Operation[] = [
       return withCompany(ctx, slug, async () => {
         const path = `/companies/${slug}/products/${productId}`;
         // Fiken's PUT replaces the whole product, so what the caller did not give is sent back unchanged.
+        // Fiken has no ETag: an edit made in Fiken between this GET and the PUT is overwritten.
         const { productId: _id, createdDate: _created, lastModifiedDate: _modified, ...current } = await ctx.fiken.json<FikenProduct>(path);
         await ctx.fiken.put(path, { ...current, ...changes });
         try {

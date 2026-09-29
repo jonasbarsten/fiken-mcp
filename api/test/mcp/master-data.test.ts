@@ -16,9 +16,14 @@ describe("contact and product updates keep what they do not change", () => {
     const put = f.calls.find((x) => x.init?.method === "PUT");
     expect(JSON.parse(String(put?.init?.body))).toEqual({
       name: "Kunde AS", email: "new@x.no", organizationNumber: "123", customer: true, supplier: false, inactive: false, bankAccountNumber: "12345678903",
-      currency: "NOK", language: "NORWEGIAN", address: { streetAddress: "Gate 1", city: "Bergen", postCode: "0150", country: "Norge" },
+      currency: "NOK", language: "NORWEGIAN", address: { streetAddress: "Gate 1", city: "Bergen", postCode: "0150", country: "Norge" }, groups: ["g"],
     });
+    const before = f.calls.length;
     expect((await callJson(c, "update_contact", { companySlug: "demo", contactId: 5 })).isError).toBe(true);
+    expect(f.calls).toHaveLength(before);
+    await callJson(c, "update_contact", { companySlug: "demo", contactId: 5, currency: "EUR", memberNumberString: "M1" });
+    const puts = f.calls.filter((x) => x.init?.method === "PUT");
+    expect(JSON.parse(String(puts[1]?.init?.body))).toMatchObject({ currency: "EUR", memberNumberString: "M1" });
   });
 
   it("update_product sends the full product with one field changed", async () => {
