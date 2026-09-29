@@ -160,15 +160,17 @@ export const timeOperations: Operation[] = [
     title: "Create invoice draft from time entries",
     description:
       "Create an invoice draft from time entries that are not yet invoiced; create_invoice_from_draft (via fiken_write) issues it. " +
-      "groupBy is activity (default, one line per activity), activityAndPerson or none (one line per entry).",
+      "The entries' hours become the draft's lines. groupBy activity makes one line per activity, activityAndPerson one line per activity and person, none one line per entry. " +
+      "NOK only.",
     input: z.object({
       companySlug,
       timeEntryIds: z.array(z.number().int()).min(1).describe(`Time entry ids, ${TIME_ENTRY_ID_SOURCES}`),
       customerId: z.number().int().describe("Customer contact id, from search_contacts"),
       daysUntilDueDate: z.number().int().min(0).describe("Days from the issue date until the invoice is due"),
       bankAccountNumber: z.string().min(1).describe("The bank account number, bankAccountNumber from list_bank_accounts (not the 1920:... code)"),
-      groupBy: z.enum(["activity", "activityAndPerson", "none"]).optional(),
-      includeTimeEntryDescriptions: z.boolean().optional().describe("Put each entry's description in its invoice line"),
+      groupBy: z.enum(["activity", "activityAndPerson", "none"]).default("activity"),
+      includeTimeEntryDescriptions: z.boolean().default(false).describe("Put each entry's description in its invoice line"),
+      currency: z.literal("NOK").default("NOK"),
       issueDate: isoDate.optional().describe("Issue date (YYYY-MM-DD); today when omitted"),
       projectId: z.number().int().optional().describe("Project id, from list_projects; taken from the entries when they share one"),
       invoiceText: z.string().optional().describe("Free text printed above the lines"),
