@@ -228,8 +228,19 @@ changed, and what it left open:
 - **Login state bound to a `__Host-` cookie.** The signed state alone
   let anyone who obtained a state blob complete `/callback` in their own
   browser (RFC 6749 section 10.12), which also bypassed our consent
-  page. `POST /authorize` now sets a nonce in a `__Host-fmcp_login`
-  cookie and in the state; `/callback` requires both to match.
+  page. `GET /authorize` (2026-09-28: moved from POST) sets a nonce in a
+  `__Host-fmcp_login` cookie and echoes it as a hidden field;
+  `POST /authorize` requires field and cookie to match, which is the
+  CSRF check a cross-site form post cannot pass (it carries neither the
+  field nor, under SameSite=Lax, the cookie); the nonce goes into the
+  state and `/callback` requires cookie and state to match.
+- **Continue page instead of a redirect after the consent post
+  (2026-09-28).** Chrome checks `form-action` against every hop of the
+  redirect chain after a form post, and Fiken's login redirects are not
+  ours to allowlist (two failed logins: `'self'`, then `'self'
+  https://fiken.no`). The post answers with a page that navigates via
+  `<meta http-equiv="refresh">`, which CSP does not govern; `form-action`
+  stays `'self'`.
 - **Certificate made by hand, static domain in iac (2026-09-27).** Two
   first deploys failed on `acm:RequestCertificate`: a request-tag gate
   cannot pass (CloudFormation requests first, tags afterwards) and a
@@ -256,11 +267,27 @@ changed, and what it left open:
   anonymous id. A Fiken 401 during a tool call is still reported to the
   model as a tool error that tells the user to reconnect; mapping it to
   an HTTP 401 remains a follow-up.
+- **The upload ticket travels in `structuredContent` (accepted, with a
+  follow-up, 2026-09-28).** The spec prescribes it and the spike proved
+  it reaches the widget that way, but `structuredContent` is part of the
+  tool result, which a host may also show the model and write into the
+  transcript. The ticket is a bearer credential: 15 minutes at most, now
+  clipped to the session's own expiry, scoped to one company's inbox and
+  good for nothing but POSTing files there — so the blast radius is a
+  stranger filling that inbox, not reading data. Still, a credential in
+  a transcript is a credential in a transcript. The fix is to move it to
+  `_meta`, which reaches the widget through
+  `ui/notifications/tool-result` and is not offered to the model; it
+  ships once that path is verified on Claude, since a silent failure
+  there breaks uploading altogether.
 
 ## Things we decided not to do, on purpose
 
 - No inbox as a required step for users. It remains usable.
-- No HEIC conversion in version one.
+- No HEIC conversion in version one. (Reversed 2026-09-28: the widget
+  re-encodes to JPEG on the device, which costs a few lines because the
+  downscale path already existed, and the iOS Files app hands over HEIC
+  often enough that refusing it looked like a broken upload.)
 - No offers, order confirmations, recurring invoices, time tracking or
   deletes in version one.
 - No per-user website login. Usage is a tool; the site shows aggregates.

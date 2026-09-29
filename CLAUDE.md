@@ -35,6 +35,9 @@ Repo: `jonasbarsten/fiken-mcp` (public). AWS: byjoba account
 ## Process
 
 Foundation plan executed 2026-09-22 (see
-`docs/superpowers/plans/2026-09-22-fiken-mcp-foundation.md`). Next:
-Task 15 first deployment, then plan 2 (tools, usage counters) and
-plan 3 (upload widget).
+`docs/superpowers/plans/2026-09-22-fiken-mcp-foundation.md`); first
+deploy live 2026-09-27 at `api.fiken-mcp.byjoba.com`. Receipts-flow plan
+executed 2026-09-28 (widget, upload, booking tools; see
+`docs/superpowers/plans/2026-09-28-fiken-mcp-receipts-flow.md`). Next:
+the remaining tools, usage counters and CIMD, as listed in spec
+section 14.

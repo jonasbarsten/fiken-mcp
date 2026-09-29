@@ -29,9 +29,36 @@ function params(clientId: string, overrides: Record<string, string> = {}) {
   };
 }
 
+const LOGIN_COOKIE = "__Host-fmcp_login";
+
+/** Parses the login cookie's value out of a Set-Cookie header. */
+function loginCookieValue(res: Response): string {
+  const header = res.headers.get("set-cookie") ?? "";
+  const m = new RegExp(`(?:^|, ?)${LOGIN_COOKIE}=([^;]*)`).exec(header);
+  return m?.[1] ?? "";
+}
+
 const get = (p: Record<string, string>) => app.request(`/authorize?${new URLSearchParams(p)}`);
-const post = (p: Record<string, string>) =>
-  app.request("/authorize", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(p).toString() });
+const post = (p: Record<string, string>, cookie?: string) =>
+  app.request("/authorize", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", ...(cookie ? { cookie } : {}) },
+    body: new URLSearchParams(p).toString(),
+  });
+
+/** What a browser holds after viewing the consent page: the login cookie and the nonce field the form will echo. */
+async function consent(p: Record<string, string>) {
+  const res = await get(p);
+  const html = await res.text();
+  const nonce = /name="nonce" value="([^"]+)"/.exec(html)?.[1] ?? "";
+  return { res, html, nonce, cookie: `${LOGIN_COOKIE}=${loginCookieValue(res)}` };
+}
+
+/** Presses "Fortsett" the way a browser does: consent page first, then the form post with cookie and nonce. */
+async function pressContinue(p: Record<string, string>) {
+  const seen = await consent(p);
+  return { seen, res: await post({ ...p, nonce: seen.nonce }, seen.cookie) };
+}
 
 describe("GET /authorize (consent)", () => {
   it("renders a consent page naming the client, with the parameters as hidden fields, escaped", async () => {
@@ -39,8 +66,7 @@ describe("GET /authorize (consent)", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
     expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
-    // Chrome checks form-action against the redirect target of the form post, which is Fiken.
-    expect(res.headers.get("content-security-policy")).toContain("form-action 'self' https://fiken.test;");
+    expect(res.headers.get("content-security-policy")).toContain("form-action 'self';");
     const html = await res.text();
     expect(html).toContain("Claude (claude.ai)");
     expect(html).toContain("Claude &lt;b&gt;x&lt;/b&gt;");
@@ -51,6 +77,18 @@ describe("GET /authorize (consent)", () => {
     expect(html).toContain("error=access_denied");
     expect(html).toContain("state=client-state");
     expect(html).not.toContain("javascript:");
+  });
+
+  it("issues the login nonce as a __Host- cookie and as a hidden field", async () => {
+    const { res, html, nonce } = await consent(params(await register()));
+    expect(nonce).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(html).toContain(`name="nonce" value="${nonce}"`);
+    const cookie = res.headers.get("set-cookie") ?? "";
+    expect(cookie).toMatch(new RegExp(`^${LOGIN_COOKIE}=${nonce}; `));
+    for (const attr of ["Max-Age=3600", "Path=/", "HttpOnly", "Secure", "SameSite=Lax"]) expect(cookie).toContain(attr);
+    expect(cookie).not.toMatch(/Domain=/i);
+    const again = await consent(params(await register()));
+    expect(again.nonce).not.toBe(nonce);
   });
 
   it("does not repeat the client name when the label already says it", async () => {
@@ -79,50 +117,57 @@ describe("GET /authorize (consent)", () => {
   });
 });
 
-const LOGIN_COOKIE = "__Host-fmcp_login";
-
-/** Parses the login cookie's value out of a Set-Cookie header. */
-function loginCookieValue(res: Response): string {
-  const header = res.headers.get("set-cookie") ?? "";
-  const m = new RegExp(`(?:^|, ?)${LOGIN_COOKIE}=([^;]*)`).exec(header);
-  return m?.[1] ?? "";
+/** The Fiken URL the continue page navigates to, from its meta refresh. */
+function fikenUrlFrom(html: string): string {
+  const m = /<meta http-equiv="refresh" content="0;url=([^"]+)">/.exec(html);
+  if (!m) throw new Error("no meta refresh in continue page");
+  return m[1]!.replace(/&amp;/g, "&");
 }
 
 describe("POST /authorize", () => {
-  it("redirects to Fiken with a signed one-hour state bound to a __Host- cookie", async () => {
-    const res = await post(params(await register()));
-    expect(res.status).toBe(302);
-    const loc = new URL(res.headers.get("location")!);
+  it("answers with a page that sends the browser to Fiken with a signed one-hour state bound to the login cookie", async () => {
+    const { seen, res } = await pressContinue(params(await register()));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    // A page, not a redirect: Chrome would check a redirect chain against form-action.
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("content-security-policy")).toContain("form-action 'self';");
+    const html = await res.text();
+    expect(html).toContain("Klikk her hvis du ikke blir sendt videre");
+    const loc = new URL(fikenUrlFrom(html));
     expect(loc.origin + loc.pathname).toBe("https://fiken.test/oauth/authorize");
     expect(loc.searchParams.get("client_id")).toBe("test-client-id");
     expect(loc.searchParams.get("redirect_uri")).toBe("https://fiken-mcp.test/callback");
     const state = verifyBlob<Record<string, unknown>>(loc.searchParams.get("state")!, cfg.keys);
     expect(state).toMatchObject({ k: "s", ru: CLAUDE_CB, cc: pkceChallenge("verifier-123"), cs: "client-state" });
     expect(state.exp as number).toBeGreaterThan(Date.now() / 1000 + 3500);
-
-    const cookie = res.headers.get("set-cookie") ?? "";
-    expect(cookie).toMatch(new RegExp(`^${LOGIN_COOKIE}=[A-Za-z0-9_-]{22}; `));
-    for (const attr of ["Max-Age=3600", "Path=/", "HttpOnly", "Secure", "SameSite=Lax"]) expect(cookie).toContain(attr);
-    expect(cookie).not.toMatch(/Domain=/i);
-    expect(state.n).toBe(loginCookieValue(res));
+    expect(state.n).toBe(seen.nonce);
   });
 
-  it("uses a fresh nonce per login", async () => {
-    const [a, b] = await Promise.all([post(params(await register())), post(params(await register()))]);
-    expect(loginCookieValue(a)).not.toBe(loginCookieValue(b));
+  it("refuses a form post that does not carry the consent page's cookie and nonce (CSRF)", async () => {
+    const p = params(await register());
+    const seen = await consent(p);
+    expect((await post({ ...p, nonce: seen.nonce })).status).toBe(400); // no cookie: a cross-site post under SameSite=Lax
+    expect((await post(p, seen.cookie)).status).toBe(400); // no field
+    expect((await post({ ...p, nonce: "x".repeat(22) }, seen.cookie)).status).toBe(400); // wrong field
+    const other = await consent(params(await register()));
+    expect((await post({ ...p, nonce: seen.nonce }, other.cookie)).status).toBe(400); // another browser's cookie
+    expect((await post({ ...p, nonce: seen.nonce }, seen.cookie)).status).toBe(200);
   });
 
   it("re-validates everything", async () => {
-    expect((await post(params("garbage"))).status).toBe(400);
-    expect((await post(params(await register(), { redirect_uri: "https://evil.example/cb" }))).status).toBe(400);
+    expect((await pressContinue(params("garbage"))).res.status).toBe(400);
+    const p = params(await register());
+    const seen = await consent(p);
+    expect((await post({ ...p, redirect_uri: "https://evil.example/cb", nonce: seen.nonce }, seen.cookie)).status).toBe(400);
   });
 });
 
 describe("GET /callback", () => {
   /** Runs POST /authorize and returns what the browser carries to /callback: Fiken's state and our login cookie. */
   async function login() {
-    const res = await post(params(await register()));
-    return { fs: new URL(res.headers.get("location")!).searchParams.get("state")!, cookie: `${LOGIN_COOKIE}=${loginCookieValue(res)}` };
+    const { seen, res } = await pressContinue(params(await register()));
+    return { fs: new URL(fikenUrlFrom(await res.text())).searchParams.get("state")!, cookie: seen.cookie };
   }
   const callback = (query: string, cookie?: string) => app.request(`/callback?${query}`, { headers: cookie ? { cookie } : {} });
 

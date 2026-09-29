@@ -6,3 +6,6 @@ dist/
 .DS_Store
 .superpowers/
 .claude/worktrees/
+
+# Built by api/scripts/build-widget.mjs from src/widget/upload.template.html
+api/src/assets/upload.html

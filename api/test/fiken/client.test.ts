@@ -77,4 +77,89 @@ describe("createFikenClient", () => {
     await vi.runAllTimersAsync();
     expect(await p).toBe(42);
   });
+
+  it("list sends only defined query params and reads the total from Fiken's header", async () => {
+    const { fetchImpl, calls } = fakeFetch([
+      () => new Response(JSON.stringify([{ a: 1 }]), { status: 200, headers: { "content-type": "application/json", "Fiken-Api-Result-Count": "42" } }),
+    ]);
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
+    const p = client.list<{ a: number }>("/companies/x/projects", { page: 0, pageSize: 25, completed: false, name: undefined });
+    await vi.runAllTimersAsync();
+    expect(await p).toEqual({ items: [{ a: 1 }], total: 42 });
+    expect(calls[0]?.url).toBe("https://api.test/v2/companies/x/projects?page=0&pageSize=25&completed=false");
+  });
+
+  it("create posts json and returns the id from the Location header", async () => {
+    const { fetchImpl, calls } = fakeFetch([
+      () => new Response(null, { status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/x/purchases/2888156" } }),
+    ]);
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
+    const p = client.create("/companies/x/purchases", { kind: "cash_purchase" });
+    await vi.runAllTimersAsync();
+    expect(await p).toEqual({ id: 2888156, location: "https://api.fiken.no/api/v2/companies/x/purchases/2888156" });
+    expect(calls[0]?.init?.method).toBe("POST");
+    expect(new Headers(calls[0]?.init?.headers).get("content-type")).toBe("application/json");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ kind: "cash_purchase" });
+  });
+
+  it("create accepts a trailing slash in Location and refuses a non-numeric id", async () => {
+    const { fetchImpl } = fakeFetch([
+      () => new Response(null, { status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/x/purchases/2888156/" } }),
+      () => new Response(null, { status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/x/purchases/abc" } }),
+    ]);
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
+    const ok = client.create("/companies/x/purchases", {});
+    await vi.runAllTimersAsync();
+    expect((await ok).id).toBe(2888156);
+    const bad = client.create("/companies/x/purchases", {});
+    bad.catch(() => {}); // Suppress unhandled rejection
+    await vi.runAllTimersAsync();
+    await expect(bad).rejects.toMatchObject({ status: 502 });
+  });
+
+  it("create fails loudly without a Location header and on a 4xx", async () => {
+    const { fetchImpl } = fakeFetch([
+      () => new Response(null, { status: 201 }),
+      () => new Response("bad request", { status: 400 }),
+    ]);
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
+    const p1 = client.create("/companies/x/purchases", {});
+    p1.catch(() => {}); // Suppress unhandled rejection
+    await vi.runAllTimersAsync();
+    await expect(p1).rejects.toMatchObject({ status: 502 });
+    const p2 = client.create("/companies/x/purchases", {});
+    p2.catch(() => {}); // Suppress unhandled rejection
+    await vi.runAllTimersAsync();
+    await expect(p2).rejects.toMatchObject({ status: 400, body: "bad request" });
+  });
+
+  it("upload posts multipart form data untouched and appends query params", async () => {
+    const { fetchImpl, calls } = fakeFetch([
+      () => new Response(null, { status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/x/inbox/1234134" } }),
+    ]);
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
+    const form = new FormData();
+    form.set("file", new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" }), "r.png");
+    const p = client.upload("/companies/x/purchases/1/attachments", form, { inboxDocumentId: 7 });
+    await vi.runAllTimersAsync();
+    expect(await p).toEqual({ id: 1234134, location: "https://api.fiken.no/api/v2/companies/x/inbox/1234134" });
+    expect(calls[0]?.url).toBe("https://api.test/v2/companies/x/purchases/1/attachments?inboxDocumentId=7");
+    expect(calls[0]?.init?.body).toBe(form);
+    expect(new Headers(calls[0]?.init?.headers).has("content-type")).toBe(false);
+  });
+
+  it("upload tolerates a UUID Location (attachments) and still fails without any Location", async () => {
+    const { fetchImpl } = fakeFetch([
+      () => new Response(null, { status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/x/purchases/1/attachments/745b2f15-1234-4408-8bf2-b1d2d7610cb2" } }),
+      () => new Response(null, { status: 201 }),
+    ]);
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
+    const ok = client.upload("/companies/x/purchases/1/attachments", new FormData(), { inboxDocumentId: 7 });
+    await vi.runAllTimersAsync();
+    expect(await ok).toEqual({ id: undefined, location: "https://api.fiken.no/api/v2/companies/x/purchases/1/attachments/745b2f15-1234-4408-8bf2-b1d2d7610cb2" });
+    const bad = client.upload("/companies/x/purchases/1/attachments", new FormData());
+    bad.catch(() => {}); // Suppress unhandled rejection
+    await vi.runAllTimersAsync();
+    await expect(bad).rejects.toMatchObject({ status: 502 });
+  });
 });

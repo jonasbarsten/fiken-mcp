@@ -28,6 +28,16 @@ function fikenFailingUser() {
 }
 
 describe("app", () => {
+  it("serves the connector icon publicly, as a real PNG, cacheable", async () => {
+    const res = await createApp(testConfig()).request("/icon.png");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=86400");
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect(Array.from(bytes.subarray(0, 4))).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(bytes.length).toBeGreaterThan(1000);
+  });
+
   afterEach(() => vi.restoreAllMocks());
 
   it("turns an unexpected error into a bare 500 and logs neither the body nor any token", async () => {

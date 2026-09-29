@@ -391,9 +391,10 @@ button. For each picked file it does two things:
 1. **Upload.** `POST /upload` with the ticket, filename and bytes. The
    Lambda validates the ticket, forwards the file as multipart to
    `POST /companies/{slug}/inbox`, and returns the inbox document id.
-   Bytes are never written anywhere. Limit about 4.5 MB per file: Lambda
-   accepts 6 MB per request and API Gateway base64-encodes binary
-   bodies. Multipart framing does not change this. Images above the
+   Bytes are never written anywhere. Limit 4 MB per file: Lambda accepts
+   6 MiB per request and API Gateway base64-encodes binary bodies, which
+   puts the hard ceiling at 4.5 MiB of raw bytes, so 4 MB leaves a
+   margin. Multipart framing does not change this. Images above the
    limit are downscaled in the widget before upload. Any other file
    above the limit is **not uploaded**: the widget shows a clear message
    next to the file naming it and the limit, marks it as skipped in the
@@ -444,8 +445,10 @@ them itself. The Lambda forwards to Fiken as above.
 
 - Attaching files from a Claude.ai chat without the widget or a shell:
   no mechanism exists. See the decision record.
-- HEIC: Fiken rejects it; not converted in version one.
-- Files over about 4.5 MB that are not images. The widget tells the user
+- HEIC: Fiken rejects it, so the widget converts it to JPEG on the device
+  when the browser can decode it (Safari can). A browser that cannot
+  decode it gets the file named as skipped.
+- Files over 4 MB that are not images. The widget tells the user
   which file was skipped and why; the model learns it from the summary
   block.
 
@@ -488,8 +491,42 @@ too if you suspect a device or account was compromised.
 
 ## 14. Open items
 
+Done by the receipts-flow plan (2026-09-28,
+`docs/superpowers/plans/2026-09-28-fiken-mcp-receipts-flow.md`): the
+widget, the upload ticket and `/upload`, `get_upload_url`, and the tools
+`list_projects`, `list_accounts`, `list_bank_accounts`,
+`search_contacts`, `get_contact`, `create_contact`, `list_purchases`,
+`get_purchase`, `create_purchase`, `attach_inbox_document`, `list_inbox`.
+`attach_inbox_document` covers purchases only so far.
+
+Still to build from section 8: invoices (`list_invoices`, `get_invoice`,
+`create_invoice_draft`, `create_invoice_from_draft`, `create_invoice`,
+`send_invoice`), `list_sales`, `list_products`, `account_balances`,
+`bank_balances`, `get_journal_entries`, `get_inbox_document`,
+`get_attachments`, `create_credit_note`, `register_payment`,
+attachments to sales, invoices and journal entries; from section 6 the
+usage counters, `my_usage` and `GET /stats`. `get_upload_url` only ever
+reaches the inbox: uploading straight to a sale, an invoice or a journal
+entry still has to be built.
+
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.
+- **Plan 2: Client ID Metadata Documents (CIMD).** Claude offers "Use
+  Claude's published identity": the client id is an `https://` URL on
+  an Anthropic host and the server fetches a metadata document from it
+  instead of taking redirect URIs at registration. Accept such client
+  ids only when the URL's host is on the redirect allowlist, fetch the
+  document once per cold start and cache it, and require the redirect
+  URI to be in both the document and our allowlist. The allowlist stays
+  the control; DCR keeps working. Claude Desktop 2026-09 detects DCR
+  and works without this, so it is not blocking.
+- **Connector icon (done 2026-09-27).** Clients show a letter placeholder
+  until the server declares `icons` on its `serverInfo` (MCP
+  `Implementation` supports `icons: [{ src, mimeType, sizes }]`). The api
+  serves a 512 px PNG from the unauthenticated `GET /icon.png` and
+  references it by absolute URL. The icon uses no Fiken logo or colours;
+  we are a third-party integration, and the connector is already named
+  "Fiken MCP".
 - The API lives at `api.fiken-mcp.byjoba.com` (certificate in eu-west-1,
   requested by hand). `fiken-mcp.byjoba.com` is reserved for a CloudFront
   site, which needs its own certificate in us-east-1.
