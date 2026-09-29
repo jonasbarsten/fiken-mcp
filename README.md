@@ -16,13 +16,16 @@ payments are covered too.
 Read: `list_companies`, `list_projects`, `list_accounts`,
 `list_bank_accounts`, `search_contacts`, `get_contact`, `list_purchases`,
 `get_purchase`, `list_inbox`, `list_sales`, `list_products`,
-`list_invoices`, `get_invoice`,
+`list_invoices`, `get_invoice`, `get_attachments` (on a purchase, sale,
+invoice or journal entry),
 `account_balances`, `bank_balances`, `get_journal_entries`, `my_usage` (your own pseudonymous monthly
 call counts on this server).
 
 Write (each asks the model to restate the action and get your explicit
 confirmation first): `create_contact`, `create_purchase` (optionally
-attaching an inbox document), `attach_inbox_document`, `create_invoice`
+attaching an inbox document), `attach_inbox_document` (to a purchase,
+sale, invoice or journal entry; an invoice gets a copy and the document
+stays in the inbox), `create_invoice`
 (issued and booked, not sent), `create_invoice_draft`,
 `create_invoice_from_draft`, `send_invoice` (the customer receives it at
 once), `create_credit_note` (full or partial, booked but not sent),

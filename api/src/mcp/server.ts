@@ -4,6 +4,7 @@ import { FikenError, type FikenClient } from "../fiken/client.js";
 import { log } from "../log.js";
 import type { UsageStore } from "../usage/store.js";
 import { registerAccounts } from "./tools/accounts.js";
+import { registerAttachments } from "./tools/attachments.js";
 import { registerCompanies } from "./tools/companies.js";
 import { registerContacts } from "./tools/contacts.js";
 import { registerCreditNotes } from "./tools/credit-notes.js";
@@ -90,6 +91,7 @@ export function registerAllTools(server: McpServer, ctx: ToolContext): void {
   registerAccounts(server, ctx);
   registerContacts(server, ctx);
   registerPurchases(server, ctx);
+  registerAttachments(server, ctx);
   registerInbox(server, ctx);
   registerSales(server, ctx);
   registerInvoices(server, ctx);

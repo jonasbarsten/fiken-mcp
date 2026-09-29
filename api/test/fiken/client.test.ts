@@ -216,4 +216,26 @@ describe("createFikenClient", () => {
     await expect(client.send("/companies/demo/other", {})).rejects.toThrow();
     expect(writes).toBe(1);
   });
+
+  it("download only talks to the Fiken API host and caps the size", async () => {
+    vi.useRealTimers();
+    const urls: string[] = [];
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0),
+      fetch: async (input, init) => {
+        urls.push(String(input));
+        expect(new Headers(init?.headers).get("authorization")).toBe("Bearer tok");
+        if (String(input).endsWith("/big")) return new Response("x", { headers: { "content-length": String(11 * 1024 * 1024) } });
+        return new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "application/pdf" } });
+      },
+    });
+    expect(await client.download("https://api.test/v2/files/abc")).toEqual({ bytes: new Uint8Array([1, 2, 3]), contentType: "application/pdf" });
+    expect(await client.download("/files/abc")).toMatchObject({ contentType: "application/pdf" });
+    await expect(client.download("https://evil.example/v2/files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://api.test.evil.example/files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://api.test/v2files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("//evil.example/files/abc")).rejects.toMatchObject({ status: 400 });
+    await expect(client.download("https://api.test/v2/big")).rejects.toMatchObject({ status: 413 });
+    expect(urls).toEqual(["https://api.test/v2/files/abc", "https://api.test/v2/files/abc", "https://api.test/v2/big"]);
+  });
 });
