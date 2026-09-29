@@ -88,3 +88,49 @@ describe("invoices", () => {
     expect(f.calls[1]?.init?.body).toBeUndefined();
   });
 });
+
+describe("send, credit, pay", () => {
+  it("send_invoice defaults to auto with attachments", async () => {
+    const f = fakeFiken([{ match: /\/invoices\/send$/, status: 200 }]);
+    const c = await connected(f.fetchImpl);
+    expect((await callJson(c, "send_invoice", { companySlug: "demo", invoiceId: 77 })).json()).toEqual({ invoiceId: 77, sent: true, method: ["auto"] });
+    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ invoiceId: 77, method: ["auto"], includeDocumentAttachments: true });
+  });
+
+  it("create_credit_note full and partial, with validation before any call", async () => {
+    const note = { creditNoteId: 5, creditNoteNumber: 3, issueDate: "2026-09-29", net: -100000, vat: -25000, gross: -125000, currency: "NOK", associatedInvoiceId: 77, customer: { contactId: 7, name: "Kunde AS", email: "k" } };
+    const f = fakeFiken([
+      { match: /\/creditNotes\/full$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/creditNotes/5" } },
+      { match: /\/creditNotes\/partial$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/creditNotes/5" } },
+      { match: /\/creditNotes\/5$/, body: note },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const full = await callJson(c, "create_credit_note", { companySlug: "demo", kind: "full", issueDate: "2026-09-29", invoiceId: 77 });
+    expect(full.json()).toEqual({ creditNoteId: 5, creditNoteNumber: 3, issueDate: "2026-09-29", net: -100000, vat: -25000, gross: -125000, currency: "NOK", associatedInvoiceId: 77, customer: { contactId: 7, name: "Kunde AS" } });
+    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ issueDate: "2026-09-29", invoiceId: 77 });
+    const before = f.calls.length;
+    expect((await callJson(c, "create_credit_note", { companySlug: "demo", kind: "full", issueDate: "2026-09-29" })).isError).toBe(true);
+    expect((await callJson(c, "create_credit_note", { companySlug: "demo", kind: "partial", issueDate: "2026-09-29", invoiceId: 77 })).isError).toBe(true);
+    expect((await callJson(c, "create_credit_note", { companySlug: "demo", kind: "partial", issueDate: "2026-09-29", lines: [line] })).isError).toBe(true);
+    expect(f.calls.length).toBe(before);
+    const partial = await callJson(c, "create_credit_note", { companySlug: "demo", kind: "partial", issueDate: "2026-09-29", invoiceId: 77, lines: [line] });
+    expect(partial.isError).toBe(false);
+    expect(JSON.parse(String(f.calls[before]?.init?.body))).toEqual({ issueDate: "2026-09-29", invoiceId: 77, lines: [line] });
+  });
+
+  it("register_payment on a sale or a purchase, exactly one", async () => {
+    const f = fakeFiken([
+      { match: /\/sales\/3\/payments$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/sales/3/payments/40" } },
+      { match: /\/purchases\/8\/payments$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/purchases/8/payments/41" } },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const pay = { companySlug: "demo", date: "2026-09-29", account: "1920:10001", amount: 125000 };
+    expect((await callJson(c, "register_payment", { ...pay, saleId: 3 })).json()).toEqual({ paymentId: 40, saleId: 3 });
+    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ date: "2026-09-29", account: "1920:10001", amount: 125000 });
+    expect((await callJson(c, "register_payment", { ...pay, purchaseId: 8, fee: 500 })).json()).toEqual({ paymentId: 41, purchaseId: 8 });
+    expect(JSON.parse(String(f.calls[1]?.init?.body))).toMatchObject({ fee: 500 });
+    expect((await callJson(c, "register_payment", pay)).isError).toBe(true);
+    expect((await callJson(c, "register_payment", { ...pay, saleId: 3, purchaseId: 8 })).isError).toBe(true);
+    expect(f.calls).toHaveLength(2);
+  });
+});

@@ -8,8 +8,8 @@ invoices, and booking receipts picked straight from a phone.
 Status: live at `https://api.fiken-mcp.byjoba.com` for a handful of
 test users. The receipts flow works end to end: pick receipts in the
 chat, they land in the Fiken inbox, the model reads them and books each
-one as a purchase with the original attached. Invoices, sales, credit
-notes and payments are next.
+one as a purchase with the original attached. Invoices, credit notes and
+payments are covered too.
 
 ## What it can do
 
@@ -24,7 +24,9 @@ Write (each asks the model to restate the action and get your explicit
 confirmation first): `create_contact`, `create_purchase` (optionally
 attaching an inbox document), `attach_inbox_document`, `create_invoice`
 (issued and booked, not sent), `create_invoice_draft`,
-`create_invoice_from_draft`.
+`create_invoice_from_draft`, `send_invoice` (the customer receives it at
+once), `create_credit_note` (full or partial, booked but not sent),
+`register_payment` (on a sale or a purchase).
 
 Receipts: `upload_receipts` opens a picker inside the chat (photos,
 camera, PDFs). Each file goes to the company's Fiken inbox and its

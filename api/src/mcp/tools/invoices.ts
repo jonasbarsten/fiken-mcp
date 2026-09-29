@@ -94,15 +94,15 @@ function trimInvoiceDetail(i: FikenInvoice) {
 }
 
 /** Drops keys whose value is undefined so Fiken only sees what the caller gave. */
-function defined(fields: Record<string, unknown>): Record<string, unknown> {
+export function defined(fields: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
 }
 
-function invoiceLines(lines: InvoiceLine[]): Array<Record<string, unknown>> {
+export function invoiceLines(lines: InvoiceLine[]): Array<Record<string, unknown>> {
   return lines.map((l) => defined(l));
 }
 
-function toolText(text: string): CallToolResult {
+export function toolText(text: string): CallToolResult {
   return { content: [{ type: "text", text }], isError: true };
 }
 
@@ -248,6 +248,33 @@ export function registerInvoices(server: McpServer, ctx: ToolContext): void {
       return withCompany(ctx, slug, async () => {
         const { id } = await ctx.fiken.create(`/companies/${slug}/invoices/drafts/${draftId}/createInvoice`, undefined);
         return readBack(ctx, slug, id);
+      });
+    }),
+  );
+
+  server.registerTool(
+    "send_invoice",
+    {
+      title: "Send invoice",
+      description:
+        "Send an issued invoice to the customer (email, EHF, eFaktura, SMS or letter; auto follows the customer's and company's settings). " +
+        `The customer receives it at once; this cannot be undone. ${CONFIRM}`,
+      inputSchema: z.object({
+        companySlug,
+        invoiceId: z.number().int().describe("Invoice id, from list_invoices or create_invoice"),
+        method: z.array(z.enum(["auto", "email", "ehf", "efaktura", "sms", "letter"])).min(1).default(["auto"]),
+        includeDocumentAttachments: z.boolean().default(true),
+        recipientEmail: z.string().min(1).optional(),
+        recipientName: z.string().min(1).optional(),
+        message: z.string().optional(),
+        emailSendOption: z.enum(["document_link", "attachment", "auto"]).optional(),
+      }),
+      annotations: { destructiveHint: true, readOnlyHint: false },
+    },
+    counted(ctx, "send_invoice", async ({ companySlug: slug, ...body }) => {
+      return withCompany(ctx, slug, async () => {
+        await ctx.fiken.send(`/companies/${slug}/invoices/send`, defined(body));
+        return toolJson({ invoiceId: body.invoiceId, sent: true, method: body.method });
       });
     }),
   );

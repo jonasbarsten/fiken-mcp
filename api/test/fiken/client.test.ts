@@ -187,4 +187,19 @@ describe("createFikenClient", () => {
     await expect(client.create("/companies/demo/sales", {})).rejects.toThrow();
     expect(writes).toBe(1);
   });
+
+  it("send posts JSON and resolves without a Location; a refusal throws", async () => {
+    vi.useRealTimers();
+    const seen: Array<{ url: string; body: unknown }> = [];
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0),
+      fetch: async (input, init) => {
+        seen.push({ url: String(input), body: JSON.parse(String(init?.body)) });
+        return String(input).endsWith("/send") ? new Response(null, { status: 200 }) : new Response("nei", { status: 400 });
+      },
+    });
+    await client.send("/companies/demo/invoices/send", { invoiceId: 77 });
+    expect(seen[0]).toEqual({ url: "https://api.test/v2/companies/demo/invoices/send", body: { invoiceId: 77 } });
+    await expect(client.send("/companies/demo/other", {})).rejects.toMatchObject({ status: 400 });
+  });
 });

@@ -32,6 +32,8 @@ export interface FikenClient {
   json<T>(path: string, init?: RequestInit): Promise<T>;
   list<T>(path: string, query?: Query): Promise<{ items: T[]; total: number | undefined }>;
   create(path: string, body: unknown, query?: Query): Promise<{ id: number; location: string }>;
+  /** POST JSON to an action endpoint that answers 2xx without a Location. */
+  send(path: string, body: unknown): Promise<void>;
   /** Location of the created resource; `id` only when its last path segment is numeric (inbox documents yes, attachments carry a UUID). */
   upload(path: string, form: FormData, query?: Query): Promise<{ id: number | undefined; location: string }>;
 }
@@ -88,6 +90,10 @@ export function createFikenClient(opts: { baseUrl: string; accessToken: string; 
       const res = await doFetch(withQuery(path, query), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) throw new FikenError(res.status, await res.text());
       return locatedId(res);
+    },
+    async send(path: string, body: unknown) {
+      const res = await doFetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      if (!res.ok) throw new FikenError(res.status, await res.text());
     },
     async upload(path: string, form: FormData, query?: Query) {
       const res = await doFetch(withQuery(path, query), { method: "POST", body: form });
