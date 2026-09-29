@@ -90,13 +90,15 @@ export const salesOperations: Operation[] = [
     title: "Create sale",
     description:
       "Book income that was not invoiced through Fiken: a cash sale (card terminal, Vipps, cash, paid at once) or an invoice issued in another system (external_invoice). " +
-      `For an invoice sent by Fiken use create_invoice (via fiken_write). cash_sale needs paymentAccount and paymentDate; external_invoice needs customerId and dueDate. ${ORE} ${CONFIRM}`,
+      "It creates no invoice document and sends nothing; if Fiken must issue an invoice to the customer, even one paid at once, use create_invoice (via fiken_write). " +
+      "cash_sale needs paymentAccount and paymentDate (and takes no dueDate or kid); external_invoice needs customerId and dueDate (and takes no paymentAccount, paymentDate or paymentFee). " +
+      `NOK only; book sales in other currencies in Fiken itself. ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,
       date: isoDate.describe("Sale date (YYYY-MM-DD)"),
       kind: z.enum(["cash_sale", "external_invoice"]),
       lines: z.array(saleLine).min(1),
-      currency: z.string().min(1).default("NOK"),
+      currency: z.literal("NOK").default("NOK"),
       customerId: z.number().int().optional().describe("Customer contact id, from search_contacts"),
       dueDate: isoDate.optional().describe("Due date (YYYY-MM-DD)"),
       kid: z.string().min(1).optional(),
@@ -107,11 +109,16 @@ export const salesOperations: Operation[] = [
       saleNumber: z.string().min(1).optional(),
     }),
     async run(ctx, { companySlug: slug, ...sale }) {
-      if (sale.kind === "cash_sale" && (sale.paymentAccount === undefined || sale.paymentDate === undefined)) {
-        return toolText("A cash_sale needs paymentAccount and paymentDate.");
-      }
-      if (sale.kind === "external_invoice" && (sale.customerId === undefined || sale.dueDate === undefined)) {
-        return toolText("An external_invoice needs customerId and dueDate.");
+      if (sale.kind === "cash_sale") {
+        if (sale.paymentAccount === undefined || sale.paymentDate === undefined) return toolText("A cash_sale needs paymentAccount and paymentDate.");
+        for (const field of ["dueDate", "kid"] as const) {
+          if (sale[field] !== undefined) return toolText(`${field} does not apply to a cash_sale.`);
+        }
+      } else {
+        if (sale.customerId === undefined || sale.dueDate === undefined) return toolText("An external_invoice needs customerId and dueDate.");
+        for (const field of ["paymentAccount", "paymentDate", "paymentFee"] as const) {
+          if (sale[field] !== undefined) return toolText(`${field} does not apply to an external_invoice.`);
+        }
       }
       return withCompany(ctx, slug, async () => {
         const { id } = await ctx.fiken.create(`/companies/${slug}/sales`, defined(sale));

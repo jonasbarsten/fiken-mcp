@@ -183,7 +183,7 @@ export const invoicesOperations: Operation[] = [
     description:
       "Issue an invoice (faktura) in Fiken: it gets an invoice number and is booked at once, but it is not sent; use send_invoice (via fiken_write) for that. " +
       "An issued invoice cannot be deleted, only credited. bankAccountCode comes from list_bank_accounts; customerId is a contact with " +
-      "customer true (search_contacts). A cash invoice (cash true) needs paymentAccount. Each line needs productId, or description, " +
+      "customer true (search_contacts). A cash invoice (cash true) needs paymentAccount. For income that needs no invoice issued by Fiken (card terminal, Vipps), use create_sale (via fiken_write). Each line needs productId, or description, " +
       `unitPrice, vatType and incomeAccount. ${LINE_MONEY} ${CONFIRM}`,
     input: z.object({
       companySlug,

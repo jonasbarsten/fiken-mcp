@@ -22,6 +22,21 @@ describe("sales", () => {
     expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ date: "2026-09-29", kind: "cash_sale", currency: "NOK", paymentAccount: "1920:10001", paymentDate: "2026-09-29", lines: [line] });
   });
 
+  it("create_sale refuses other currencies and fields of the other kind before any call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const pay = { paymentAccount: "1920:10001", paymentDate: "2026-09-29" };
+    const base = { companySlug: "demo", date: "2026-09-29", lines: [line] };
+    expect((await callJson(c, "create_sale", { ...base, kind: "cash_sale", ...pay, currency: "EUR" })).isError).toBe(true);
+    const cash = await callJson(c, "create_sale", { ...base, kind: "cash_sale", ...pay, dueDate: "2026-10-13" });
+    expect(cash.isError).toBe(true);
+    expect(cash.text).toContain("dueDate");
+    const ext = await callJson(c, "create_sale", { ...base, kind: "external_invoice", customerId: 7, dueDate: "2026-10-13", paymentFee: 100 });
+    expect(ext.isError).toBe(true);
+    expect(ext.text).toContain("paymentFee");
+    expect(f.calls).toHaveLength(0);
+  });
+
   it("create_sale names the created sale when the read-back fails", async () => {
     const f = fakeFiken([
       { match: /\/sales$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/sales/9" } },
