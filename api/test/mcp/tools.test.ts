@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { FikenError } from "../../src/fiken/client.js";
+import { noteFikenError } from "../../src/mcp/server.js";
 import { callJson, connected, fakeFiken } from "./helpers.js";
 
 describe("read tools", () => {
@@ -68,7 +70,7 @@ describe("read tools", () => {
 
   it("a Fiken 401 on a read-only call sets session.fikenUnauthorized", async () => {
     const f = fakeFiken([{ match: /\/projects\?/, status: 401, body: { message: "expired" } }]);
-    const session = { fikenUnauthorized: false };
+    const session = { fikenUnauthorized: false, wrote: false };
     const c = await connected(f.fetchImpl, { session });
     const r = await callJson(c, "list_projects", { companySlug: "demo" });
     expect(r.isError).toBe(true);
@@ -187,7 +189,7 @@ describe("write tools", () => {
       { match: /\/purchases$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77" } },
       { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134/, status: 401, body: "expired" },
     ]);
-    const session = { fikenUnauthorized: false };
+    const session = { fikenUnauthorized: false, wrote: false };
     const c = await connected(f.fetchImpl, { session });
     const r = await callJson(c, "create_purchase", {
       companySlug: "demo", date: "2026-09-01", kind: "cash_purchase", paymentAccount: "1920:10001", paymentDate: "2026-09-01",
@@ -226,5 +228,24 @@ describe("write tools", () => {
       expect(t.description, name).toContain("explicit confirmation");
     }
     expect(tools.find((x) => x.name === "create_contact")?.description).toContain("explicit confirmation");
+  });
+});
+
+describe("write guard", () => {
+  it("a Fiken 401 after a write in the same request is not flagged for an HTTP 401", () => {
+    const ctx = { session: { fikenUnauthorized: false, wrote: true } } as unknown as Parameters<typeof noteFikenError>[0];
+    noteFikenError(ctx, new FikenError(401, "expired"));
+    expect(ctx.session.fikenUnauthorized).toBe(false);
+    const fresh = { session: { fikenUnauthorized: false, wrote: false } } as unknown as Parameters<typeof noteFikenError>[0];
+    noteFikenError(fresh, new FikenError(401, "expired"));
+    expect(fresh.session.fikenUnauthorized).toBe(true);
+  });
+
+  it("connected() marks the session as written after a successful POST", async () => {
+    const session = { fikenUnauthorized: false, wrote: false };
+    const f = fakeFiken([{ match: /\/contacts$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/contacts/5" } }]);
+    const c = await connected(f.fetchImpl, { session });
+    expect((await callJson(c, "create_contact", { companySlug: "demo", name: "Ny kunde AS", customer: true })).isError).toBe(false);
+    expect(session.wrote).toBe(true);
   });
 });

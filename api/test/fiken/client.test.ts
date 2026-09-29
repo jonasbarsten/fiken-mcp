@@ -162,4 +162,29 @@ describe("createFikenClient", () => {
     await vi.runAllTimersAsync();
     await expect(bad).rejects.toMatchObject({ status: 502 });
   });
+
+  it("reports successful writes through onWrite, and only those", async () => {
+    vi.useRealTimers(); // the queue's gap sleep would never fire under the describe's fake timers
+    let writes = 0;
+    const answers: Record<string, Response> = {};
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2",
+      accessToken: "tok",
+      queue: new FikenQueue(0),
+      onWrite: () => { writes++; },
+      fetch: async (input, init) => {
+        const key = `${init?.method ?? "GET"} ${String(input)}`;
+        return answers[key] ?? new Response("nope", { status: 500 });
+      },
+    });
+    answers["GET https://api.test/v2/companies"] = Response.json([]);
+    await client.json("/companies");
+    expect(writes).toBe(0);
+    answers["POST https://api.test/v2/companies/demo/contacts"] = new Response(null, { status: 201, headers: { location: "https://api.test/v2/companies/demo/contacts/5" } });
+    await client.create("/companies/demo/contacts", { name: "x" });
+    expect(writes).toBe(1);
+    answers["POST https://api.test/v2/companies/demo/sales"] = new Response("bad", { status: 400 });
+    await expect(client.create("/companies/demo/sales", {})).rejects.toThrow();
+    expect(writes).toBe(1);
+  });
 });

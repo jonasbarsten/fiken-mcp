@@ -21,7 +21,7 @@ export interface ToolContext {
   exp: number;
   usage: UsageStore;
   /** Per-request flag: set when a Fiken 401 is seen on a path where nothing was written, so `/mcp` can answer HTTP 401. */
-  session: { fikenUnauthorized: boolean };
+  session: { fikenUnauthorized: boolean; wrote: boolean };
 }
 
 export function toolJson(value: unknown): CallToolResult {
@@ -46,7 +46,8 @@ export function toolError(err: unknown): CallToolResult {
  * HTTP 401 and the client re-sends the same tools/call.
  */
 export function noteFikenError(ctx: ToolContext, err: unknown): void {
-  if (err instanceof FikenError && err.status === 401) ctx.session.fikenUnauthorized = true;
+  // After a write, a 401 must stay a tool error because the client would re-send the call.
+  if (err instanceof FikenError && err.status === 401 && !ctx.session.wrote) ctx.session.fikenUnauthorized = true;
 }
 
 /**

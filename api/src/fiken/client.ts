@@ -50,7 +50,7 @@ function locatedId(res: Response): { id: number; location: string } {
   return { id: Number(m[1]), location };
 }
 
-export function createFikenClient(opts: { baseUrl: string; accessToken: string; fetch: typeof fetch; queue?: FikenQueue }): FikenClient {
+export function createFikenClient(opts: { baseUrl: string; accessToken: string; fetch: typeof fetch; queue?: FikenQueue; onWrite?: () => void }): FikenClient {
   const queue = opts.queue ?? globalQueue;
 
   async function once(path: string, init?: RequestInit): Promise<Response> {
@@ -62,10 +62,13 @@ export function createFikenClient(opts: { baseUrl: string; accessToken: string; 
 
   const doFetch = (path: string, init?: RequestInit) =>
     queue.run(async () => {
-      const first = await once(path, init);
-      if (first.status !== 429) return first;
-      await sleep(1000);
-      return once(path, init);
+      let res = await once(path, init);
+      if (res.status === 429) {
+        await sleep(1000);
+        res = await once(path, init);
+      }
+      if (res.ok && (init?.method ?? "GET").toUpperCase() !== "GET") opts.onWrite?.();
+      return res;
     });
 
   return {
