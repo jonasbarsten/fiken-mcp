@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import { CONCEPTS } from "../../src/mcp/operations.js";
+import { OPERATIONS, getOperation } from "../../src/mcp/registry.js";
+import { connected, fakeFiken } from "./helpers.js";
+
+const EXPECTED = [
+  "list_companies", "list_projects", "list_accounts", "list_bank_accounts", "account_balances", "bank_balances",
+  "search_contacts", "get_contact", "create_contact", "list_purchases", "get_purchase", "create_purchase",
+  "attach_inbox_document", "get_attachments", "list_inbox", "get_inbox_document", "list_sales",
+  "list_invoices", "get_invoice", "create_invoice", "create_invoice_draft", "create_invoice_from_draft", "send_invoice",
+  "create_credit_note", "register_payment", "list_products", "get_journal_entries", "my_usage",
+];
+
+describe("operation registry", () => {
+  it("holds every former tool once, with a known concept and a plain name", () => {
+    expect([...OPERATIONS.map((o) => o.name)].sort()).toEqual([...EXPECTED].sort());
+    for (const op of OPERATIONS) {
+      expect(op.name).toMatch(/^[a-z_]+$/);
+      expect(Object.keys(CONCEPTS)).toContain(op.concept);
+      expect(getOperation(op.name)).toBe(op);
+      if (op.kind === "read") expect(op.destructive).toBe(false);
+    }
+    expect(getOperation("nope")).toBeUndefined();
+  });
+
+  it("marks consequential writes and asks for confirmation in them", () => {
+    // Drafts and new contacts are writes that are easy to undo in Fiken, so they are not destructive (unchanged from today).
+    const notDestructive = ["create_invoice_draft", "create_contact"];
+    for (const op of OPERATIONS.filter((o) => o.kind === "write")) {
+      expect(op.destructive, op.name).toBe(!notDestructive.includes(op.name));
+      if (op.name !== "create_invoice_draft") expect(op.description, op.name).toContain("Consequential");
+    }
+  });
+
+  it("registers every operation as a tool with the same annotations as before", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const { tools } = await c.listTools();
+    for (const op of OPERATIONS) {
+      const tool = tools.find((t) => t.name === op.name);
+      expect(tool, op.name).toBeDefined();
+      expect(tool?.annotations?.readOnlyHint, op.name).toBe(op.kind === "read");
+    }
+  });
+});

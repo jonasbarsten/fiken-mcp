@@ -1,7 +1,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { FikenError } from "../../fiken/client.js";
-import { errorText, noteFikenError, toolError, toolJson, type ToolContext } from "../server.js";
+import { errorText, noteFikenError, toolError, toolJson, type ToolContext } from "../context.js";
 
 export const companySlug = z.string().min(1).describe("Company slug, from list_companies");
 export const paging = {

@@ -1,6 +1,7 @@
-import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, toolJson, type ToolContext } from "../server.js";
+import { defineOperation, type Operation } from "../operations.js";
+import { toolJson } from "../context.js";
 import { companySlug, CONFIRM, toolText, withCompany } from "./common.js";
 
 interface FikenInboxDocument {
@@ -43,26 +44,26 @@ function pickTarget(args: TargetArgs): Target | undefined {
 
 const NEED_ONE_TARGET: CallToolResult = toolText("Give exactly one of purchaseId, saleId, invoiceId, journalEntryId.");
 
-export function registerAttachments(server: McpServer, ctx: ToolContext): void {
-  server.registerTool(
-    "attach_inbox_document",
-    {
-      title: "Attach inbox document",
-      description:
-        "Attach an inbox document to a booked purchase, sale, invoice or journal entry (exactly one id). Purchases, sales and " +
-        "journal entries take it from the inbox; an invoice gets a copy and the document stays in the inbox. An invoice's " +
-        "attachments go out with it when sent with includeDocumentAttachments. An invoiceId comes from list_invoices, create_invoice or " +
-        `create_invoice_from_draft. ${CONFIRM}`,
-      inputSchema: z.object({
-        companySlug,
-        ...targetSchema,
-        inboxDocumentId: z.number().int().describe("Inbox document id, from list_inbox"),
-        attachToSale: z.boolean().default(true).describe("Purchases and sales: the document proves the purchase or sale itself (the receipt or invoice)"),
-        attachToPayment: z.boolean().default(false).describe("Purchases and sales: the document proves the payment (card slip, bank confirmation)"),
-      }),
-      annotations: { destructiveHint: true, readOnlyHint: false },
-    },
-    counted(ctx, "attach_inbox_document", async ({ companySlug: slug, inboxDocumentId, attachToSale, attachToPayment, ...ids }) => {
+export const attachmentsOperations: Operation[] = [
+  defineOperation({
+    name: "attach_inbox_document",
+    concept: "attachments",
+    kind: "write",
+    destructive: true,
+    title: "Attach inbox document",
+    description:
+      "Attach an inbox document to a booked purchase, sale, invoice or journal entry (exactly one id). Purchases, sales and " +
+      "journal entries take it from the inbox; an invoice gets a copy and the document stays in the inbox. An invoice's " +
+      "attachments go out with it when sent with includeDocumentAttachments. An invoiceId comes from list_invoices, create_invoice or " +
+      `create_invoice_from_draft. ${CONFIRM}`,
+    input: z.object({
+      companySlug,
+      ...targetSchema,
+      inboxDocumentId: z.number().int().describe("Inbox document id, from list_inbox"),
+      attachToSale: z.boolean().default(true).describe("Purchases and sales: the document proves the purchase or sale itself (the receipt or invoice)"),
+      attachToPayment: z.boolean().default(false).describe("Purchases and sales: the document proves the payment (card slip, bank confirmation)"),
+    }),
+    async run(ctx, { companySlug: slug, inboxDocumentId, attachToSale, attachToPayment, ...ids }) {
       const target = pickTarget(ids);
       if (!target) return NEED_ONE_TARGET;
       const base = `/companies/${slug}/${target.segment}/${target.id}/attachments`;
@@ -93,19 +94,19 @@ export function registerAttachments(server: McpServer, ctx: ToolContext): void {
         await ctx.fiken.attach(base, form);
         return toolJson({ ...result, note: "The file was copied onto the invoice; the inbox document stays in the inbox." });
       });
-    }),
-  );
-
-  server.registerTool(
-    "get_attachments",
-    {
-      title: "Get attachments",
-      description:
-        "The attachments on a purchase, sale, invoice or journal entry (exactly one id). An invoiceId comes from list_invoices, create_invoice or create_invoice_from_draft.",
-      inputSchema: z.object({ companySlug, ...targetSchema }),
-      annotations: { readOnlyHint: true },
     },
-    counted(ctx, "get_attachments", async ({ companySlug: slug, ...ids }) => {
+  }),
+
+  defineOperation({
+    name: "get_attachments",
+    concept: "attachments",
+    kind: "read",
+    destructive: false,
+    title: "Get attachments",
+    description:
+      "The attachments on a purchase, sale, invoice or journal entry (exactly one id). An invoiceId comes from list_invoices, create_invoice or create_invoice_from_draft.",
+    input: z.object({ companySlug, ...targetSchema }),
+    async run(ctx, { companySlug: slug, ...ids }) {
       const target = pickTarget(ids);
       if (!target) return NEED_ONE_TARGET;
       return withCompany(ctx, slug, async () => {
@@ -114,6 +115,6 @@ export function registerAttachments(server: McpServer, ctx: ToolContext): void {
           items: items.map((a) => ({ uuid: a.uuid, filename: a.filename, type: a.type, identifier: a.identifier, comment: a.comment })),
         });
       });
-    }),
-  );
-}
+    },
+  }),
+];

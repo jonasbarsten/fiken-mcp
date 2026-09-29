@@ -1,6 +1,7 @@
-import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, errorText, toolJson, type ToolContext } from "../server.js";
+import { defineOperation, type Operation } from "../operations.js";
+import { errorText, toolJson } from "../context.js";
 import { companySlug, CONFIRM, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
 
 interface FikenPurchaseLine {
@@ -56,38 +57,38 @@ function createdPurchaseFollowUpFailed(id: number, pendingInboxDocumentId: numbe
   return toolText(text);
 }
 
-export function registerPurchases(server: McpServer, ctx: ToolContext): void {
-  server.registerTool(
-    "list_purchases",
-    {
-      title: "List purchases",
-      description: `Purchases (bilag) booked in the company. Filter by date range or paid status. ${ORE}`,
-      inputSchema: z.object({
-        companySlug,
-        ...paging,
-        dateGe: isoDate.optional().describe("Only purchases on or after this date (YYYY-MM-DD)"),
-        dateLe: isoDate.optional().describe("Only purchases on or before this date (YYYY-MM-DD)"),
-        paid: z.boolean().optional().describe("Filter to paid (or unpaid) purchases"),
-      }),
-      annotations: { readOnlyHint: true },
-    },
-    counted(ctx, "list_purchases", async ({ companySlug: slug, page, pageSize, dateGe, dateLe, paid }) => {
+export const purchasesOperations: Operation[] = [
+  defineOperation({
+    name: "list_purchases",
+    concept: "purchases",
+    kind: "read",
+    destructive: false,
+    title: "List purchases",
+    description: `Purchases (bilag) booked in the company. Filter by date range or paid status. ${ORE}`,
+    input: z.object({
+      companySlug,
+      ...paging,
+      dateGe: isoDate.optional().describe("Only purchases on or after this date (YYYY-MM-DD)"),
+      dateLe: isoDate.optional().describe("Only purchases on or before this date (YYYY-MM-DD)"),
+      paid: z.boolean().optional().describe("Filter to paid (or unpaid) purchases"),
+    }),
+    async run(ctx, { companySlug: slug, page, pageSize, dateGe, dateLe, paid }) {
       return withCompany(ctx, slug, async () => {
         const { items, total } = await ctx.fiken.list<FikenPurchase>(`/companies/${slug}/purchases`, { page, pageSize, dateGe, dateLe, paid });
         return paged(items.map(trimPurchase), total, page, pageSize);
       });
-    }),
-  );
-
-  server.registerTool(
-    "get_purchase",
-    {
-      title: "Get purchase",
-      description: `A single purchase by id, with its attachments. ${ORE}`,
-      inputSchema: z.object({ companySlug, purchaseId: z.number().int().describe("Purchase id, from list_purchases") }),
-      annotations: { readOnlyHint: true },
     },
-    counted(ctx, "get_purchase", async ({ companySlug: slug, purchaseId }) => {
+  }),
+
+  defineOperation({
+    name: "get_purchase",
+    concept: "purchases",
+    kind: "read",
+    destructive: false,
+    title: "Get purchase",
+    description: `A single purchase by id, with its attachments. ${ORE}`,
+    input: z.object({ companySlug, purchaseId: z.number().int().describe("Purchase id, from list_purchases") }),
+    async run(ctx, { companySlug: slug, purchaseId }) {
       return withCompany(ctx, slug, async () => {
         const purchase = await ctx.fiken.json<FikenPurchase>(`/companies/${slug}/purchases/${purchaseId}`);
         return toolJson({
@@ -95,47 +96,47 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
           purchaseAttachments: (purchase.purchaseAttachments ?? []).map((a) => ({ uuid: a.uuid, filename: a.filename })),
         });
       });
-    }),
-  );
-
-  server.registerTool(
-    "create_purchase",
-    {
-      title: "Create purchase",
-      description:
-        "Book a new purchase (bilag) in Fiken. A cash purchase (kind cash_purchase) needs paymentAccount (an account code from " +
-        "list_bank_accounts) and paymentDate; a supplier purchase (kind supplier) needs supplierId (from search_contacts) and dueDate. " +
-        "vatType for purchase lines: HIGH (25%), MEDIUM (15%), LOW (12%), NONE, EXEMPT, OUTSIDE. " +
-        `${ORE} projectId comes from list_projects. inboxDocumentId attaches an existing inbox document as the receipt and removes it ` +
-        `from the inbox. ${CONFIRM}`,
-      inputSchema: z.object({
-        companySlug,
-        date: isoDate.describe("Purchase date (YYYY-MM-DD)"),
-        kind: z.enum(["cash_purchase", "supplier"]).describe("cash_purchase (paid directly) or supplier (booked against a supplier invoice)"),
-        lines: z
-          .array(
-            z.object({
-              description: z.string().min(1),
-              netPrice: z.number().int().describe(ORE),
-              vat: z.number().int().describe(ORE),
-              account: z.string().min(1).describe("Account code, from list_accounts"),
-              vatType: z.string().min(1).describe("HIGH, MEDIUM, LOW, NONE, EXEMPT or OUTSIDE"),
-            }),
-          )
-          .min(1)
-          .describe("Purchase lines"),
-        currency: z.string().min(1).default("NOK"),
-        supplierId: z.number().int().optional().describe("Supplier contact id, from search_contacts; required for kind supplier"),
-        dueDate: isoDate.optional().describe("Due date (YYYY-MM-DD); required for kind supplier"),
-        paymentAccount: z.string().optional().describe("Bank account code, from list_bank_accounts; required for kind cash_purchase"),
-        paymentDate: isoDate.optional().describe("Payment date (YYYY-MM-DD); required for kind cash_purchase"),
-        identifier: z.string().optional().describe("Free-text reference/identifier"),
-        projectId: z.number().int().optional().describe("Project id, from list_projects"),
-        inboxDocumentId: z.number().int().optional().describe("Inbox document id, from list_inbox; attaches it as the receipt"),
-      }),
-      annotations: { destructiveHint: true, readOnlyHint: false },
     },
-    counted(ctx, "create_purchase", async ({
+  }),
+
+  defineOperation({
+    name: "create_purchase",
+    concept: "purchases",
+    kind: "write",
+    destructive: true,
+    title: "Create purchase",
+    description:
+      "Book a new purchase (bilag) in Fiken. A cash purchase (kind cash_purchase) needs paymentAccount (an account code from " +
+      "list_bank_accounts) and paymentDate; a supplier purchase (kind supplier) needs supplierId (from search_contacts) and dueDate. " +
+      "vatType for purchase lines: HIGH (25%), MEDIUM (15%), LOW (12%), NONE, EXEMPT, OUTSIDE. " +
+      `${ORE} projectId comes from list_projects. inboxDocumentId attaches an existing inbox document as the receipt and removes it ` +
+      `from the inbox. ${CONFIRM}`,
+    input: z.object({
+      companySlug,
+      date: isoDate.describe("Purchase date (YYYY-MM-DD)"),
+      kind: z.enum(["cash_purchase", "supplier"]).describe("cash_purchase (paid directly) or supplier (booked against a supplier invoice)"),
+      lines: z
+        .array(
+          z.object({
+            description: z.string().min(1),
+            netPrice: z.number().int().describe(ORE),
+            vat: z.number().int().describe(ORE),
+            account: z.string().min(1).describe("Account code, from list_accounts"),
+            vatType: z.string().min(1).describe("HIGH, MEDIUM, LOW, NONE, EXEMPT or OUTSIDE"),
+          }),
+        )
+        .min(1)
+        .describe("Purchase lines"),
+      currency: z.string().min(1).default("NOK"),
+      supplierId: z.number().int().optional().describe("Supplier contact id, from search_contacts; required for kind supplier"),
+      dueDate: isoDate.optional().describe("Due date (YYYY-MM-DD); required for kind supplier"),
+      paymentAccount: z.string().optional().describe("Bank account code, from list_bank_accounts; required for kind cash_purchase"),
+      paymentDate: isoDate.optional().describe("Payment date (YYYY-MM-DD); required for kind cash_purchase"),
+      identifier: z.string().optional().describe("Free-text reference/identifier"),
+      projectId: z.number().int().optional().describe("Project id, from list_projects"),
+      inboxDocumentId: z.number().int().optional().describe("Inbox document id, from list_inbox; attaches it as the receipt"),
+    }),
+    async run(ctx, {
       companySlug: slug,
       date,
       kind,
@@ -148,7 +149,7 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
       identifier,
       projectId,
       inboxDocumentId,
-    }) => {
+    }) {
       return withCompany(ctx, slug, async () => {
         const body: Record<string, unknown> = { date, kind, currency };
         if (supplierId !== undefined) body.supplierId = supplierId;
@@ -183,6 +184,6 @@ export function registerPurchases(server: McpServer, ctx: ToolContext): void {
           return createdPurchaseFollowUpFailed(id, pendingInboxDocumentId, err);
         }
       });
-    }),
-  );
-}
+    },
+  }),
+];

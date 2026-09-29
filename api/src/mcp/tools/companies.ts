@@ -1,6 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, noteFikenError, toolError, toolJson, type ToolContext } from "../server.js";
+import { defineOperation, type Operation } from "../operations.js";
+import { noteFikenError, toolError, toolJson } from "../context.js";
 
 interface FikenCompany {
   name: string;
@@ -9,19 +9,19 @@ interface FikenCompany {
   hasApiAccess?: boolean;
 }
 
-export function registerCompanies(server: McpServer, ctx: ToolContext): void {
-  server.registerTool(
-    "list_companies",
-    {
-      title: "List companies",
-      description:
-        "Lists the Fiken companies the logged-in user is a member of, with the slug every other tool needs as companySlug. " +
-        "hasApiAccess false means the company has not ordered Fiken's API module (done inside Fiken under Rediger konto, API); " +
-        "other tools fail for that company until it is ordered. A company the user is not a member of in Fiken is not listed at all.",
-      inputSchema: z.object({}),
-      annotations: { readOnlyHint: true },
-    },
-    counted(ctx, "list_companies", async () => {
+export const companiesOperations: Operation[] = [
+  defineOperation({
+    name: "list_companies",
+    concept: "companies",
+    kind: "read",
+    destructive: false,
+    title: "List companies",
+    description:
+      "Lists the Fiken companies the logged-in user is a member of, with the slug every other tool needs as companySlug. " +
+      "hasApiAccess false means the company has not ordered Fiken's API module (done inside Fiken under Rediger konto, API); " +
+      "other tools fail for that company until it is ordered. A company the user is not a member of in Fiken is not listed at all.",
+    input: z.object({}),
+    async run(ctx) {
       try {
         const companies = await ctx.fiken.json<FikenCompany[]>("/companies");
         return toolJson(
@@ -31,6 +31,6 @@ export function registerCompanies(server: McpServer, ctx: ToolContext): void {
         noteFikenError(ctx, err);
         return toolError(err);
       }
-    }),
-  );
-}
+    },
+  }),
+];

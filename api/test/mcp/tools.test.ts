@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FikenError } from "../../src/fiken/client.js";
-import { counted, noteFikenError, type ToolContext } from "../../src/mcp/server.js";
+import { counted, noteFikenError, type ToolContext } from "../../src/mcp/context.js";
 import { memoryUsageStore } from "../../src/usage/memory.js";
 import { callJson, connected, fakeFiken } from "./helpers.js";
 

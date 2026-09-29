@@ -1,6 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, errorText, toolJson, type ToolContext } from "../server.js";
+import { defineOperation, type Operation } from "../operations.js";
+import { errorText, toolJson } from "../context.js";
 import { companySlug, CONFIRM, defined, isoDate, toolText, withCompany } from "./common.js";
 import { invoiceLine, invoiceLines, missingLineFields } from "./invoices.js";
 
@@ -30,27 +30,27 @@ function trimCreditNote(n: FikenCreditNote) {
   };
 }
 
-export function registerCreditNotes(server: McpServer, ctx: ToolContext): void {
-  server.registerTool(
-    "create_credit_note",
-    {
-      title: "Create credit note",
-      description:
-        "Credit an issued invoice, fully (kind full) or by the given lines (kind partial). The credit note is booked at once and is not sent. " +
-        `full needs invoiceId and no lines; partial needs lines (each with unitPrice, even with a productId) and invoiceId or contactId. ` +
-        `Amounts are integers in the invoice currency's smallest unit (øre for NOK). ${CONFIRM}`,
-      inputSchema: z.object({
-        companySlug,
-        kind: z.enum(["full", "partial"]),
-        issueDate: isoDate.describe("Issue date (YYYY-MM-DD)"),
-        invoiceId: z.number().int().optional().describe("Invoice to credit, from list_invoices"),
-        contactId: z.number().int().optional().describe("Customer contact id; partial only, when no invoiceId"),
-        creditNoteText: z.string().optional(),
-        lines: z.array(invoiceLine).min(1).optional().describe("Lines to credit; partial only"),
-      }),
-      annotations: { destructiveHint: true, readOnlyHint: false },
-    },
-    counted(ctx, "create_credit_note", async ({ companySlug: slug, kind, lines, ...rest }) => {
+export const creditNotesOperations: Operation[] = [
+  defineOperation({
+    name: "create_credit_note",
+    concept: "credit_notes",
+    kind: "write",
+    destructive: true,
+    title: "Create credit note",
+    description:
+      "Credit an issued invoice, fully (kind full) or by the given lines (kind partial). The credit note is booked at once and is not sent. " +
+      `full needs invoiceId and no lines; partial needs lines (each with unitPrice, even with a productId) and invoiceId or contactId. ` +
+      `Amounts are integers in the invoice currency's smallest unit (øre for NOK). ${CONFIRM}`,
+    input: z.object({
+      companySlug,
+      kind: z.enum(["full", "partial"]),
+      issueDate: isoDate.describe("Issue date (YYYY-MM-DD)"),
+      invoiceId: z.number().int().optional().describe("Invoice to credit, from list_invoices"),
+      contactId: z.number().int().optional().describe("Customer contact id; partial only, when no invoiceId"),
+      creditNoteText: z.string().optional(),
+      lines: z.array(invoiceLine).min(1).optional().describe("Lines to credit; partial only"),
+    }),
+    async run(ctx, { companySlug: slug, kind, lines, ...rest }) {
       if (kind === "full") {
         if (rest.invoiceId === undefined) return toolText("A full credit note needs invoiceId.");
         if (lines) return toolText("A full credit note takes no lines; use kind partial to credit specific lines.");
@@ -69,6 +69,6 @@ export function registerCreditNotes(server: McpServer, ctx: ToolContext): void {
           return toolText(`Credit note ${id} was created; fetching it back failed: ${errorText(err)}. Do not create it again.`);
         }
       });
-    }),
-  );
-}
+    },
+  }),
+];
