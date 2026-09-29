@@ -13,6 +13,8 @@ export const CONCEPTS = {
   invoices: "Invoices: create, send, number counters",
   invoice_drafts: "Invoice drafts: prepare, review, issue",
   credit_notes: "Credit notes on issued invoices",
+  offers: "Offers (tilbud) to customers",
+  order_confirmations: "Order confirmations (ordrebekreftelser)",
   payments: "Payments on sales and purchases",
   products: "Products and services the company sells",
   inbox: "The company's document inbox",

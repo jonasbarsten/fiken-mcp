@@ -79,6 +79,13 @@ Operations by concept (`read` unless marked write):
 - `credit_notes`: `list_credit_notes`, `get_credit_note`,
   `create_credit_note` (write; full or partial, booked but not sent),
   `send_credit_note` (write; final: the customer receives it at once)
+- `offers`: `list_offers`, `create_offer_draft` (write; the bank account is
+  optional), `create_offer_from_draft` (write), `send_offer` (write; final:
+  the customer receives it at once)
+- `order_confirmations`: `list_order_confirmations`,
+  `create_order_confirmation_draft` (write), `create_order_confirmation_from_draft`
+  (write), `create_invoice_draft_from_order_confirmation` (write; makes an
+  invoice draft that `create_invoice_from_draft` issues)
 - `payments`: `register_payment` (write; on a sale or a purchase, positive
   amounts only, NOK only), `list_payments` (on one sale or one purchase)
 - `products`: `list_products`, `get_product`, `create_product` (write),
@@ -94,8 +101,9 @@ Operations by concept (`read` unless marked write):
   server)
 
 Every write asks the model to restate the action and get your explicit
-confirmation first, except `create_invoice_draft` and
-`update_invoice_draft`, since a draft is reviewed in Fiken.
+confirmation first, except the draft operations (`create_invoice_draft`,
+`update_invoice_draft`, `create_offer_draft`, `create_order_confirmation_draft`,
+`create_invoice_draft_from_order_confirmation`), since a draft is reviewed in Fiken.
 
 ### Connector URL options
 
