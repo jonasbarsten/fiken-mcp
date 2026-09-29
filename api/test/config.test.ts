@@ -15,7 +15,7 @@ describe("loadConfig", () => {
         };
       },
     };
-    const cfg = await loadConfig({ env: { PUBLIC_URL: "https://x.test/" }, ssm });
+    const cfg = await loadConfig({ env: { PUBLIC_URL: "https://x.test/", USAGE_TABLE_NAME: "usage" }, ssm });
     expect(cfg.publicUrl).toBe("https://x.test");
     expect(cfg.fikenClientId).toBe("cid");
     expect(cfg.fikenClientSecret).toBe("csec");
@@ -23,17 +23,24 @@ describe("loadConfig", () => {
     expect(cfg.userSalt.length).toBe(32);
     expect(cfg.fikenBaseUrl).toBe("https://api.fiken.no/api/v2");
     expect(asked[0]).toEqual(["/fiken_mcp/client_id", "/fiken_mcp/client_secret", "/fiken_mcp/signing_key", "/fiken_mcp/user_salt"]);
+    expect(typeof cfg.usage.recordCall).toBe("function");
   });
 
   it("fails on missing PUBLIC_URL or missing parameters", async () => {
     const ssm = { async getParameters() { return {}; } };
     await expect(loadConfig({ env: {}, ssm })).rejects.toThrow(/PUBLIC_URL/);
-    await expect(loadConfig({ env: { PUBLIC_URL: "https://x.test" }, ssm })).rejects.toThrow(/client_id/);
+    await expect(loadConfig({ env: { PUBLIC_URL: "https://x.test" }, ssm })).rejects.toThrow(/USAGE_TABLE_NAME/);
+    await expect(loadConfig({ env: { PUBLIC_URL: "https://x.test", USAGE_TABLE_NAME: "usage" }, ssm })).rejects.toThrow(/client_id/);
   });
 
   it("testConfig gives usable keys", () => {
     const cfg = testConfig();
     expect(cfg.keys.keys.size).toBe(1);
     expect(cfg.publicUrl).toBe("https://fiken-mcp.test");
+  });
+
+  it("testConfig usage store starts empty", async () => {
+    const cfg = testConfig();
+    await expect(cfg.usage.globalStats()).resolves.toEqual({ totalUsers: 0, months: [] });
   });
 });

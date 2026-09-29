@@ -6,6 +6,7 @@ import type { Config } from "./config.js";
 import { iconRoutes } from "./icon.js";
 import { log, withRequestId, type LogFields } from "./log.js";
 import { mcpRoutes } from "./mcp/routes.js";
+import { statsRoutes } from "./stats.js";
 import { uploadRoutes } from "./upload/routes.js";
 
 /** What hono/aws-lambda puts in c.env; absent when the app runs in tests. */
@@ -61,5 +62,6 @@ export function createApp(cfg: Config): Hono<LambdaEnv> {
   app.route("/", authRoutes(cfg));
   app.route("/", mcpRoutes(cfg));
   app.route("/", uploadRoutes(cfg));
+  app.route("/", statsRoutes(cfg));
   return app;
 }

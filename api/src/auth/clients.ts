@@ -1,3 +1,6 @@
+import type { Config } from "../config.js";
+import { BlobError, verifyBlob } from "../crypto/blob.js";
+
 /**
  * Redirect URIs we accept at dynamic registration. Anything else is
  * refused, so an attacker cannot register a client that receives codes.
@@ -44,4 +47,32 @@ export function isAllowedRedirectUri(uri: string): boolean {
 export function clientLabel(uri: string): string {
   const url = parse(uri);
   return (url && KNOWN.find((c) => c.matches(url))?.label) ?? "an unknown client";
+}
+
+/**
+ * Hosts whose client id metadata documents we are willing to fetch. This
+ * only decides where our server makes an outbound request; the redirect
+ * URI allowlist above stays the control over where codes go.
+ */
+const CIMD_EXACT_HOSTS = ["claude.ai", "chatgpt.com"];
+const CIMD_DOMAINS = ["anthropic.com", "openai.com"];
+
+export function isAllowedCimdHost(host: string): boolean {
+  // A host with a port never matches: the entries below carry none.
+  const h = host.toLowerCase();
+  if (CIMD_EXACT_HOSTS.includes(h)) return true;
+  return CIMD_DOMAINS.some((d) => h === d || (h.endsWith(`.${d}`) && h.length > d.length + 1));
+}
+
+/** What a client id issued at /register carries, signed by us. */
+export interface ClientWire {
+  k: "c";
+  ru: string[];
+  n: string;
+}
+
+export function readClientId(cfg: Config, clientId: string): { redirectUris: string[]; name: string } {
+  const wire = verifyBlob<Partial<ClientWire>>(clientId, cfg.keys);
+  if (wire.k !== "c" || !Array.isArray(wire.ru)) throw new BlobError("invalid");
+  return { redirectUris: wire.ru, name: typeof wire.n === "string" ? wire.n : "" };
 }

@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { toolJson, type ToolContext } from "../server.js";
+import { counted, toolJson, type ToolContext } from "../server.js";
 import { companySlug, paged, paging, withCompany } from "./common.js";
 
 interface FikenAccount {
@@ -30,7 +30,7 @@ export function registerAccounts(server: McpServer, ctx: ToolContext): void {
       }),
       annotations: { readOnlyHint: true },
     },
-    async ({ companySlug: slug, page, pageSize, range }) => {
+    counted(ctx, "list_accounts", async ({ companySlug: slug, page, pageSize, range }) => {
       return withCompany(ctx, slug, async () => {
         const { items, total } = await ctx.fiken.list<FikenAccount>(`/companies/${slug}/accounts`, { page, pageSize, range });
         return paged(
@@ -40,7 +40,7 @@ export function registerAccounts(server: McpServer, ctx: ToolContext): void {
           pageSize,
         );
       });
-    },
+    }),
   );
 
   server.registerTool(
@@ -52,7 +52,7 @@ export function registerAccounts(server: McpServer, ctx: ToolContext): void {
       inputSchema: z.object({ companySlug }),
       annotations: { readOnlyHint: true },
     },
-    async ({ companySlug: slug }) => {
+    counted(ctx, "list_bank_accounts", async ({ companySlug: slug }) => {
       return withCompany(ctx, slug, async () => {
         const { items } = await ctx.fiken.list<FikenBankAccount>(`/companies/${slug}/bankAccounts`);
         return toolJson({
@@ -65,6 +65,6 @@ export function registerAccounts(server: McpServer, ctx: ToolContext): void {
           })),
         });
       });
-    },
+    }),
   );
 }

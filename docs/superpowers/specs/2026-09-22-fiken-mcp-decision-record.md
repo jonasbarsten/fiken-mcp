@@ -264,9 +264,10 @@ changed, and what it left open:
   refresh: one upstream call per user per hour, and a revocation is
   refused within the hour, which sends the client back through login.
   The refresh wrapper carries only Fiken's refresh token and the
-  anonymous id. A Fiken 401 during a tool call is still reported to the
-  model as a tool error that tells the user to reconnect; mapping it to
-  an HTTP 401 remains a follow-up.
+  anonymous id. Since 2026-09-28 a Fiken 401 during a tool call is
+  answered as HTTP 401 with the challenge, so the client refreshes and
+  re-sends; the flag is only set on paths where nothing was written,
+  because the re-send repeats the call.
 - **The upload ticket travels in `structuredContent` (accepted, with a
   follow-up, 2026-09-28).** The spec prescribes it and the spike proved
   it reaches the widget that way, but `structuredContent` is part of the
@@ -280,6 +281,12 @@ changed, and what it left open:
   `ui/notifications/tool-result` and is not offered to the model; it
   ships once that path is verified on Claude, since a silent failure
   there breaks uploading altogether.
+- **Usage counters record after the call, not in parallel (decided
+  2026-09-28).** The spec said in parallel with the Fiken call.
+  Recording after the handler returns makes `errors` exact, keeps one
+  code path (`counted()` around every handler) and costs about one
+  DynamoDB round trip after Fiken has answered. A store failure is
+  logged and never fails the tool.
 
 ## Things we decided not to do, on purpose
 
@@ -291,3 +298,8 @@ changed, and what it left open:
 - No offers, order confirmations, recurring invoices, time tracking or
   deletes in version one.
 - No per-user website login. Usage is a tool; the site shows aggregates.
+- No negative cache for failed CIMD document fetches. The hosts are
+  allowlisted, the fetch times out after 3 s and nothing is stored, so a
+  flood costs Lambda seconds and nothing else; a negative cache is
+  just-in-case code until abuse is seen. The document is buffered before
+  the 16 KB check for the same reason.

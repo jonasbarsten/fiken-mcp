@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { type ToolContext } from "../server.js";
+import { counted, type ToolContext } from "../server.js";
 import { companySlug, paged, paging, withCompany } from "./common.js";
 
 interface FikenInboxDocument {
@@ -27,7 +27,7 @@ export function registerInbox(server: McpServer, ctx: ToolContext): void {
       }),
       annotations: { readOnlyHint: true },
     },
-    async ({ companySlug: slug, page, pageSize, status, name }) => {
+    counted(ctx, "list_inbox", async ({ companySlug: slug, page, pageSize, status, name }) => {
       return withCompany(ctx, slug, async () => {
         const { items, total } = await ctx.fiken.list<FikenInboxDocument>(`/companies/${slug}/inbox`, {
           page,
@@ -43,6 +43,6 @@ export function registerInbox(server: McpServer, ctx: ToolContext): void {
           pageSize,
         );
       });
-    },
+    }),
   );
 }

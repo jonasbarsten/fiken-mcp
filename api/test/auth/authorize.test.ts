@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
+import { clearCimdCache } from "../../src/auth/cimd.js";
 import { testConfig } from "../../src/config.js";
 import { keyRingFromParameter, signBlob, verifyBlob } from "../../src/crypto/blob.js";
 import { pkceChallenge } from "../../src/crypto/pkce.js";
@@ -38,26 +39,26 @@ function loginCookieValue(res: Response): string {
   return m?.[1] ?? "";
 }
 
-const get = (p: Record<string, string>) => app.request(`/authorize?${new URLSearchParams(p)}`);
-const post = (p: Record<string, string>, cookie?: string) =>
-  app.request("/authorize", {
+const get = (p: Record<string, string>, target = app) => target.request(`/authorize?${new URLSearchParams(p)}`);
+const post = (p: Record<string, string>, cookie?: string, target = app) =>
+  target.request("/authorize", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", ...(cookie ? { cookie } : {}) },
     body: new URLSearchParams(p).toString(),
   });
 
 /** What a browser holds after viewing the consent page: the login cookie and the nonce field the form will echo. */
-async function consent(p: Record<string, string>) {
-  const res = await get(p);
+async function consent(p: Record<string, string>, target = app) {
+  const res = await get(p, target);
   const html = await res.text();
   const nonce = /name="nonce" value="([^"]+)"/.exec(html)?.[1] ?? "";
   return { res, html, nonce, cookie: `${LOGIN_COOKIE}=${loginCookieValue(res)}` };
 }
 
 /** Presses "Fortsett" the way a browser does: consent page first, then the form post with cookie and nonce. */
-async function pressContinue(p: Record<string, string>) {
-  const seen = await consent(p);
-  return { seen, res: await post({ ...p, nonce: seen.nonce }, seen.cookie) };
+async function pressContinue(p: Record<string, string>, target = app) {
+  const seen = await consent(p, target);
+  return { seen, res: await post({ ...p, nonce: seen.nonce }, seen.cookie, target) };
 }
 
 describe("GET /authorize (consent)", () => {
@@ -236,5 +237,50 @@ describe("GET /callback", () => {
     const res = await callback(`code=x&state=${encodeURIComponent(clientId)}`, `${LOGIN_COOKIE}=nonce`);
     expect(res.status).toBe(400);
     expect(await res.text()).toContain("Invalid login state");
+  });
+});
+
+describe("a client id metadata document as client_id", () => {
+  const DOC_URL = "https://claude.ai/.well-known/mcp-client.json";
+
+  /** Serves the published identity document; anything else behaves like the default test config. */
+  function serving(redirectUris: string[]) {
+    const doc = { client_id: DOC_URL, client_name: "Claude", redirect_uris: redirectUris };
+    const cfg = testConfig({
+      fetch: async (input) => (String(input) === DOC_URL ? Response.json(doc) : new Response("unexpected fetch", { status: 500 })),
+    });
+    return { cfg, app: createApp(cfg) };
+  }
+  const claude = serving([CLAUDE_CB]);
+
+  beforeEach(() => clearCimdCache());
+
+  it("renders the consent page for a published identity", async () => {
+    const res = await get(params(DOC_URL), claude.app);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Claude (claude.ai)");
+  });
+
+  it("refuses a redirect uri the document does not list", async () => {
+    const res = await get(params(DOC_URL, { redirect_uri: "https://chatgpt.com/connector_platform_oauth_redirect" }), claude.app);
+    expect(res.status).toBe(400);
+  });
+
+  it("re-checks our allowlist, so a document listing a redirect uri we do not allow is refused", async () => {
+    const evil = "https://evil.example/cb";
+    const res = await get(params(DOC_URL, { redirect_uri: evil }), serving([evil]).app);
+    expect(res.status).toBe(400);
+  });
+
+  it("carries the published identity through consent, form post and callback", async () => {
+    const { seen, res } = await pressContinue(params(DOC_URL), claude.app);
+    expect(res.status).toBe(200);
+    const fs = new URL(fikenUrlFrom(await res.text())).searchParams.get("state")!;
+    const cb = await claude.app.request(`/callback?code=FIKENCODE&state=${encodeURIComponent(fs)}`, { headers: { cookie: seen.cookie } });
+    expect(cb.status).toBe(302);
+    const loc = new URL(cb.headers.get("location")!);
+    expect(loc.origin + loc.pathname).toBe(CLAUDE_CB);
+    expect(verifyBlob<Record<string, unknown>>(loc.searchParams.get("code")!, claude.cfg.keys)).toMatchObject({ k: "d", fc: "FIKENCODE", ru: CLAUDE_CB });
   });
 });

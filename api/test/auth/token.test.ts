@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../src/app.js";
+import { clearCimdCache } from "../../src/auth/cimd.js";
 import { issueTokens, readAccessToken, readRefreshToken } from "../../src/auth/tokens.js";
 import { testConfig } from "../../src/config.js";
 import { signBlob } from "../../src/crypto/blob.js";
@@ -65,6 +66,15 @@ describe("POST /token authorization_code", () => {
     expect(tokenCall?.body?.get("code")).toBe("FIKENCODE");
     expect(tokenCall?.body?.get("state")).toBe("fstate");
     expect(fiken.calls.some((c) => c.url.endsWith("/user"))).toBe(true);
+    expect((await cfg.usage.globalStats()).totalUsers).toBe(1);
+
+    const codeBlob2 = signBlob(
+      { k: "d", fc: "FIKENCODE", fs: "fstate", cc: pkceChallenge("verifier-123"), ru: CLAUDE_CB, exp: Math.floor(Date.now() / 1000) + 300 },
+      cfg.keys,
+    );
+    const res2 = await app.request("/token", form({ grant_type: "authorization_code", code: codeBlob2, code_verifier: "verifier-123", redirect_uri: CLAUDE_CB, client_id: clientId }));
+    expect(res2.status).toBe(200);
+    expect((await cfg.usage.globalStats()).totalUsers).toBe(1);
   });
 
   it("rejects a wrong verifier, wrong redirect uri, wrong client, garbage code", async () => {
@@ -131,6 +141,50 @@ describe("POST /token authorization_code", () => {
     const { app, cfg, clientId } = await setup();
     const bad = signBlob({ k: "d", fc: "BAD", fs: "s", cc: pkceChallenge("v"), ru: CLAUDE_CB, exp: Math.floor(Date.now() / 1000) + 300 }, cfg.keys);
     const res = await app.request("/token", form({ grant_type: "authorization_code", code: bad, code_verifier: "v", redirect_uri: CLAUDE_CB, client_id: clientId }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid_grant");
+  });
+});
+
+describe("POST /token authorization_code with a client id metadata document", () => {
+  const DOC_URL = "https://claude.ai/.well-known/mcp-client.json";
+
+  /** Fiken's fake endpoints plus the published identity document at DOC_URL. */
+  function cimdSetup(redirectUris: string[]) {
+    const fiken = fikenFake();
+    const doc = { client_id: DOC_URL, client_name: "Claude", redirect_uris: redirectUris };
+    const cfg = testConfig({ fetch: async (input, init) => (String(input) === DOC_URL ? Response.json(doc) : fiken.fetchImpl(input, init)) });
+    const codeBlob = signBlob(
+      { k: "d", fc: "FIKENCODE", fs: "fstate", cc: pkceChallenge("verifier-123"), ru: CLAUDE_CB, exp: Math.floor(Date.now() / 1000) + 300 },
+      cfg.keys,
+    );
+    return { app: createApp(cfg), cfg, codeBlob };
+  }
+
+  beforeEach(() => clearCimdCache());
+
+  it("exchanges a code for a client that published its identity", async () => {
+    const { app, cfg, codeBlob } = cimdSetup([CLAUDE_CB]);
+    const res = await app.request("/token", form({ grant_type: "authorization_code", code: codeBlob, code_verifier: "verifier-123", redirect_uri: CLAUDE_CB, client_id: DOC_URL }));
+    expect(res.status).toBe(200);
+    expect(readAccessToken(cfg, (await res.json()).access_token).fikenAccessToken).toBe("FA1");
+  });
+
+  it("refuses a code whose redirect uri the document does not list", async () => {
+    const { app, codeBlob } = cimdSetup(["https://chatgpt.com/connector_platform_oauth_redirect"]);
+    const res = await app.request("/token", form({ grant_type: "authorization_code", code: codeBlob, code_verifier: "verifier-123", redirect_uri: CLAUDE_CB, client_id: DOC_URL }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid_grant");
+  });
+
+  it("re-checks our allowlist, so a document listing a redirect uri we do not allow cannot redeem a code", async () => {
+    const evil = "https://evil.example/cb";
+    const { app, cfg } = cimdSetup([evil]);
+    const evilCode = signBlob(
+      { k: "d", fc: "FIKENCODE", fs: "fstate", cc: pkceChallenge("verifier-123"), ru: evil, exp: Math.floor(Date.now() / 1000) + 300 },
+      cfg.keys,
+    );
+    const res = await app.request("/token", form({ grant_type: "authorization_code", code: evilCode, code_verifier: "verifier-123", redirect_uri: evil, client_id: DOC_URL }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("invalid_grant");
   });

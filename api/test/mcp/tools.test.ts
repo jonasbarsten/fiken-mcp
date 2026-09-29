@@ -66,6 +66,15 @@ describe("read tools", () => {
     expect(f.calls[2]?.url).toContain("sortBy=createdDate+desc");
   });
 
+  it("a Fiken 401 on a read-only call sets session.fikenUnauthorized", async () => {
+    const f = fakeFiken([{ match: /\/projects\?/, status: 401, body: { message: "expired" } }]);
+    const session = { fikenUnauthorized: false };
+    const c = await connected(f.fetchImpl, { session });
+    const r = await callJson(c, "list_projects", { companySlug: "demo" });
+    expect(r.isError).toBe(true);
+    expect(session.fikenUnauthorized).toBe(true);
+  });
+
   it("an unknown company slug lists the known slugs in the error", async () => {
     const f = fakeFiken([
       { match: /\/companies\/nope\/projects/, status: 404, body: { message: "not found" } },
@@ -171,6 +180,22 @@ describe("write tools", () => {
     expect(r.text).toContain("Purchase 77 was created");
     expect(r.text).toContain("get_purchase with purchaseId 77");
     expect(r.text).not.toContain("attach_inbox_document");
+  });
+
+  it("create_purchase leaves session.fikenUnauthorized false when the write succeeded but the attach got a Fiken 401", async () => {
+    const f = fakeFiken([
+      { match: /\/purchases$/, status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77" } },
+      { match: /\/purchases\/77\/attachments\?inboxDocumentId=1234134/, status: 401, body: "expired" },
+    ]);
+    const session = { fikenUnauthorized: false };
+    const c = await connected(f.fetchImpl, { session });
+    const r = await callJson(c, "create_purchase", {
+      companySlug: "demo", date: "2026-09-01", kind: "cash_purchase", paymentAccount: "1920:10001", paymentDate: "2026-09-01",
+      lines: [{ description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }], inboxDocumentId: 1234134,
+    });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("Purchase 77 was created");
+    expect(session.fikenUnauthorized).toBe(false);
   });
 
   it("create_purchase without an inbox document makes no attachment call and relays Fiken's validation error", async () => {

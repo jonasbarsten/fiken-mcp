@@ -54,4 +54,72 @@ describe("POST /mcp", () => {
     expect((await app.request("/mcp", { headers: { authorization: `Bearer ${token}` } })).status).toBe(405);
     expect((await app.request("/mcp", { method: "DELETE", headers: { authorization: `Bearer ${token}` } })).status).toBe(405);
   });
+
+  it("still answers 200 with isError when a tool call fails with a non-401 Fiken error", async () => {
+    const call = await rpc({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "list_projects", arguments: { companySlug: "a" } } });
+    expect(call.status).toBe(200);
+    const body = await call.json();
+    expect(body.result.isError).toBe(true);
+  });
+
+  it("turns a Fiken 401 during a tool call into an HTTP 401 so the client refreshes", async () => {
+    const cfg401 = testConfig({ fetch: async () => new Response("expired", { status: 401 }) });
+    const app401 = createApp(cfg401);
+    const tok = issueTokens(cfg401, { access_token: "FA", refresh_token: "FR", expires_in: 3600 }, "anon").access_token;
+    const res = await app401.request("/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${tok}` },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "list_companies", arguments: {} } }),
+    });
+    expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toContain('error="invalid_token"');
+    expect(await res.json()).toEqual({ error: "invalid_token" });
+  });
+
+  it("does not answer 401 for a create_purchase whose write succeeded but whose receipt attach got a Fiken 401", async () => {
+    const cfgWrite = testConfig({
+      fetch: async (input) => {
+        const url = String(input);
+        if (url.includes("/attachments")) return new Response("expired", { status: 401 });
+        if (url.endsWith("/purchases")) return new Response(null, { status: 201, headers: { Location: "https://api.fiken.no/api/v2/companies/demo/purchases/77" } });
+        if (url.endsWith("/companies")) return Response.json([{ name: "A", slug: "a", organizationNumber: "1" }]);
+        return new Response("unexpected", { status: 500 });
+      },
+    });
+    const appWrite = createApp(cfgWrite);
+    const tok = issueTokens(cfgWrite, { access_token: "FA", refresh_token: "FR", expires_in: 3600 }, "anon").access_token;
+    const res = await appWrite.request("/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${tok}` },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 5,
+        method: "tools/call",
+        params: {
+          name: "create_purchase",
+          arguments: {
+            companySlug: "demo",
+            date: "2026-09-01",
+            kind: "cash_purchase",
+            paymentAccount: "1920:10001",
+            paymentDate: "2026-09-01",
+            lines: [{ description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }],
+            inboxDocumentId: 1234134,
+          },
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain("Purchase 77 was created");
+    expect(res.headers.get("www-authenticate")).toBeNull();
+  });
+
+  it("refuses a legacy JSON-RPC batch body with 400 and makes no Fiken call", async () => {
+    const before = fikenCalls;
+    const res = await rpc([{ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_companies", arguments: {} } }]);
+    expect(res.status).toBe(400);
+    expect(fikenCalls).toBe(before);
+  });
 });

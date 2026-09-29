@@ -2,6 +2,8 @@ import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { FikenQueue, createFikenClient } from "../../src/fiken/client.js";
 import { createMcpServer } from "../../src/mcp/server.js";
+import { memoryUsageStore } from "../../src/usage/memory.js";
+import type { UsageStore } from "../../src/usage/store.js";
 
 type Route = { match: RegExp; status?: number; body?: unknown; headers?: Record<string, string> };
 
@@ -24,9 +26,16 @@ export function fakeFiken(routes: Route[]) {
 /** A session that expires in an hour, so an upload ticket gets its full 15 minutes. */
 export const farFutureExp = () => Math.floor(Date.now() / 1000) + 3600;
 
-export async function connected(fetchImpl: typeof fetch) {
+export async function connected(fetchImpl: typeof fetch, opts?: { usage?: UsageStore; session?: { fikenUnauthorized: boolean } }) {
   const fiken = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0) });
-  const server = createMcpServer({ fiken, anonId: "anon", fikenAccessToken: "tok", exp: farFutureExp() });
+  const server = createMcpServer({
+    fiken,
+    anonId: "anon",
+    fikenAccessToken: "tok",
+    exp: farFutureExp(),
+    usage: opts?.usage ?? memoryUsageStore(),
+    session: opts?.session ?? { fikenUnauthorized: false },
+  });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   const client = new Client({ name: "test", version: "0" });
