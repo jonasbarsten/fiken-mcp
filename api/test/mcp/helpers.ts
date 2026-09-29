@@ -1,7 +1,8 @@
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { FikenQueue, createFikenClient } from "../../src/fiken/client.js";
-import { createMcpServer } from "../../src/mcp/server.js";
+import { getOperation } from "../../src/mcp/registry.js";
+import { HOT_PATH, createMcpServer } from "../../src/mcp/server.js";
 import { memoryUsageStore } from "../../src/usage/memory.js";
 import type { UsageStore } from "../../src/usage/store.js";
 
@@ -44,8 +45,14 @@ export async function connected(fetchImpl: typeof fetch, opts?: { usage?: UsageS
   return client;
 }
 
+const REAL_TOOLS = new Set<string>([...HOT_PATH, "fiken_explore", "fiken_read", "fiken_write", "upload_receipts", "get_upload_url"]);
+
+/** Calls `name` directly when it is a real tool, otherwise through fiken_read or fiken_write. */
 export async function callJson(client: Client, name: string, args: Record<string, unknown>) {
-  const result = await client.callTool({ name, arguments: args });
+  const gateway = getOperation(name)?.kind === "write" ? "fiken_write" : "fiken_read";
+  const result = REAL_TOOLS.has(name)
+    ? await client.callTool({ name, arguments: args })
+    : await client.callTool({ name: gateway, arguments: { operation: name, args } });
   const text = (result.content as Array<{ type: string; text: string }>)[0]?.text ?? "";
   return { isError: result.isError === true, text, json: () => JSON.parse(text) as unknown };
 }

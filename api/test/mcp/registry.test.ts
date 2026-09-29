@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CONCEPTS } from "../../src/mcp/operations.js";
 import { OPERATIONS, getOperation } from "../../src/mcp/registry.js";
+import { HOT_PATH } from "../../src/mcp/server.js";
 import { connected, fakeFiken } from "./helpers.js";
 
 const EXPECTED = [
@@ -32,13 +33,18 @@ describe("operation registry", () => {
     }
   });
 
-  it("registers every operation as a tool with the same annotations as before", async () => {
+  it("registers the hot-path operations as tools with their annotations, and no other operation", async () => {
     const c = await connected(fakeFiken([]).fetchImpl);
     const { tools } = await c.listTools();
     for (const op of OPERATIONS) {
       const tool = tools.find((t) => t.name === op.name);
+      if (!(HOT_PATH as readonly string[]).includes(op.name)) {
+        expect(tool, op.name).toBeUndefined();
+        continue;
+      }
       expect(tool, op.name).toBeDefined();
       expect(tool?.annotations?.readOnlyHint, op.name).toBe(op.kind === "read");
+      if (op.kind === "write") expect(tool?.annotations?.destructiveHint, op.name).toBe(op.destructive);
     }
   });
 });

@@ -19,7 +19,7 @@ function fiken(file: Uint8Array<ArrayBuffer>, filename: string, documentUrl: str
 async function read(file: Uint8Array<ArrayBuffer>, filename: string, documentUrl = "https://api.test/v2/files/f9", name: string | null = "kvittering") {
   const f = fiken(file, filename, documentUrl, name);
   const c = await connected(f.fetchImpl);
-  const r = await c.callTool({ name: "get_inbox_document", arguments: { companySlug: "demo", inboxDocumentId: 9 } });
+  const r = await c.callTool({ name: "fiken_read", arguments: { operation: "get_inbox_document", args: { companySlug: "demo", inboxDocumentId: 9 } } });
   return { r, content: r.content as Array<{ type: string; text?: string; data?: string; mimeType?: string }>, calls: f.calls };
 }
 

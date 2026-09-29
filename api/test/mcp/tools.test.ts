@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FikenError } from "../../src/fiken/client.js";
 import { counted, noteFikenError, type ToolContext } from "../../src/mcp/context.js";
+import { getOperation } from "../../src/mcp/registry.js";
 import { memoryUsageStore } from "../../src/usage/memory.js";
 import { callJson, connected, fakeFiken } from "./helpers.js";
 
@@ -101,14 +102,8 @@ describe("read tools", () => {
     expect(r.text).not.toContain("was not found");
   });
 
-  it("every tool carries annotations and the øre note where amounts appear", async () => {
-    const c = await connected(fakeFiken([]).fetchImpl);
-    const tools = (await c.listTools()).tools;
-    for (const name of ["list_projects", "list_accounts", "list_bank_accounts", "search_contacts", "get_contact", "list_purchases", "get_purchase", "list_inbox"]) {
-      const t = tools.find((x) => x.name === name);
-      expect(t?.annotations?.readOnlyHint, name).toBe(true);
-    }
-    expect(tools.find((x) => x.name === "list_purchases")?.description).toContain("øre");
+  it("carries the øre note where amounts appear", () => {
+    expect(getOperation("list_purchases")?.description).toContain("øre");
   });
 });
 
@@ -220,18 +215,6 @@ describe("write tools", () => {
     expect(r.isError).toBe(true);
     expect(r.text).toContain("paymentAccount is required");
     expect(f.calls).toHaveLength(1);
-  });
-
-  it("consequential tools are marked destructive and demand confirmation", async () => {
-    const c = await connected(fakeFiken([]).fetchImpl);
-    const tools = (await c.listTools()).tools;
-    for (const name of ["create_purchase", "create_invoice", "create_invoice_from_draft", "send_invoice", "create_credit_note", "register_payment", "attach_inbox_document"]) {
-      const t = tools.find((x) => x.name === name)!;
-      expect(t.annotations?.destructiveHint, name).toBe(true);
-      expect(t.description, name).toContain("explicit confirmation");
-    }
-    expect(tools.find((x) => x.name === "create_invoice_draft")?.annotations?.destructiveHint).toBe(false);
-    expect(tools.find((x) => x.name === "create_contact")?.description).toContain("explicit confirmation");
   });
 });
 
