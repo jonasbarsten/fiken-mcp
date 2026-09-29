@@ -67,10 +67,15 @@ Operations by concept (`read` unless marked write):
   final in Fiken once created, issued and booked, not sent),
   `create_invoice_draft` (write; needs `bankAccountNumber` from
   `list_bank_accounts`, since Fiken refuses to issue a draft without one),
-  `create_invoice_from_draft` (write), `send_invoice` (write; final: the
-  customer receives it at once)
-- `credit_notes`: `create_credit_note` (write; full or partial, booked but
-  not sent)
+  `list_invoice_drafts`, `get_invoice_draft`, `update_invoice_draft`
+  (write; only the given fields change, the rest of the draft is sent back
+  as it was), `create_invoice_from_draft` (write), `send_invoice` (write;
+  final: the customer receives it at once), `get_counters` (the invoice and
+  credit note number series), `initialize_counter` (write; starts a series
+  that was never started, never changes an existing one)
+- `credit_notes`: `list_credit_notes`, `get_credit_note`,
+  `create_credit_note` (write; full or partial, booked but not sent),
+  `send_credit_note` (write; final: the customer receives it at once)
 - `payments`: `register_payment` (write; on a sale or a purchase, positive
   amounts only, NOK only), `list_payments` (on one sale or one purchase)
 - `products`: `list_products`, `get_product`, `create_product` (write),
@@ -86,8 +91,8 @@ Operations by concept (`read` unless marked write):
   server)
 
 Every write asks the model to restate the action and get your explicit
-confirmation first, except `create_invoice_draft`, since a draft is
-reviewed in Fiken.
+confirmation first, except `create_invoice_draft` and
+`update_invoice_draft`, since a draft is reviewed in Fiken.
 
 ### Connector URL options
 
