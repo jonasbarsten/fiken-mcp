@@ -152,7 +152,7 @@ describe("time tracking", () => {
     expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ ...body, currency: "NOK" });
     await callJson(c, "create_invoice_draft_from_time_entries", { companySlug: "demo", timeEntryIds: [6], customerId: 7, daysUntilDueDate: 14, bankAccountNumber: "11112233334" });
     expect(JSON.parse(String(f.calls[1]?.init?.body))).toEqual({
-      timeEntryIds: [6], customerId: 7, daysUntilDueDate: 14, bankAccountNumber: "11112233334", groupBy: "activity", includeTimeEntryDescriptions: false, currency: "NOK",
+      timeEntryIds: [6], customerId: 7, daysUntilDueDate: 14, bankAccountNumber: "11112233334", currency: "NOK",
     });
   });
 });
