@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CONCEPTS } from "../../src/mcp/operations.js";
 import { CONFIRM } from "../../src/mcp/tools/common.js";
 import { memoryUsageStore } from "../../src/usage/memory.js";
 import { connected, fakeFiken } from "./helpers.js";
@@ -45,9 +46,11 @@ describe("gateway", () => {
 
   it("returns compact explore text whose schemas refuse extra keys", async () => {
     const c = await connected(fakeFiken([]).fetchImpl);
+    for (const concept of Object.keys(CONCEPTS)) {
+      const explored = await call(c, "fiken_explore", { path: concept });
+      expect(explored.text.length, concept).toBeLessThan(12000);
+    }
     const inv = await call(c, "fiken_explore", { path: "invoices" });
-    // invoices is the largest concept: three operations carry the full invoice line schema.
-    expect(inv.text.length).toBeLessThan(16000);
     const ops = (inv.json() as { operations: Array<{ name: string; input: Record<string, unknown> }> }).operations;
     const send = ops.find((o) => o.name === "send_invoice");
     expect(send?.input.additionalProperties).toBe(false);

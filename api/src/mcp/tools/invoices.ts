@@ -189,7 +189,7 @@ export const invoicesOperations: Operation[] = [
 
   defineOperation({
     name: "create_invoice_draft",
-    concept: "invoices",
+    concept: "invoice_drafts",
     kind: "write",
     destructive: false,
     title: "Create invoice draft",
@@ -220,11 +220,11 @@ export const invoicesOperations: Operation[] = [
 
   defineOperation({
     name: "list_invoice_drafts",
-    concept: "invoices",
+    concept: "invoice_drafts",
     kind: "read",
     destructive: false,
     title: "List invoice drafts",
-    description: `Invoice drafts not yet issued, newest first as Fiken returns them. ${LINE_MONEY}`,
+    description: `Invoice drafts not yet issued. ${LINE_MONEY}`,
     input: z.object({ companySlug, ...paging }),
     async run(ctx, { companySlug: slug, page, pageSize }) {
       return withCompany(ctx, slug, async () => {
@@ -236,7 +236,7 @@ export const invoicesOperations: Operation[] = [
 
   defineOperation({
     name: "get_invoice_draft",
-    concept: "invoices",
+    concept: "invoice_drafts",
     kind: "read",
     destructive: false,
     title: "Get invoice draft",
@@ -251,7 +251,7 @@ export const invoicesOperations: Operation[] = [
 
   defineOperation({
     name: "update_invoice_draft",
-    concept: "invoices",
+    concept: "invoice_drafts",
     kind: "write",
     destructive: false,
     title: "Update invoice draft",
@@ -286,7 +286,10 @@ export const invoicesOperations: Operation[] = [
         const path = `/companies/${slug}/invoices/drafts/${draftId}`;
         // Fiken's PUT replaces the whole draft, so what the caller did not give is sent back unchanged.
         // Fiken has no ETag: an edit made in Fiken between this GET and the PUT is overwritten.
-        const body = { ...draftRequest(await ctx.fiken.json<FikenDraft>(path)), ...changes };
+        const current = await ctx.fiken.json<FikenDraft>(path);
+        // The request takes one customerId, so a PUT would drop every customer but the first.
+        if ((current.customers ?? []).length > 1) return toolText("This draft has several customers; edit it in Fiken.");
+        const body = { ...draftRequest(current), ...changes };
         if (lines) body.lines = invoiceLines(lines);
         await ctx.fiken.put(path, body);
         try {
@@ -303,7 +306,7 @@ export const invoicesOperations: Operation[] = [
 
   defineOperation({
     name: "create_invoice_from_draft",
-    concept: "invoices",
+    concept: "invoice_drafts",
     kind: "write",
     destructive: true,
     title: "Issue invoice from draft",
@@ -345,12 +348,15 @@ export const invoicesOperations: Operation[] = [
     kind: "read",
     destructive: false,
     title: "Get number counters",
-    description: "The current value of the invoice and credit note number series; null where the series was never started.",
+    description:
+      "The invoice and credit note number series: current is the last number used, next the number the next one gets. " +
+      "null where the series was never started (or when companySlug is wrong, since Fiken answers both with 404).",
     input: z.object({ companySlug }),
     async run(ctx, { companySlug: slug }) {
       return withCompany(ctx, slug, async () => {
-        const invoice = await readCounter(ctx, slug, "invoices");
-        const creditNote = await readCounter(ctx, slug, "creditNotes");
+        const series = (current: number | null) => (current === null ? null : { current, next: current + 1 });
+        const invoice = series(await readCounter(ctx, slug, "invoices"));
+        const creditNote = series(await readCounter(ctx, slug, "creditNotes"));
         return toolJson({ invoice, creditNote });
       });
     },
@@ -368,15 +374,18 @@ export const invoicesOperations: Operation[] = [
     input: z.object({
       companySlug,
       kind: z.enum(["invoice", "credit_note"]),
-      value: z.number().int().positive().describe("The first number to use, e.g. 10001"),
+      firstNumber: z.number().int().positive().describe("The number the first invoice or credit note will get, e.g. 10001"),
     }),
-    async run(ctx, { companySlug: slug, kind, value }) {
+    async run(ctx, { companySlug: slug, kind, firstNumber }) {
       const path = kind === "invoice" ? "invoices" : "creditNotes";
       return withCompany(ctx, slug, async () => {
         const current = await readCounter(ctx, slug, path);
-        if (current !== null) return toolText(`The ${kind} counter already exists (next number ${current}); it cannot be changed here.`);
-        await ctx.fiken.send(`/companies/${slug}/${path}/counter`, { value });
-        return toolJson({ kind, initialized: true, value });
+        if (current !== null) {
+          return toolText(`The ${kind} counter already exists (current value ${current}, next number ${current + 1}); it cannot be changed here.`);
+        }
+        // Fiken's counter holds the last number used; the first document gets value + 1.
+        await ctx.fiken.send(`/companies/${slug}/${path}/counter`, { value: firstNumber - 1 });
+        return toolJson({ kind, initialized: true, firstNumber });
       });
     },
   }),

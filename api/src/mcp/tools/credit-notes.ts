@@ -82,7 +82,7 @@ export const creditNotesOperations: Operation[] = [
       issueDateGe: isoDate.optional().describe("Only credit notes issued on or after this date (YYYY-MM-DD)"),
       issueDateLe: isoDate.optional().describe("Only credit notes issued on or before this date (YYYY-MM-DD)"),
       customerId: z.number().int().optional().describe("Customer contact id, from search_contacts"),
-      settled: z.boolean().optional(),
+      settled: z.boolean().optional().describe("false: credit notes not fully settled"),
     }),
     async run(ctx, { companySlug: slug, page, pageSize, issueDateGe, issueDateLe, customerId, settled }) {
       return withCompany(ctx, slug, async () => {

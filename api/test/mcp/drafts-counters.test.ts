@@ -25,36 +25,50 @@ describe("counters", () => {
   it("initialize_counter never touches an existing series", async () => {
     const f = fakeFiken([{ match: /\/creditNotes\/counter$/, body: { value: 10005 } }]);
     const c = await connected(f.fetchImpl);
-    const r = await callJson(c, "initialize_counter", { companySlug: "demo", kind: "credit_note", value: 1 });
-    expect(r).toMatchObject({ isError: true, text: "The credit_note counter already exists (next number 10005); it cannot be changed here." });
+    const r = await callJson(c, "initialize_counter", { companySlug: "demo", kind: "credit_note", firstNumber: 1 });
+    expect(r).toMatchObject({ isError: true, text: "The credit_note counter already exists (current value 10005, next number 10006); it cannot be changed here." });
     expect(f.calls.every((x) => (x.init?.method ?? "GET") === "GET")).toBe(true);
   });
 
   it("initialize_counter starts a missing series", async () => {
     const f = methodAwareFiken({ GET: { status: 404, body: "not found" }, POST: { status: 201 } });
     const c = await connected(f.fetchImpl);
-    const r = await callJson(c, "initialize_counter", { companySlug: "demo", kind: "invoice", value: 10001 });
+    const r = await callJson(c, "initialize_counter", { companySlug: "demo", kind: "invoice", firstNumber: 10001 });
     expect(r.isError).toBe(false);
     const post = f.calls.find((x) => x.init?.method === "POST");
     expect(post?.url).toBe("https://api.test/v2/companies/demo/invoices/counter");
-    expect(JSON.parse(String(post?.init?.body))).toEqual({ value: 10001 });
+    expect(JSON.parse(String(post?.init?.body))).toEqual({ value: 10000 });
   });
 
-  it("initialize_counter treats a 409 'counter not initialized' as missing", async () => {
-    const f = methodAwareFiken({ GET: { status: 409, body: "counter not initialized" }, POST: { status: 201 } });
+  it("initialize_counter treats a 409 'counter not initialized' as missing, and no other 409", async () => {
+    const f = methodAwareFiken({ GET: { status: 409, body: "Counter not initialized" }, POST: { status: 201 } });
     const c = await connected(f.fetchImpl);
-    const r = await callJson(c, "initialize_counter", { companySlug: "demo", kind: "credit_note", value: 1 });
+    const r = await callJson(c, "initialize_counter", { companySlug: "demo", kind: "credit_note", firstNumber: 1 });
     expect(r.isError).toBe(false);
     expect(f.calls.find((x) => x.init?.method === "POST")?.url).toBe("https://api.test/v2/companies/demo/creditNotes/counter");
+
+    const other = methodAwareFiken({ GET: { status: 409, body: "conflict" }, POST: { status: 201 } });
+    const c2 = await connected(other.fetchImpl);
+    expect((await callJson(c2, "initialize_counter", { companySlug: "demo", kind: "credit_note", firstNumber: 1 })).isError).toBe(true);
+    expect(other.calls.some((x) => x.init?.method === "POST")).toBe(false);
   });
 
-  it("get_counters maps a missing counter to null", async () => {
+  it("initialize_counter makes no POST when the counter read fails or has no value", async () => {
+    for (const GET of [{ status: 500, body: "boom" }, { status: 200, body: {} }]) {
+      const f = methodAwareFiken({ GET, POST: { status: 201 } });
+      const c = await connected(f.fetchImpl);
+      expect((await callJson(c, "initialize_counter", { companySlug: "demo", kind: "invoice", firstNumber: 10001 })).isError).toBe(true);
+      expect(f.calls.some((x) => x.init?.method === "POST")).toBe(false);
+    }
+  });
+
+  it("get_counters gives current and next, and maps a missing counter to null", async () => {
     const f = fakeFiken([
       { match: /\/invoices\/counter$/, body: { value: 10042 } },
       { match: /\/creditNotes\/counter$/, status: 404, body: "not found" },
     ]);
     const c = await connected(f.fetchImpl);
-    expect((await callJson(c, "get_counters", { companySlug: "demo" })).json()).toEqual({ invoice: 10042, creditNote: null });
+    expect((await callJson(c, "get_counters", { companySlug: "demo" })).json()).toEqual({ invoice: { current: 10042, next: 10043 }, creditNote: null });
   });
 });
 
@@ -111,5 +125,13 @@ describe("invoice drafts", () => {
     await callJson(c, "update_invoice_draft", { companySlug: "demo", draftId: 12, customerId: 8, lines: [line] });
     const body = JSON.parse(String(f.calls.find((x) => x.init?.method === "PUT")?.init?.body));
     expect(body).toMatchObject({ customerId: 8, lines: [line], invoiceText: "Takk" });
+  });
+
+  it("update_invoice_draft refuses a draft with several customers before the PUT", async () => {
+    const f = fakeFiken([{ match: /\/invoices\/drafts\/12$/, body: { ...draft, customers: [{ contactId: 7 }, { contactId: 8 }] } }]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "update_invoice_draft", { companySlug: "demo", draftId: 12, invoiceText: "Ny tekst" });
+    expect(r).toMatchObject({ isError: true, text: "This draft has several customers; edit it in Fiken." });
+    expect(f.calls.some((x) => x.init?.method === "PUT")).toBe(false);
   });
 });

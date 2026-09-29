@@ -65,14 +65,17 @@ Operations by concept (`read` unless marked write):
   payment), `write_off_sale` (write; books a loss)
 - `invoices`: `list_invoices`, `get_invoice`, `create_invoice` (write;
   final in Fiken once created, issued and booked, not sent),
-  `create_invoice_draft` (write; needs `bankAccountNumber` from
-  `list_bank_accounts`, since Fiken refuses to issue a draft without one),
-  `list_invoice_drafts`, `get_invoice_draft`, `update_invoice_draft`
-  (write; only the given fields change, the rest of the draft is sent back
-  as it was), `create_invoice_from_draft` (write), `send_invoice` (write;
-  final: the customer receives it at once), `get_counters` (the invoice and
-  credit note number series), `initialize_counter` (write; starts a series
-  that was never started, never changes an existing one)
+  `send_invoice` (write; final: the customer receives it at once),
+  `get_counters` (the invoice and credit note number series: current and
+  next number), `initialize_counter` (write; takes the first number to
+  use, starts a series that was never started, never changes an existing
+  one)
+- `invoice_drafts`: `create_invoice_draft` (write; needs
+  `bankAccountNumber` from `list_bank_accounts`, since Fiken refuses to
+  issue a draft without one), `list_invoice_drafts`, `get_invoice_draft`,
+  `update_invoice_draft` (write; only the given fields change, the rest of
+  the draft is sent back as it was; a draft with several customers is
+  refused), `create_invoice_from_draft` (write; issues it)
 - `credit_notes`: `list_credit_notes`, `get_credit_note`,
   `create_credit_note` (write; full or partial, booked but not sent),
   `send_credit_note` (write; final: the customer receives it at once)
@@ -106,8 +109,8 @@ options are read from the path on every request, so nothing is stored.
 | `https://api.fiken-mcp.byjoba.com/mcp/invoices,sales` | Every read; writes only in those concepts |
 
 Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
-`purchases`, `sales`, `invoices`, `credit_notes`, `payments`, `products`,
-`inbox`, `attachments`, `usage`. A concept filter chooses which areas the
+`purchases`, `sales`, `invoices`, `invoice_drafts`, `credit_notes`,
+`payments`, `products`, `inbox`, `attachments`, `usage`. A concept filter chooses which areas the
 model may change; all reads stay available, since operations take their
 slugs and ids from reads in other concepts. So `/mcp/invoices` can look
 up contacts and bank accounts but not create a contact, and
