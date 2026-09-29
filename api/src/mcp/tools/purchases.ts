@@ -54,7 +54,7 @@ interface FikenPurchaseDraft {
   contact?: { contactId: number; name: string };
   cash: boolean;
   paid: boolean;
-  lines: unknown[];
+  lines?: unknown[];
 }
 
 const draftLine = z
@@ -129,7 +129,7 @@ export const purchasesOperations: Operation[] = [
     destructive: false,
     title: "Create purchase draft",
     description:
-      "Prepare a purchase for the user to review and approve in Fiken, instead of booking it directly with create_purchase. " +
+      "Prepare a purchase for the user to review and approve in Fiken, instead of booking it directly with create_purchase. Nothing is booked until then. " +
       "lines use Fiken's draft names: text, net and gross (øre), and incomeAccount for the expense account. " +
       "The user can attach the receipt in Fiken, or create_purchase_from_draft (via fiken_write) books it. " +
       "A draft records no payment: if paid is true, the payment is recorded in Fiken when the draft is approved. " +
@@ -176,7 +176,7 @@ export const purchasesOperations: Operation[] = [
           contact: d.contact ? { contactId: d.contact.contactId, name: d.contact.name } : undefined,
           cash: d.cash,
           paid: d.paid,
-          lines: d.lines.length,
+          lines: (d.lines ?? []).length,
         }));
         return paged(trimmed, total, page, pageSize);
       });

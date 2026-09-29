@@ -43,8 +43,12 @@ action:
 Operations by concept (`read` unless marked write):
 
 - `companies`: `list_companies`
-- `contacts`: `search_contacts`, `get_contact`, `create_contact` (write)
-- `projects`: `list_projects`
+- `contacts`: `search_contacts`, `get_contact`, `create_contact` (write),
+  `update_contact` (write; only the given fields change, the rest of the
+  contact is sent back as it was), `list_contact_persons`,
+  `add_contact_person` (write)
+- `projects`: `list_projects`, `get_project`, `create_project` (write),
+  `update_project` (write; only the given fields change)
 - `accounts`: `list_accounts`, `list_bank_accounts` (with the account
   number an invoice draft needs), `account_balances` (date and an account
   range such as 3000-3999), `bank_balances`
@@ -69,7 +73,8 @@ Operations by concept (`read` unless marked write):
   not sent)
 - `payments`: `register_payment` (write; on a sale or a purchase, positive
   amounts only, NOK only), `list_payments` (on one sale or one purchase)
-- `products`: `list_products`
+- `products`: `list_products`, `get_product`, `create_product` (write),
+  `update_product` (write; only the given fields change)
 - `inbox`: `list_inbox`, `get_inbox_document` (an inbox document that did
   not come through the upload widget: images as images, PDFs as text per
   page, read in memory; scanned PDFs are named, and the widget handles

@@ -13,6 +13,8 @@ const EXPECTED = [
   "get_sale", "create_sale", "settle_sale", "write_off_sale", "list_payments",
   "get_journal_entry", "create_journal_entry", "list_transactions", "get_transaction",
   "create_purchase_draft", "list_purchase_drafts", "create_purchase_from_draft",
+  "get_project", "create_project", "update_project", "get_product", "create_product", "update_product",
+  "update_contact", "list_contact_persons", "add_contact_person",
 ];
 
 describe("operation registry", () => {
@@ -29,10 +31,10 @@ describe("operation registry", () => {
 
   it("marks consequential writes and asks for confirmation in them", () => {
     // Drafts and new contacts are writes that are easy to undo in Fiken, so they are not destructive (unchanged from today).
-    const notDestructive = ["create_invoice_draft", "create_contact", "create_purchase_draft"];
+    const notDestructive = ["create_invoice_draft", "create_contact", "create_purchase_draft", "add_contact_person"];
     for (const op of OPERATIONS.filter((o) => o.kind === "write")) {
       expect(op.destructive, op.name).toBe(!notDestructive.includes(op.name));
-      if (!["create_invoice_draft", "create_purchase_draft"].includes(op.name)) expect(op.description, op.name).toContain("Consequential");
+      if (op.destructive) expect(op.description, op.name).toContain("Consequential");
     }
   });
 

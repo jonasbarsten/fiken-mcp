@@ -36,6 +36,8 @@ export interface FikenClient {
   send(path: string, body: unknown): Promise<void>;
   /** PATCH an action endpoint (JSON body optional); resolves on any 2xx. */
   patch(path: string, body?: unknown): Promise<void>;
+  /** PUT a JSON body; resolves on any 2xx. */
+  put(path: string, body: unknown): Promise<void>;
   /** POST multipart to an attachments endpoint; resolves on any 2xx, whether or not Fiken sends a Location. */
   attach(path: string, form: FormData, query?: Query): Promise<void>;
   /** Location of the created resource; `id` only when its last path segment is numeric (inbox documents yes, attachments carry a UUID). */
@@ -128,6 +130,10 @@ export function createFikenClient(opts: {
         init.body = JSON.stringify(body);
       }
       const res = await doFetch(path, init);
+      if (!res.ok) throw new FikenError(res.status, await res.text());
+    },
+    async put(path: string, body: unknown) {
+      const res = await doFetch(path, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) throw new FikenError(res.status, await res.text());
     },
     async attach(path: string, form: FormData, query?: Query) {

@@ -239,6 +239,23 @@ describe("createFikenClient", () => {
     expect(writes).toBe(1);
   });
 
+  it("put sends PUT with a JSON body, resolves on 2xx and throws otherwise", async () => {
+    vi.useRealTimers();
+    const seen: Array<{ url: string; method: string | undefined; body: unknown }> = [];
+    let writes = 0;
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0), onWrite: () => { writes++; },
+      fetch: async (input, init) => {
+        seen.push({ url: String(input), method: init?.method, body: init?.body });
+        return String(input).endsWith("/products/3") ? new Response(null, { status: 200 }) : new Response("nei", { status: 400 });
+      },
+    });
+    await client.put("/companies/demo/products/3", { name: "Spade" });
+    expect(seen[0]).toEqual({ url: "https://api.test/v2/companies/demo/products/3", method: "PUT", body: JSON.stringify({ name: "Spade" }) });
+    await expect(client.put("/companies/demo/products/4", {})).rejects.toMatchObject({ status: 400 });
+    expect(writes).toBe(1);
+  });
+
   it("send reports onWrite once on success and not on a refusal", async () => {
     vi.useRealTimers();
     let writes = 0;
