@@ -236,3 +236,27 @@ Do all of this against the demo company.
   a token: expect 401, and check that `resource_metadata` in the
   `WWW-Authenticate` header still shows `%2C`. That confirms API Gateway
   passes the raw path through.
+
+## Verify after deploying the coverage plan
+
+Re-add the connector first (tool lists are cached). Use the demo company
+unless noted, and any email recipient at jonasbj.com.
+
+- `get_counters`. If the credit note series is missing, run
+  `initialize_counter` with kind `credit_note` and `firstNumber` 10001,
+  then a full `create_credit_note` on invoice 10520 (id 14380891529).
+- A cash sale (`create_sale`); a manual journal entry
+  (`create_journal_entry`): confirm the Location resolves to a journal
+  entry and the read-back works; a purchase draft approved in Fiken's UI,
+  then `create_purchase_from_draft` on another one.
+- `update_contact` on a test contact that has a currency, a member number,
+  a contact person and a group set in Fiken: change only the email, then
+  check in Fiken that all four are unchanged. This decides whether the
+  contact person must be sent back.
+- `update_invoice_draft`: change only `invoiceText` on a draft with lines
+  and a project; confirm in Fiken that lines, customer and project are
+  unchanged. This confirms PUT replaces lines rather than appending.
+- `create_project`, `update_project`, `create_product` and
+  `update_product` (stock unchanged).
+- Offers, order confirmations and sending: only in a real company; send to
+  a jonasbj.com address with `method: ["email"]`.

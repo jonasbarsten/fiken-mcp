@@ -45,7 +45,9 @@ Operations by concept (`read` unless marked write):
 - `companies`: `list_companies`
 - `contacts`: `search_contacts`, `get_contact`, `create_contact` (write),
   `update_contact` (write; only the given fields change, the rest of the
-  contact is sent back as it was), `list_contact_persons`,
+  contact is sent back as it was, groups included. Fiken never returns a
+  contact's currency or member number, so send them again when you
+  update the contact; contact persons are not sent back), `list_contact_persons`,
   `add_contact_person` (write)
 - `projects`: `list_projects`, `get_project`, `create_project` (write),
   `update_project` (write; only the given fields change)
@@ -54,7 +56,9 @@ Operations by concept (`read` unless marked write):
   range such as 3000-3999), `bank_balances`
 - `ledger`: `get_journal_entries`, `get_journal_entry`,
   `create_journal_entry` (write; a manual fri postering, refused unless
-  debits and credits balance), `list_transactions`, `get_transaction`,
+  debits and credits balance; no VAT codes, so book VAT through
+  `create_purchase` or `create_sale`; the description is at most 169
+  characters), `list_transactions`, `get_transaction`,
   `create_accrual` (write; spreads a sale or purchase line over months,
   the line id comes from `get_sale` or `get_purchase`)
 - `ehf`: `list_ehf_documents`, `get_ehf_document` (incoming EHF
@@ -66,15 +70,15 @@ Operations by concept (`read` unless marked write):
   `create_purchase_from_draft` (write; books it)
 - `sales`: `list_sales`, `get_sale` (with lines and payment count),
   `create_sale` (write; income not invoiced through Fiken: a cash sale or an
-  invoice issued elsewhere), `settle_sale` (write; settle without a
+  invoice issued elsewhere; NOK only), `settle_sale` (write; settle without a
   payment), `write_off_sale` (write; books a loss)
 - `invoices`: `list_invoices`, `get_invoice`, `create_invoice` (write;
   final in Fiken once created, issued and booked, not sent),
   `send_invoice` (write; final: the customer receives it at once),
   `get_counters` (the invoice and credit note number series: current and
-  next number), `initialize_counter` (write; takes the first number to
-  use, starts a series that was never started, never changes an existing
-  one)
+  next number, or null when the series is missing or the company slug is
+  wrong), `initialize_counter` (write; takes `firstNumber`, starts a
+  series that was never started, never changes an existing one)
 - `invoice_drafts`: `create_invoice_draft` (write; needs
   `bankAccountNumber` from `list_bank_accounts`, since Fiken refuses to
   issue a draft without one), `list_invoice_drafts`, `get_invoice_draft`,
@@ -99,7 +103,8 @@ Operations by concept (`read` unless marked write):
   final)
 - `time_tracking`: `list_time_users`, `list_activities`, `list_time_entries`,
   `create_time_entry` (write), `create_invoice_draft_from_time_entries`
-  (write; a draft that `create_invoice_from_draft` issues)
+  (write; NOK only, sends only what you give; a draft that
+  `create_invoice_from_draft` issues)
 - `payments`: `register_payment` (write; on a sale or a purchase, positive
   amounts only, NOK only), `list_payments` (on one sale or one purchase)
 - `products`: `list_products`, `get_product`, `create_product` (write),
@@ -113,6 +118,15 @@ Operations by concept (`read` unless marked write):
   document stays in the inbox)
 - `usage`: `my_usage` (your own pseudonymous monthly call counts on this
   server)
+
+The `update_*` operations (contact, product, invoice draft) read the
+current record, overlay the fields you give and write it back, since
+Fiken's updates replace the whole record. Fiken has no ETag, so an edit
+made in Fiken between the read and the write is overwritten.
+
+Not covered on purpose: deletes, reversals and cancelling (pending a
+decision). Not covered yet: activity writes, contact group management,
+contact attachments, the product sales report and creating bank accounts.
 
 Every write asks the model to restate the action and get your explicit
 confirmation first, except the draft operations (`create_invoice_draft`,
