@@ -80,9 +80,9 @@ describe("invoices", () => {
       { match: /\/invoices\/77$/, body: invoice77 },
     ]);
     const c = await connected(f.fetchImpl);
-    const draft = await callJson(c, "create_invoice_draft", { companySlug: "demo", customerId: 7, daysUntilDueDate: 14, lines: [line] });
+    const draft = await callJson(c, "create_invoice_draft", { companySlug: "demo", customerId: 7, daysUntilDueDate: 14, bankAccountNumber: "12345678903", lines: [line] });
     expect(draft.json()).toEqual({ draftId: 12 });
-    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ type: "invoice", customerId: 7, daysUntilDueDate: 14, currency: "NOK", lines: [line] });
+    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ type: "invoice", customerId: 7, daysUntilDueDate: 14, bankAccountNumber: "12345678903", currency: "NOK", lines: [line] });
     const issued = await callJson(c, "create_invoice_from_draft", { companySlug: "demo", draftId: 12 });
     expect(issued.json()).toMatchObject({ invoiceId: 77 });
     expect(f.calls[1]?.init?.body).toBeUndefined();

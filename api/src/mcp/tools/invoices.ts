@@ -218,6 +218,7 @@ export const invoicesOperations: Operation[] = [
       companySlug,
       customerId: z.number().int().describe("Customer contact id, from search_contacts"),
       daysUntilDueDate: z.number().int().min(0).describe("Days from the issue date until the invoice is due"),
+      bankAccountNumber: z.string().min(1).describe("The bank account number the customer pays into, bankAccountNumber from list_bank_accounts (not the 1920:... code)"),
       type: z.enum(["invoice", "cash_invoice"]).default("invoice"),
       issueDate: isoDate.optional().describe("Issue date (YYYY-MM-DD)"),
       lines: z.array(invoiceLine).optional().describe(`Draft lines. ${LINE_MONEY}`),

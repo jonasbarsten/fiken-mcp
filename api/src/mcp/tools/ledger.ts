@@ -21,7 +21,7 @@ interface FikenJournalEntry {
   journalEntryNumber: number;
   date: string;
   description: string;
-  lines: Array<{ amount: number; debitAccount?: string; creditAccount?: string }>;
+  lines: Array<{ amount: number; account?: string; vatCode?: string; debitAccount?: string; creditAccount?: string }>;
   attachments?: unknown[];
 }
 
@@ -111,7 +111,7 @@ export const ledgerOperations: Operation[] = [
             journalEntryNumber: j.journalEntryNumber,
             date: j.date,
             description: j.description,
-            lines: j.lines.map((l) => ({ amount: l.amount, debitAccount: l.debitAccount, creditAccount: l.creditAccount })),
+            lines: j.lines.map((l) => ({ amount: l.amount, account: l.account, vatCode: l.vatCode, debitAccount: l.debitAccount, creditAccount: l.creditAccount })),
             attachments: (j.attachments ?? []).length,
           })),
           total,

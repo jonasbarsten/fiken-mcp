@@ -17,12 +17,12 @@ describe("read tools", () => {
   it("list_accounts passes the range; list_bank_accounts returns account codes", async () => {
     const f = fakeFiken([
       { match: /\/accounts\?/, body: [{ code: "6300", name: "Leie lokale" }] },
-      { match: /\/bankAccounts$/, body: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", type: "normal", inactive: false, iban: "x" }] },
+      { match: /\/bankAccounts$/, body: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", bankAccountNumber: "12345678903", type: "normal", inactive: false, iban: "x" }] },
     ]);
     const c = await connected(f.fetchImpl);
     expect((await callJson(c, "list_accounts", { companySlug: "demo", range: "4000-7999" })).json()).toMatchObject({ items: [{ code: "6300", name: "Leie lokale" }] });
     expect(f.calls[0]?.url).toContain("range=4000-7999");
-    expect((await callJson(c, "list_bank_accounts", { companySlug: "demo" })).json()).toEqual({ items: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", type: "normal", inactive: false }] });
+    expect((await callJson(c, "list_bank_accounts", { companySlug: "demo" })).json()).toEqual({ items: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", bankAccountNumber: "12345678903", type: "normal", inactive: false }] });
   });
 
   it("search_contacts and get_contact", async () => {

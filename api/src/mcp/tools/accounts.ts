@@ -12,6 +12,7 @@ interface FikenBankAccount {
   bankAccountId: number;
   name: string;
   accountCode?: string;
+  bankAccountNumber?: string;
   type: string;
   inactive: boolean;
 }
@@ -50,7 +51,7 @@ export const accountsOperations: Operation[] = [
     destructive: false,
     title: "List bank accounts",
     description:
-      "Bank and payment accounts. accountCode (e.g. 1920:10001) is the paymentAccount a paid cash purchase needs.",
+      "Bank and payment accounts. accountCode (e.g. 1920:10001) is what create_invoice, register_payment and a cash purchase take; bankAccountNumber is what create_invoice_draft takes.",
     input: z.object({ companySlug }),
     async run(ctx, { companySlug: slug }) {
       return withCompany(ctx, slug, async () => {
@@ -60,6 +61,7 @@ export const accountsOperations: Operation[] = [
             bankAccountId: b.bankAccountId,
             name: b.name,
             accountCode: b.accountCode,
+            bankAccountNumber: b.bankAccountNumber,
             type: b.type,
             inactive: b.inactive,
           })),

@@ -62,7 +62,10 @@ describe("sales, products, balances, journal entries", () => {
       { match: /\/bankBalances/, headers: count(1), body: [{ bankAccountId: 9, bankAccountCode: "1920:10001", date: "2026-09-29", amount: 1234500, source: "bank" }] },
       { match: /\/journalEntries\?/, headers: count(1), body: [{
         journalEntryId: 11, journalEntryNumber: 5, date: "2026-09-02", description: "Husleie", transactionId: 99,
-        lines: [{ amount: 800000, debitAccount: "6300", creditAccount: "1920:10001", vatCode: "0" }], attachments: [{ uuid: "u" }],
+        lines: [
+          { amount: 800000, account: "6300", vatCode: "0", lastModifiedDate: "2026-09-02" },
+          { amount: -800000, debitAccount: "6300", creditAccount: "1920:10001" },
+        ], attachments: [{ uuid: "u" }],
       }] },
     ]);
     const c = await connected(f.fetchImpl);
@@ -70,7 +73,7 @@ describe("sales, products, balances, journal entries", () => {
       items: [{ bankAccountId: 9, bankAccountCode: "1920:10001", date: "2026-09-29", amount: 1234500, source: "bank" }], total: 1, page: 0, pageSize: 25,
     });
     expect((await callJson(c, "get_journal_entries", { companySlug: "demo", dateGe: "2026-09-01", dateLe: "2026-09-30" })).json()).toEqual({
-      items: [{ journalEntryId: 11, journalEntryNumber: 5, date: "2026-09-02", description: "Husleie", lines: [{ amount: 800000, debitAccount: "6300", creditAccount: "1920:10001" }], attachments: 1 }],
+      items: [{ journalEntryId: 11, journalEntryNumber: 5, date: "2026-09-02", description: "Husleie", lines: [{ amount: 800000, account: "6300", vatCode: "0" }, { amount: -800000, debitAccount: "6300", creditAccount: "1920:10001" }], attachments: 1 }],
       total: 1, page: 0, pageSize: 25,
     });
     expect(f.calls[1]?.url).toBe("https://api.test/v2/companies/demo/journalEntries?page=0&pageSize=25&dateGe=2026-09-01&dateLe=2026-09-30");
