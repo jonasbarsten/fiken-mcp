@@ -202,4 +202,18 @@ describe("createFikenClient", () => {
     expect(seen[0]).toEqual({ url: "https://api.test/v2/companies/demo/invoices/send", body: { invoiceId: 77 } });
     await expect(client.send("/companies/demo/other", {})).rejects.toMatchObject({ status: 400 });
   });
+
+  it("send reports onWrite once on success and not on a refusal", async () => {
+    vi.useRealTimers();
+    let writes = 0;
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0),
+      onWrite: () => { writes++; },
+      fetch: async (input) => (String(input).endsWith("/send") ? new Response(null, { status: 200 }) : new Response("nei", { status: 400 })),
+    });
+    await client.send("/companies/demo/invoices/send", {});
+    expect(writes).toBe(1);
+    await expect(client.send("/companies/demo/other", {})).rejects.toThrow();
+    expect(writes).toBe(1);
+  });
 });

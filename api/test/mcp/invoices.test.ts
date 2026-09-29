@@ -131,6 +131,30 @@ describe("send, credit, pay", () => {
     expect(JSON.parse(String(f.calls[1]?.init?.body))).toMatchObject({ fee: 500 });
     expect((await callJson(c, "register_payment", pay)).isError).toBe(true);
     expect((await callJson(c, "register_payment", { ...pay, saleId: 3, purchaseId: 8 })).isError).toBe(true);
+    expect((await callJson(c, "register_payment", { ...pay, saleId: 3, amount: 0 })).isError).toBe(true);
+    expect((await callJson(c, "register_payment", { ...pay, saleId: 3, amount: -100 })).isError).toBe(true);
     expect(f.calls).toHaveLength(2);
+  });
+
+  it("create_credit_note refuses lines on full and incomplete partial lines, before any call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    expect((await callJson(c, "create_credit_note", { companySlug: "demo", kind: "full", issueDate: "2026-09-29", invoiceId: 77, lines: [line] })).isError).toBe(true);
+    const bad = await callJson(c, "create_credit_note", { companySlug: "demo", kind: "partial", issueDate: "2026-09-29", invoiceId: 77, lines: [{ description: "x", quantity: 1, vatType: "HIGH" }] });
+    expect(bad.isError).toBe(true);
+    expect(bad.text).toBe("Line 1 has no productId and is missing unitPrice, incomeAccount.");
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("create_credit_note names the id when the read-back fails", async () => {
+    const f = fakeFiken([
+      { match: /\/creditNotes\/full$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/creditNotes/5" } },
+      { match: /\/creditNotes\/5$/, status: 500, body: "boom" },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const res = await callJson(c, "create_credit_note", { companySlug: "demo", kind: "full", issueDate: "2026-09-29", invoiceId: 77 });
+    expect(res.isError).toBe(true);
+    expect(res.text).toContain("Credit note 5 was created");
+    expect(res.text).toContain("Do not create it again");
   });
 });
