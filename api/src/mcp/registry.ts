@@ -13,7 +13,9 @@ import { paymentsOperations } from "./tools/payments.js";
 import { productsOperations } from "./tools/products.js";
 import { projectsOperations } from "./tools/projects.js";
 import { purchasesOperations } from "./tools/purchases.js";
+import { recurringOperations } from "./tools/recurring.js";
 import { salesOperations } from "./tools/sales.js";
+import { timeOperations } from "./tools/time.js";
 import { usageOperations } from "./tools/usage.js";
 
 /** Every operation, in the order the tools were registered before the registry existed. */
@@ -30,6 +32,8 @@ export const OPERATIONS: readonly Operation[] = [
   ...invoicesOperations,
   ...creditNotesOperations,
   ...offersOperations,
+  ...recurringOperations,
+  ...timeOperations,
   ...paymentsOperations,
   ...productsOperations,
   ...ledgerOperations,

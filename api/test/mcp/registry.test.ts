@@ -19,6 +19,8 @@ const EXPECTED = [
   "list_credit_notes", "get_credit_note", "send_credit_note",
   "create_offer_draft", "create_offer_from_draft", "send_offer", "list_offers",
   "create_order_confirmation_draft", "create_order_confirmation_from_draft", "list_order_confirmations", "create_invoice_draft_from_order_confirmation",
+  "list_recurring_invoices", "create_recurring_invoice_from_draft", "set_recurring_invoice_job",
+  "list_time_users", "list_activities", "list_time_entries", "create_time_entry", "create_invoice_draft_from_time_entries",
 ];
 
 describe("operation registry", () => {
@@ -36,7 +38,8 @@ describe("operation registry", () => {
   it("marks consequential writes and asks for confirmation in them", () => {
     // Drafts and new contacts are writes that are easy to undo in Fiken, so they are not destructive (unchanged from today).
     const notDestructive = ["create_invoice_draft", "create_contact", "create_purchase_draft", "add_contact_person", "update_invoice_draft",
-      "create_offer_draft", "create_order_confirmation_draft", "create_invoice_draft_from_order_confirmation"];
+      "create_offer_draft", "create_order_confirmation_draft", "create_invoice_draft_from_order_confirmation",
+      "create_invoice_draft_from_time_entries"];
     for (const op of OPERATIONS.filter((o) => o.kind === "write")) {
       expect(op.destructive, op.name).toBe(!notDestructive.includes(op.name));
       if (op.destructive) expect(op.description, op.name).toContain("Consequential");

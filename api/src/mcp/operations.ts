@@ -15,6 +15,8 @@ export const CONCEPTS = {
   credit_notes: "Credit notes on issued invoices",
   offers: "Offers (tilbud) to customers",
   order_confirmations: "Order confirmations (ordrebekreftelser)",
+  recurring_invoices: "Recurring invoices and their schedules",
+  time_tracking: "Hours, activities and time users",
   payments: "Payments on sales and purchases",
   products: "Products and services the company sells",
   inbox: "The company's document inbox",

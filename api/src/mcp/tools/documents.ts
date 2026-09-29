@@ -92,6 +92,9 @@ export interface DraftInput {
   invoiceText?: string;
   projectId?: number;
   lines?: InvoiceLine[];
+  startDate?: string;
+  endDate?: string;
+  frequency?: { interval: number; intervalUnit: "DAY" | "WEEK" | "MONTH" };
 }
 
 /** POST /<path>/drafts with an invoiceishDraftRequest of the given type; returns the draft id from the Location. */

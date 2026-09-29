@@ -193,13 +193,22 @@ export const invoicesOperations: Operation[] = [
     kind: "write",
     destructive: false,
     title: "Create invoice draft",
-    description: "Create an invoice draft the user can review in Fiken before it is issued; create_invoice_from_draft (via fiken_write) issues it.",
+    description:
+      "Create an invoice draft the user can review in Fiken before it is issued; create_invoice_from_draft (via fiken_write) issues it. " +
+      "type repeating_invoice makes the draft of a recurring invoice (needs startDate and frequency); " +
+      "create_recurring_invoice_from_draft (via fiken_write) turns it into the recurring invoice.",
     input: z.object({
       companySlug,
       customerId: z.number().int().describe("Customer contact id, from search_contacts"),
       daysUntilDueDate: z.number().int().min(0).describe("Days from the issue date until the invoice is due"),
       bankAccountNumber: z.string().min(1).describe("The bank account number the customer pays into, bankAccountNumber from list_bank_accounts (not the 1920:... code)"),
-      type: z.enum(["invoice", "cash_invoice"]).default("invoice"),
+      type: z.enum(["invoice", "cash_invoice", "repeating_invoice"]).default("invoice"),
+      startDate: isoDate.optional().describe("First issue date (YYYY-MM-DD); repeating_invoice only, and required there"),
+      endDate: isoDate.optional().describe("No invoices after this date (YYYY-MM-DD); repeating_invoice only"),
+      frequency: z
+        .strictObject({ interval: z.number().int().min(1), intervalUnit: z.enum(["DAY", "WEEK", "MONTH"]) })
+        .optional()
+        .describe("How often an invoice is issued, e.g. { interval: 1, intervalUnit: MONTH } is monthly; repeating_invoice only, and required there"),
       issueDate: isoDate.optional().describe("Issue date (YYYY-MM-DD)"),
       lines: z.array(invoiceLine).optional().describe(`Draft lines. ${LINE_MONEY}`),
       paymentAccount: z.string().min(1).optional().describe("Bank account code, from list_bank_accounts; cash invoices only"),
@@ -212,6 +221,11 @@ export const invoicesOperations: Operation[] = [
     async run(ctx, { companySlug: slug, type, lines, ...rest }) {
       const missing = lines ? missingLineFields(lines) : undefined;
       if (missing) return toolText(missing);
+      if (type === "repeating_invoice") {
+        if (rest.startDate === undefined || rest.frequency === undefined) return toolText("A repeating_invoice needs startDate and frequency.");
+      } else if (rest.startDate !== undefined || rest.endDate !== undefined || rest.frequency !== undefined) {
+        return toolText("startDate, endDate and frequency are for type repeating_invoice only.");
+      }
       return withCompany(ctx, slug, async () => {
         return toolJson({ draftId: await createInvoiceishDraft(ctx, slug, "invoices", type, { ...rest, lines }) });
       });

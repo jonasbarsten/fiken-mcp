@@ -86,6 +86,15 @@ Operations by concept (`read` unless marked write):
   `create_order_confirmation_draft` (write), `create_order_confirmation_from_draft`
   (write), `create_invoice_draft_from_order_confirmation` (write; makes an
   invoice draft that `create_invoice_from_draft` issues)
+- `recurring_invoices`: `list_recurring_invoices` (jobs, schedule, status),
+  `create_recurring_invoice_from_draft` (write; the draft is a
+  `create_invoice_draft` of type `repeating_invoice` with `startDate` and
+  `frequency`; invoices are then issued on the schedule),
+  `set_recurring_invoice_job` (write; pause, resume or stop, and stop is
+  final)
+- `time_tracking`: `list_time_users`, `list_activities`, `list_time_entries`,
+  `create_time_entry` (write), `create_invoice_draft_from_time_entries`
+  (write; a draft that `create_invoice_from_draft` issues)
 - `payments`: `register_payment` (write; on a sale or a purchase, positive
   amounts only, NOK only), `list_payments` (on one sale or one purchase)
 - `products`: `list_products`, `get_product`, `create_product` (write),
@@ -103,7 +112,8 @@ Operations by concept (`read` unless marked write):
 Every write asks the model to restate the action and get your explicit
 confirmation first, except the draft operations (`create_invoice_draft`,
 `update_invoice_draft`, `create_offer_draft`, `create_order_confirmation_draft`,
-`create_invoice_draft_from_order_confirmation`), since a draft is reviewed in Fiken.
+`create_invoice_draft_from_order_confirmation`,
+`create_invoice_draft_from_time_entries`), since a draft is reviewed in Fiken.
 
 ### Connector URL options
 
@@ -118,7 +128,7 @@ options are read from the path on every request, so nothing is stored.
 
 Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
 `purchases`, `sales`, `invoices`, `invoice_drafts`, `credit_notes`,
-`payments`, `products`, `inbox`, `attachments`, `usage`. A concept filter chooses which areas the
+`offers`, `order_confirmations`, `recurring_invoices`, `time_tracking`, `payments`, `products`, `inbox`, `attachments`, `usage`. A concept filter chooses which areas the
 model may change; all reads stay available, since operations take their
 slugs and ids from reads in other concepts. So `/mcp/invoices` can look
 up contacts and bank accounts but not create a contact, and
