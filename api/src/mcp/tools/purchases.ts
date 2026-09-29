@@ -1,9 +1,7 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { counted, toolError, toolJson, type ToolContext } from "../server.js";
-import { companySlug, CONFIRM, ORE, paged, paging, withCompany } from "./common.js";
-
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+import { companySlug, CONFIRM, isoDate, ORE, paged, paging, withCompany } from "./common.js";
 
 interface FikenPurchaseLine {
   description: string;

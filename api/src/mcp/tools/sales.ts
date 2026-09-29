@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { counted, type ToolContext } from "../server.js";
-import { companySlug, ORE, paged, paging, withCompany } from "./common.js";
+import { companySlug, isoDate, ORE, paged, paging, withCompany } from "./common.js";
 
 interface FikenSale {
   saleId: number;
@@ -44,8 +44,8 @@ export function registerSales(server: McpServer, ctx: ToolContext): void {
       inputSchema: z.object({
         companySlug,
         ...paging,
-        dateGe: z.string().optional().describe("Only sales on or after this date (YYYY-MM-DD)"),
-        dateLe: z.string().optional().describe("Only sales on or before this date (YYYY-MM-DD)"),
+        dateGe: isoDate.optional().describe("Only sales on or after this date (YYYY-MM-DD)"),
+        dateLe: isoDate.optional().describe("Only sales on or before this date (YYYY-MM-DD)"),
         settled: z.boolean().optional().describe("Filter to settled (or unsettled) sales"),
         contactId: z.number().int().optional().describe("Only sales to this customer, from search_contacts"),
       }),

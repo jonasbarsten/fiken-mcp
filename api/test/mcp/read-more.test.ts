@@ -39,6 +39,22 @@ describe("sales, products, balances, journal entries", () => {
     expect(f.calls[1]?.url).toContain("fromAccount=1920&toAccount=1920");
     expect((await callJson(c, "account_balances", { companySlug: "demo" })).isError).toBe(true);
     expect(f.calls).toHaveLength(2);
+    expect((await callJson(c, "account_balances", { companySlug: "demo", date: "2026-09-29", range: "3000-" })).isError).toBe(true);
+    expect((await callJson(c, "account_balances", { companySlug: "demo", date: "2026-09-29", range: "3000-3999-4000" })).isError).toBe(true);
+    expect(f.calls).toHaveLength(2);
+    expect((await callJson(c, "account_balances", { companySlug: "demo", date: "2026-09-29", range: " 3000-3999 " })).isError).toBe(false);
+    expect(f.calls[2]?.url).toBe("https://api.test/v2/companies/demo/accountBalances?page=0&pageSize=25&date=2026-09-29&fromAccount=3000&toAccount=3999");
+  });
+
+  it("passes the remaining filters through", async () => {
+    const f = fakeFiken([{ match: /.*/, headers: count(0), body: [] }]);
+    const c = await connected(f.fetchImpl);
+    await callJson(c, "list_products", { companySlug: "demo", name: "Timepris" });
+    await callJson(c, "list_sales", { companySlug: "demo", contactId: 7 });
+    await callJson(c, "bank_balances", { companySlug: "demo", date: "2026-09-29" });
+    expect(f.calls[0]?.url).toBe("https://api.test/v2/companies/demo/products?page=0&pageSize=25&name=Timepris");
+    expect(f.calls[1]?.url).toBe("https://api.test/v2/companies/demo/sales?page=0&pageSize=25&contactId=7");
+    expect(f.calls[2]?.url).toBe("https://api.test/v2/companies/demo/bankBalances?page=0&pageSize=25&date=2026-09-29");
   });
 
   it("bank_balances and get_journal_entries trim", async () => {

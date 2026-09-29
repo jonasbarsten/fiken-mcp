@@ -1,9 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { counted, type ToolContext } from "../server.js";
-import { companySlug, ORE, paged, paging, withCompany } from "./common.js";
-
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+import { companySlug, isoDate, ORE, paged, paging, withCompany } from "./common.js";
 
 interface FikenAccountBalance {
   code: string;
@@ -38,7 +36,12 @@ export function registerLedger(server: McpServer, ctx: ToolContext): void {
         companySlug,
         ...paging,
         date: isoDate.describe("Balance date (YYYY-MM-DD)"),
-        range: z.string().optional().describe('Account code range, e.g. "3000-3999"; a single code like "1920" means just that account'),
+        range: z
+          .string()
+          .trim()
+          .regex(/^\d{4}(-\d{4})?$/, "range is one account code like 1920 or two like 3000-3999")
+          .optional()
+          .describe('Account code range, e.g. "3000-3999"; a single code like "1920" means just that account'),
       }),
       annotations: { readOnlyHint: true },
     },

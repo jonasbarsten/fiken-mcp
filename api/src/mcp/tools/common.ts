@@ -8,6 +8,7 @@ export const paging = {
   page: z.number().int().min(0).default(0).describe("0-based page number"),
   pageSize: z.number().int().min(1).max(100).default(25),
 };
+export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const CONFIRM = "Consequential: before calling, restate the exact action with every value to the user and get explicit confirmation.";
 export const ORE = "Amounts are integers in øre (10000 = 100,00 kr).";
 
