@@ -398,8 +398,9 @@ short: the hot-path tools, the upload tools, and three gateway tools.
   spend a round trip on `fiken_explore`. Every operation, these too, is
   also reachable through the gateway.
 - Concepts (`CONCEPTS` in `operations.ts`): companies, contacts,
-  projects, accounts, ledger, purchases, sales, invoices, credit_notes,
-  payments, products, inbox, attachments, usage.
+  projects, accounts, ledger, purchases, sales, invoices, invoice_drafts,
+  credit_notes, offers, order_confirmations, recurring_invoices,
+  time_tracking, payments, products, inbox, ehf, attachments, usage.
 - Connector options live in the URL path: `/mcp/readonly`,
   `/mcp/<concept>,<concept>`, combinable with `readonly`. A concept
   filter chooses which areas the model may change; all reads stay
@@ -434,6 +435,39 @@ purchase, sale, invoice or journal entry, exactly one id), `my_usage`.
 `list_invoices` filters by issue date range, customer, settled status
 or invoice number; `get_invoice` returns one invoice with its lines.
 
+Added by the coverage plan (2026-09-29), reads:
+`get_sale`, `list_payments`, `get_journal_entry`, `list_transactions`,
+`get_transaction`, `list_purchase_drafts`, `get_project`, `get_product`,
+`list_contact_persons`, `list_invoice_drafts`, `get_invoice_draft`,
+`get_counters` (`{ current, next }` per series, or null; null can also
+mean a wrong company slug), `list_credit_notes`, `get_credit_note`,
+`list_offers`, `list_offer_drafts`, `list_order_confirmations`,
+`list_order_confirmation_drafts`, `list_recurring_invoices`,
+`list_time_users`, `list_activities`, `list_time_entries`,
+`list_ehf_documents`, `get_ehf_document`.
+
+Writes added by the coverage plan: `create_sale` (NOK only),
+`settle_sale` (sends Fiken's required `settledDate` query parameter),
+`write_off_sale` (booked as a loss, not a delete),
+`create_journal_entry` (balanced before any call, no VAT codes, description
+at most 166 characters, since Fiken's 200-character limit includes its
+34-character prefix), `create_accrual` (takes a `lineId` from
+`get_sale` or `get_purchase`, and the required `account`), `create_purchase_draft` (NOK only, not
+destructive), `create_purchase_from_draft`, `create_project`,
+`update_project`, `create_product`, `update_product`, `update_contact`,
+`add_contact_person`, `update_invoice_draft` (not destructive),
+`initialize_counter` (takes `firstNumber`; Fiken stores the last number
+used, so the POST sends `firstNumber - 1`; an existing series is never
+changed), `send_credit_note`, `create_offer_draft`,
+`create_offer_from_draft`, `send_offer`, `create_order_confirmation_draft`,
+`create_order_confirmation_from_draft`,
+`create_invoice_draft_from_order_confirmation`,
+`create_recurring_invoice_from_draft`, `set_recurring_invoice_job`,
+`create_time_entry`, `create_invoice_draft_from_time_entries` (NOK only,
+not destructive). `attach_inbox_document` also takes an `ehfDocumentId`
+(not for invoices). `update_contact`, `update_product` and
+`update_invoice_draft` are read-modify-write; see the decision record.
+
 Write:
 `create_contact`, `create_invoice_draft` (not destructive: a draft is
 reviewed in Fiken), `create_invoice_from_draft` (destructive),
@@ -448,8 +482,9 @@ a copy and the document stays in the inbox),
 `upload_receipts` (renders the widget; see section 9),
 `get_upload_url` (secondary path for shell clients; see section 9).
 
-Left out of version one, addable on the same pattern: offers, order
-confirmations, recurring invoices, time tracking, deletes, EHF.
+Left out on purpose: deletes, reversals and cancelling (pending Jonas's
+decision). Not covered: activity writes, contact group management,
+contact attachments, the product sales report and creating bank accounts.
 
 ## 9. Attachments and the receipts flow
 
@@ -619,14 +654,18 @@ production testing: `get_journal_entries` lines carry `account` and
 `vatCode` again, and `create_invoice_draft` requires `bankAccountNumber`
 (from `list_bank_accounts`).
 
-Next plan: the Fiken areas not covered yet, added as operations: sales
-without an invoice, manual journal entries (`createGeneralJournalEntry`),
-purchase drafts, projects and products create and update, contact updates
-and contact persons, sending credit notes, invoice and credit note
-counters, marking sales settled or written off, invoice draft list and
-update, single sale lookup, payments lookup, transactions (read), offers
-and order confirmations, recurring invoices, time tracking, the EHF inbox
-and accruals. Deletes and reversals stay out until Jonas decides.
+Done by the coverage plan (2026-09-29): the Fiken areas that were not
+covered, added as operations: sales without an invoice, manual journal
+entries (`createGeneralJournalEntry`), purchase drafts, projects and
+products create and update, contact updates and contact persons, sending
+credit notes, invoice and credit note counters, marking sales settled or
+written off, invoice draft list and update, single sale lookup, payments
+lookup, transactions (read), offers and order confirmations, recurring
+invoices, time tracking, the EHF inbox and accruals. New concepts:
+`invoice_drafts`, `offers`, `order_confirmations`, `recurring_invoices`,
+`time_tracking`, `ehf`. Deletes, reversals and cancelling stay out until
+Jonas decides; activity writes, contact groups, contact attachments, the
+product sales report and creating bank accounts are not covered.
 
 Still to build after that: ChatGPT verification and the website.
 

@@ -236,3 +236,42 @@ Do all of this against the demo company.
   a token: expect 401, and check that `resource_metadata` in the
   `WWW-Authenticate` header still shows `%2C`. That confirms API Gateway
   passes the raw path through.
+
+## Verify after deploying the coverage plan
+
+Re-add the connector first (tool lists are cached). Use the demo company
+unless noted, and any email recipient at jonasbj.com.
+
+- `get_counters`. If the credit note series is missing, run
+  `initialize_counter` with kind `credit_note` and `firstNumber` 10001,
+  then a full `create_credit_note` on invoice 10520 (id 14380891529).
+  Confirm that this first credit note gets number 10001 (not 10002), which
+  checks that the counter holds the last number used.
+- A cash sale (`create_sale`); a manual journal entry
+  (`create_journal_entry`): confirm the Location resolves to a journal
+  entry and the read-back works; a purchase draft approved in Fiken's UI,
+  then `create_purchase_from_draft` on another one.
+- Two `create_purchase_draft` drafts with `paid: true`: approve one in
+  Fiken's UI and the other with `create_purchase_from_draft`. For each,
+  note whether Fiken records the payment or refuses the draft.
+- `create_accrual` on a purchase line with `account` 1700: confirm Fiken
+  books it on that account (the swagger's text calls `account` required
+  although its schema does not list it, so the operation requires it), and
+  whether the Location's last segment is numeric so `accrualId` comes back.
+- `settle_sale` with a `settledDate` on an unsettled external_invoice sale,
+  then `get_sale` shows it settled. `write_off_sale` only on a sale that
+  meets one of the reasons (for example past due at least 6 months with 3
+  reminders sent), in the demo company only; expect Fiken to refuse
+  otherwise.
+- `update_contact` on a test contact that has a phone number, a currency,
+  a member number, a contact person and a group set in Fiken: change only
+  the email, then check in Fiken that all five are unchanged. This decides
+  whether the contact person must be sent back and whether the
+  phone-number caveat in the description holds.
+- `update_invoice_draft`: change only `invoiceText` on a draft with lines
+  and a project; confirm in Fiken that lines, customer and project are
+  unchanged. This confirms PUT replaces lines rather than appending.
+- `create_project`, `update_project`, `create_product` and
+  `update_product` (stock unchanged).
+- Offers, order confirmations and sending: only in a real company; send to
+  a jonasbj.com address with `method: ["email"]`.

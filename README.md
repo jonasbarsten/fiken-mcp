@@ -43,26 +43,81 @@ action:
 Operations by concept (`read` unless marked write):
 
 - `companies`: `list_companies`
-- `contacts`: `search_contacts`, `get_contact`, `create_contact` (write)
-- `projects`: `list_projects`
+- `contacts`: `search_contacts`, `get_contact`, `create_contact` (write),
+  `update_contact` (write; only the given fields change, the rest of the
+  contact is sent back as it was, groups included. Fiken never returns a
+  contact's phone number, currency or member number, so send them again
+  when you update the contact; contact persons are not sent back, and until
+  it is verified that Fiken keeps them, check `list_contact_persons` first
+  and add any lost ones back with `add_contact_person`),
+  `list_contact_persons`, `add_contact_person` (write)
+- `projects`: `list_projects`, `get_project`, `create_project` (write),
+  `update_project` (write; only the given fields change)
 - `accounts`: `list_accounts`, `list_bank_accounts` (with the account
   number an invoice draft needs), `account_balances` (date and an account
   range such as 3000-3999), `bank_balances`
-- `ledger`: `get_journal_entries`
+- `ledger`: `get_journal_entries`, `get_journal_entry`,
+  `create_journal_entry` (write; a manual fri postering, refused unless
+  debits and credits balance; no VAT codes, so book VAT through
+  `create_purchase` or `create_sale`; the description is at most 166
+  characters, since Fiken's 200-character limit includes its 34-character
+  prefix), `list_transactions`, `get_transaction` (journal entries carry
+  the `transactionId` it takes),
+  `create_accrual` (write; spreads a sale or purchase line over months,
+  the line id comes from `get_sale` or `get_purchase`; the balance account
+  to accrue to is required: 1397, 1700, 1710, 1742, 1743, 1744, 1749 or
+  2961 for purchases, 1530 or 2965 for sales)
+- `ehf`: `list_ehf_documents`, `get_ehf_document` (incoming EHF
+  e-invoices; `attach_inbox_document` takes an `ehfDocumentId` for
+  purchases, sales and journal entries, not invoices)
 - `purchases`: `list_purchases`, `get_purchase`, `create_purchase` (write;
-  optionally attaching an inbox document)
-- `sales`: `list_sales`
+  optionally attaching an inbox document), `create_purchase_draft` (write;
+  a draft for the user to approve in Fiken, NOK only), `list_purchase_drafts`,
+  `create_purchase_from_draft` (write; books it)
+- `sales`: `list_sales`, `get_sale` (with lines and payment count),
+  `create_sale` (write; income not invoiced through Fiken: a cash sale or an
+  invoice issued elsewhere; NOK only), `settle_sale` (write; settle without a
+  payment on a given `settledDate`), `write_off_sale` (write; books a loss
+  for one of Fiken's four reasons, on a sale that is not a cash sale, not
+  settled or written off, and still has an outstanding balance)
 - `invoices`: `list_invoices`, `get_invoice`, `create_invoice` (write;
   final in Fiken once created, issued and booked, not sent),
-  `create_invoice_draft` (write; needs `bankAccountNumber` from
-  `list_bank_accounts`, since Fiken refuses to issue a draft without one),
-  `create_invoice_from_draft` (write), `send_invoice` (write; final: the
-  customer receives it at once)
-- `credit_notes`: `create_credit_note` (write; full or partial, booked but
-  not sent)
+  `send_invoice` (write; final: the customer receives it at once),
+  `get_counters` (the invoice and credit note number series: current and
+  next number, or null when the series is missing or the company slug is
+  wrong), `initialize_counter` (write; takes `firstNumber`, starts a
+  series that was never started, never changes an existing one)
+- `invoice_drafts`: `create_invoice_draft` (write; needs
+  `bankAccountNumber` from `list_bank_accounts`, since Fiken refuses to
+  issue a draft without one), `list_invoice_drafts`, `get_invoice_draft`,
+  `update_invoice_draft` (write; only the given fields change, the rest of
+  the draft is sent back as it was; a draft with several customers is
+  refused), `create_invoice_from_draft` (write; issues it)
+- `credit_notes`: `list_credit_notes`, `get_credit_note`,
+  `create_credit_note` (write; full or partial, booked but not sent),
+  `send_credit_note` (write; final: the customer receives it at once)
+- `offers`: `list_offers`, `list_offer_drafts`, `create_offer_draft` (write;
+  the bank account is optional), `create_offer_from_draft` (write),
+  `send_offer` (write; final: the customer receives it at once)
+- `order_confirmations`: `list_order_confirmations`,
+  `list_order_confirmation_drafts`, `create_order_confirmation_draft`
+  (write), `create_order_confirmation_from_draft`
+  (write), `create_invoice_draft_from_order_confirmation` (write; makes an
+  invoice draft that `create_invoice_from_draft` issues)
+- `recurring_invoices`: `list_recurring_invoices` (jobs, schedule, status),
+  `create_recurring_invoice_from_draft` (write; the draft is a
+  `create_invoice_draft` of type `repeating_invoice` with `startDate` and
+  `frequency`; invoices are then issued on the schedule),
+  `set_recurring_invoice_job` (write; pause, resume or stop, and stop is
+  final)
+- `time_tracking`: `list_time_users`, `list_activities`, `list_time_entries`,
+  `create_time_entry` (write), `create_invoice_draft_from_time_entries`
+  (write; NOK only, sends only what you give; a draft that
+  `create_invoice_from_draft` issues)
 - `payments`: `register_payment` (write; on a sale or a purchase, positive
-  amounts only, NOK only)
-- `products`: `list_products`
+  amounts only, NOK only), `list_payments` (on one sale or one purchase)
+- `products`: `list_products`, `get_product`, `create_product` (write),
+  `update_product` (write; only the given fields change)
 - `inbox`: `list_inbox`, `get_inbox_document` (an inbox document that did
   not come through the upload widget: images as images, PDFs as text per
   page, read in memory; scanned PDFs are named, and the widget handles
@@ -73,9 +128,24 @@ Operations by concept (`read` unless marked write):
 - `usage`: `my_usage` (your own pseudonymous monthly call counts on this
   server)
 
+The `update_*` operations (contact, product, invoice draft) read the
+current record, overlay the fields you give and write it back, since
+Fiken's updates replace the whole record. Fiken has no ETag, so an edit
+made in Fiken between the read and the write is overwritten.
+
+Not covered on purpose: deletes, reversals and cancelling (pending a
+decision). Not covered yet: activity writes, contact group management,
+contact attachments, the product sales report and creating bank accounts.
+
 Every write asks the model to restate the action and get your explicit
-confirmation first, except `create_invoice_draft`, since a draft is
-reviewed in Fiken.
+confirmation first, except the draft operations (`create_invoice_draft`,
+`update_invoice_draft`, `create_purchase_draft`, `create_offer_draft`,
+`create_order_confirmation_draft`,
+`create_invoice_draft_from_order_confirmation`,
+`create_invoice_draft_from_time_entries`), since a draft is reviewed in
+Fiken. These, `create_contact` and `add_contact_person` are the writes the
+host is told are not destructive (easy to undo in Fiken); the two contact
+writes still ask for confirmation.
 
 ### Connector URL options
 
@@ -89,8 +159,8 @@ options are read from the path on every request, so nothing is stored.
 | `https://api.fiken-mcp.byjoba.com/mcp/invoices,sales` | Every read; writes only in those concepts |
 
 Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
-`purchases`, `sales`, `invoices`, `credit_notes`, `payments`, `products`,
-`inbox`, `attachments`, `usage`. A concept filter chooses which areas the
+`purchases`, `sales`, `invoices`, `invoice_drafts`, `credit_notes`,
+`offers`, `order_confirmations`, `recurring_invoices`, `time_tracking`, `payments`, `products`, `inbox`, `ehf`, `attachments`, `usage`. A concept filter chooses which areas the
 model may change; all reads stay available, since operations take their
 slugs and ids from reads in other concepts. So `/mcp/invoices` can look
 up contacts and bank accounts but not create a contact, and
@@ -99,6 +169,15 @@ word gets a 400 naming the valid ones, after login; an unauthenticated
 request to an invalid option path gets the plain `/mcp` login challenge.
 The upload tools need `purchases` chosen (or no filter) and a connection
 that is not read-only.
+
+Some tasks write in two areas, so choose both:
+
+| Task | Filter |
+| --- | --- |
+| Set up a recurring invoice (its draft is an invoice draft) | `recurring_invoices,invoice_drafts` |
+| Invoice tracked hours and issue the invoice | `time_tracking,invoice_drafts` |
+| Invoice an order confirmation and issue the invoice | `order_confirmations,invoice_drafts` |
+| Attach an incoming EHF document (`ehf` has only reads) | `ehf,attachments` |
 
 These options limit what a connection offers the model. They are not a
 security boundary against whoever holds the token: the same login token

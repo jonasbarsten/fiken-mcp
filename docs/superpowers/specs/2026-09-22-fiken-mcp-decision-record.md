@@ -382,6 +382,42 @@ changed, and what it left open:
   `get_journal_entries` lines carry `account` and `vatCode` again (Fiken
   returns them; an earlier review wrongly removed them).
 
+## Rulings in the coverage plan (2026-09-29)
+
+- **PUT updates are read-modify-write.** `update_contact`,
+  `update_product` and `update_invoice_draft` GET the record, overlay
+  the fields the caller gave and PUT the result, because Fiken's PUT
+  replaces the whole record and a caller should not have to restate
+  everything. Fiken has no ETag, so an edit in Fiken between the GET and
+  the PUT is overwritten; we accept that and say so in the README.
+  `update_contact` sends `groups` back. Fiken never returns a contact's
+  `currency` or member number (write-only), so the tool accepts them
+  again and says so. Contact persons are not sent back until a live check
+  shows whether Fiken keeps them. `update_invoice_draft` refuses a draft
+  with several customers.
+- **Counters are never reset.** `initialize_counter` only starts a series
+  that does not exist and never changes an existing one, since a changed
+  invoice or credit note number series breaks the numbering Fiken
+  requires. It takes `firstNumber`, because Fiken stores the last number
+  used and the POST sends `firstNumber - 1`. `get_counters` returns
+  `{ current, next }` or null; null can also mean a wrong company slug.
+- **Manual journal entries are balanced before the call.** The tool
+  refuses unbalanced lines without asking Fiken. No VAT codes: VAT is
+  booked through `create_purchase` or `create_sale`, where Fiken checks
+  it. The description is capped at 166 characters because Fiken's
+  200-character limit includes its 34-character prefix
+  `Fri postering registrert via API: `.
+- **Write-off is a booking, not a delete.** `write_off_sale` books the
+  loss; nothing is removed. Deletes, reversals and cancelling stay out
+  until Jonas decides.
+- **NOK only** for `create_sale`, `create_purchase_draft`,
+  `create_invoice_draft_from_time_entries` and `register_payment`.
+- **Concepts added:** `invoice_drafts`, `offers`, `order_confirmations`,
+  `recurring_invoices`, `time_tracking`, `ehf`, so a concept filter in the
+  connector URL can allow, for example, invoice drafts without invoicing.
+- **Not covered:** activity writes, contact groups management, contact
+  attachments, the product sales report, creating bank accounts.
+
 ## Things we decided not to do, on purpose
 
 - No guard against a PDF decompression bomb in `get_inbox_document`. The
@@ -394,7 +430,8 @@ changed, and what it left open:
   downscale path already existed, and the iOS Files app hands over HEIC
   often enough that refusing it looked like a broken upload.)
 - No offers, order confirmations, recurring invoices, time tracking or
-  deletes in version one.
+  deletes in version one. (Reversed 2026-09-29 for all but deletes: the
+  coverage plan added them; deletes, reversals and cancelling remain out.)
 - No per-user website login. Usage is a tool; the site shows aggregates.
 - No negative cache for failed CIMD document fetches. The hosts are
   allowlisted, the fetch times out after 3 s and nothing is stored, so a

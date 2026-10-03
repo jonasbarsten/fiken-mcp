@@ -3,7 +3,37 @@ import { defineOperation, type Operation } from "../operations.js";
 import { toolJson } from "../context.js";
 import { companySlug, CONFIRM, defined, isoDate, ORE, toolText, withCompany } from "./common.js";
 
+interface FikenPayment {
+  paymentId: number;
+  date: string;
+  account: string;
+  amount: number;
+  fee?: number;
+}
+
 export const paymentsOperations: Operation[] = [
+  defineOperation({
+    name: "list_payments",
+    concept: "payments",
+    kind: "read",
+    destructive: false,
+    title: "List payments",
+    description: `Payments registered on one sale or one purchase. Give exactly one of saleId and purchaseId. ${ORE}`,
+    input: z.object({
+      companySlug,
+      saleId: z.number().int().optional().describe("Sale id, from list_sales (via fiken_read)"),
+      purchaseId: z.number().int().optional().describe("Purchase id, from list_purchases (via fiken_read)"),
+    }),
+    async run(ctx, { companySlug: slug, saleId, purchaseId }) {
+      if ((saleId === undefined) === (purchaseId === undefined)) return toolText("Give exactly one of saleId and purchaseId.");
+      return withCompany(ctx, slug, async () => {
+        const target = saleId !== undefined ? `sales/${saleId}` : `purchases/${purchaseId}`;
+        const payments = await ctx.fiken.json<FikenPayment[]>(`/companies/${slug}/${target}/payments`);
+        return toolJson({ items: payments.map((p) => ({ paymentId: p.paymentId, date: p.date, account: p.account, amount: p.amount, fee: p.fee })) });
+      });
+    },
+  }),
+
   defineOperation({
     name: "register_payment",
     concept: "payments",

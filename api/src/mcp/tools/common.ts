@@ -27,6 +27,16 @@ export function toolText(text: string): CallToolResult {
   return { content: [{ type: "text", text }], isError: true };
 }
 
+/**
+ * The write (`what` was `did`, e.g. "Project 5" was "created") succeeded but reading it back failed:
+ * says not to repeat it and names the read that shows it.
+ */
+export function readBackFailed(what: string, did: string, err: unknown, operation: string, args: Record<string, unknown>): CallToolResult {
+  return toolText(
+    `${what} was ${did}; fetching it back failed: ${errorText(err)}. Do not repeat it; ${gatewayCall("fiken_read", operation, args)}.`,
+  );
+}
+
 /** Drops keys whose value is undefined so Fiken only sees what the caller gave. */
 export function defined(fields: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
