@@ -129,6 +129,7 @@ New statements, each pinned as tightly as CloudFront's ARNs allow:
 | `web/**`, `iac/lib/web-stack.ts` | web |
 | `iac/lib/iac-stack.ts` | iac |
 | any other `iac/**` (exec-policy, which also holds the site constants, bin, synthesizer, package.json, cdk.json) | iac, web |
+| api/src/assets/icon.png (also shipped by the site) | web, api |
 | `api/**` | api |
 | `package.json`, `package-lock.json`, `tsconfig.base.json`, `.github/workflows/deploy.yml` | iac, web, api |
 | `iac/test/**`, `api/test/**`, `iac/lib/deploy-targets.ts` | none (CI covers them; they change no stack) |

@@ -38,8 +38,10 @@ export class WebStack extends Stack {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
-      // The content is rebuilt from git; RETAIN avoids an auto-delete custom resource.
-      removalPolicy: RemovalPolicy.RETAIN,
+      // The content is rebuilt from git, so the bucket is kept on update and delete instead of
+      // adding an auto-delete custom resource. Not plain RETAIN: that would also keep the bucket
+      // when the first create rolls back, and every retry would fail with "bucket already exists".
+      removalPolicy: RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
     });
 
     const headers = new cloudfront.ResponseHeadersPolicy(this, "SecurityHeaders", {

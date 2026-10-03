@@ -76,20 +76,15 @@ Claude / ChatGPT ──MCP over HTTPS──▶ API Gateway ──▶ Lambda (Hon
 ```
 
 One stateless Lambda serves MCP, OAuth and file uploads. Fiken allows one
-concurrent request, so every call goes through one queue. The tool list
-stays short: a few hot-path tools plus `fiken_explore`, `fiken_read` and
-`fiken_write`, which reach every Fiken operation.
+concurrent request, so every call goes through one queue.
 
 Status: live at `https://api.fiken-mcp.byjoba.com` for a handful of
-test users. The receipts flow works end to end: pick receipts in the
-chat, they land in the Fiken inbox, the model reads them and books each
-one as a purchase with the original attached. Invoices, credit notes and
-payments are covered too.
+test users. The receipts flow works end to end, and invoices, credit
+notes and payments are covered too.
 
 ## What it can do
 
-The server offers a short, fixed tool list instead of one tool per Fiken
-action:
+A short, fixed tool list instead of one tool per Fiken action:
 
 - The hot-path tools, real tools the receipts flow needs without an extra
   round trip: `list_companies`, `list_projects`, `list_accounts`,

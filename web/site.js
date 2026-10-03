@@ -22,15 +22,17 @@ function showEmail(button) {
 function setupCopy(button, text) {
   if (!navigator.clipboard) return;
   button.hidden = false;
+  const label = button.textContent;
+  let timer;
   button.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
       return;
     }
-    const label = button.textContent;
+    clearTimeout(timer);
     button.textContent = "Kopiert";
-    setTimeout(() => {
+    timer = setTimeout(() => {
       button.textContent = label;
     }, 2000);
   });

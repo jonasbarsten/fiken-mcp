@@ -62,14 +62,49 @@ describe("web content", () => {
   });
 
   it("is a Norwegian page with no inline script or style, a GitHub link and the disclaimer", () => {
+    for (const name of ["index.html", "404.html"]) {
+      const page = read(name);
+      expect(page, name).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/);
+      expect(page, name).not.toMatch(/<style/);
+      expect(page, name).not.toMatch(/\sstyle=/);
+    }
     const html = read("index.html");
     expect(html).toContain('<html lang="nb">');
-    expect(html).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/);
-    expect(html).not.toMatch(/<style/);
-    expect(html).not.toMatch(/\sstyle=/);
     expect(html).toContain('href="https://github.com/jonasbarsten/fiken-mcp"');
     expect(html).toContain("<h2>Ansvarsfraskrivelse</h2>");
     expect(html).toContain("byJoBa");
+  });
+
+  it("restores the copy label after repeated clicks", async () => {
+    const button = {
+      textContent: "Kopier",
+      hidden: true,
+      handler: undefined as undefined | (() => Promise<void>),
+      addEventListener(_: string, fn: () => Promise<void>) { this.handler = fn; },
+    };
+    const elements: Record<string, unknown> = {
+      "copy-url": button,
+      "connector-url": { textContent: " https://example.test/mcp " },
+    };
+    const timers = new Map<number, () => void>();
+    let nextId = 1;
+    const context = vm.createContext({
+      document: { getElementById: (id: string) => elements[id] ?? null, querySelectorAll: () => [] },
+      navigator: { clipboard: { writeText: async () => {} } },
+      fetch: async () => ({ ok: false }),
+      Intl,
+      Date,
+      setTimeout: (fn: () => void) => { timers.set(nextId, fn); return nextId++; },
+      clearTimeout: (id: number) => { timers.delete(id); },
+      String,
+    });
+    vm.runInContext(read("site.js"), context);
+    expect(button.hidden).toBe(false);
+    await button.handler!();
+    await button.handler!();
+    expect(button.textContent).toBe("Kopiert");
+    for (const fn of timers.values()) fn();
+    expect(button.textContent).toBe("Kopier");
   });
 
   it("keeps [hidden] elements hidden despite .button's display", () => {

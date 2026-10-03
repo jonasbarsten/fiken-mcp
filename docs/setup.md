@@ -381,3 +381,9 @@ unless noted, and any email recipient at jonasbj.com.
 - The browser console shows no CSP violations.
 - A later merge touching only `web/` runs only the `fiken-mcp-web` step,
   and a docs-only merge asks for no approval.
+- If the first `fiken-mcp-web` create fails with AccessDenied on a
+  CloudFront action such as `cloudfront:CreateConnectionGroup` or
+  `cloudfront:GetVpcOrigin` (listed among CreateDistribution's related
+  actions in AWS's service authorization reference), add it to the
+  `CloudFrontCreate` statement in `iac/lib/exec-policy.ts`. The bucket is
+  not retained on a failed create, so the retry is clean.

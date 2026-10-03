@@ -16,10 +16,11 @@ function synth() {
 }
 
 describe("WebStack", () => {
-  it("creates a private, SSL-only, retained bucket named for the account", () => {
+  it("creates a private, SSL-only bucket, retained except on a failed create, named for the account", () => {
     const t = synth();
     t.hasResource("AWS::S3::Bucket", {
-      DeletionPolicy: "Retain",
+      DeletionPolicy: "RetainExceptOnCreate",
+      UpdateReplacePolicy: "Retain",
       Properties: Match.objectLike({
         BucketName: "fiken-mcp-web-209479295726",
         PublicAccessBlockConfiguration: {

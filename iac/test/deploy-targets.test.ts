@@ -15,6 +15,7 @@ describe("stacksFor", () => {
     ["api/src/mcp/context.ts", ["api"]],
     ["api/lib/api-stack.ts", ["api"]],
     ["api/package.json", ["api"]],
+    ["api/src/assets/icon.png", ["web", "api"]],
     ["package.json", ["iac", "web", "api"]],
     ["package-lock.json", ["iac", "web", "api"]],
     ["tsconfig.base.json", ["iac", "web", "api"]],

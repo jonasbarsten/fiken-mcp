@@ -19,6 +19,8 @@ export function stacksFor(path: string): StackKey[] {
   if (path === "iac/lib/iac-stack.ts") return ["iac"];
   // exec-policy.ts holds the site constants too, so it feeds both stacks.
   if (path.startsWith("iac/")) return ["iac", "web"];
+  // The web stack ships this icon too, so it needs both stacks.
+  if (path === "api/src/assets/icon.png") return ["web", "api"];
   if (path.startsWith("api/")) return ["api"];
   return [];
 }

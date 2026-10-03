@@ -32,7 +32,7 @@ jobs:
           base=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
           if [ -n "$base" ] && git cat-file -e "$base^{commit}" 2>/dev/null; then
             echo "Changed since the last successful deploy ($base):"
-            git -c core.quotePath=false diff --name-only "$base" "$GITHUB_SHA" | tee changed.txt
+            git -c core.quotePath=false diff --name-only --no-renames "$base" "$GITHUB_SHA" | tee changed.txt
             node iac/lib/deploy-targets.ts < changed.txt | tee -a "$GITHUB_OUTPUT"
           else
             echo "No successful deploy to compare with; deploying everything."
