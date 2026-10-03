@@ -31,20 +31,34 @@ describe("manual journal entries", () => {
 
   it("posts one entry and reads it back", async () => {
     const f = fakeFiken([
-      { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/journalEntries/21" } },
-      { match: /\/journalEntries\/21$/, body: entry },
+      { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/transactions/77" } },
+      { match: /\/transactions\/77$/, body: transaction },
     ]);
     const c = await connected(f.fetchImpl);
     const lines = [{ amount: 100000, debitAccount: "6000" }, { amount: 100000, creditAccount: "1200" }];
     const r = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "Avskrivning", date: "2026-09-29", lines });
     expect(r.json()).toMatchObject({ journalEntryId: 21, journalEntryNumber: 51 });
+    expect(f.calls[1]?.url).toBe("https://api.test/v2/companies/demo/transactions/77");
     expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ description: "Avskrivning", journalEntries: [{ description: "Avskrivning", date: "2026-09-29", lines }] });
+  });
+
+  it("returns every journal entry of the transaction when there are several", async () => {
+    const f = fakeFiken([
+      { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/transactions/77" } },
+      { match: /\/transactions\/77$/, body: { ...transaction, entries: [entry, { ...entry, journalEntryId: 22 }] } },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const lines = [{ amount: 100000, debitAccount: "6000" }, { amount: 100000, creditAccount: "1200" }];
+    const r = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "Avskrivning", date: "2026-09-29", lines });
+    const json = r.json() as { transactionId: number; journalEntries: Array<{ journalEntryId: number }> };
+    expect(json.transactionId).toBe(77);
+    expect(json.journalEntries.map((j) => j.journalEntryId)).toEqual([21, 22]);
   });
 
   it("a line with both accounts balances by itself", async () => {
     const f = fakeFiken([
-      { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/journalEntries/21" } },
-      { match: /\/journalEntries\/21$/, body: entry },
+      { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/transactions/77" } },
+      { match: /\/transactions\/77$/, body: transaction },
     ]);
     const c = await connected(f.fetchImpl);
     const r = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "Overføring", date: "2026-09-29", lines: [{ amount: 5000, debitAccount: "1920:10002", creditAccount: "1920:10001" }] });
@@ -53,16 +67,17 @@ describe("manual journal entries", () => {
 
   it("sends open only when given, and names the created entry when the read-back fails", async () => {
     const f = fakeFiken([
-      { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/journalEntries/21" } },
-      { match: /\/journalEntries\/21$/, status: 500, body: "x" },
+      { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/transactions/77" } },
+      { match: /\/transactions\/77$/, status: 500, body: "x" },
     ]);
     const c = await connected(f.fetchImpl);
     const lines = [{ amount: 100, debitAccount: "6000" }, { amount: 100, creditAccount: "1200" }];
     const r = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "A", date: "2026-09-29", lines, open: true });
     expect(JSON.parse(String(f.calls[0]?.init?.body))).toMatchObject({ open: true });
     expect(r.isError).toBe(true);
-    expect(r.text).toContain("Journal entry 21 was created");
-    expect(r.text).toContain("get_journal_entries");
+    expect(r.text).toContain("transaction 77 was created");
+    expect(r.text).toContain("Do not create it again");
+    expect(r.text).toContain("get_transaction");
   });
 });
 

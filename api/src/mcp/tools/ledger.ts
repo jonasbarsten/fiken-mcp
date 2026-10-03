@@ -182,6 +182,7 @@ export const ledgerOperations: Operation[] = [
     description:
       "Book a manual journal entry (fri postering): corrections, depreciation, salary, transfers between accounts. " +
       "Each line moves amount (øre) to debitAccount and/or from creditAccount; debits and credits must balance. " +
+      "Returns the created journal entry, or { transactionId, journalEntries } when Fiken split it into several. " +
       `Fiken prefixes the description with 'Fri postering registrert via API: '. No VAT: book VAT through create_purchase or create_sale (via fiken_write). ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,
@@ -200,13 +201,16 @@ export const ledgerOperations: Operation[] = [
       }
       if (debit !== credit) return toolText(`The entry does not balance: debit ${debit} øre, credit ${credit} øre.`);
       return withCompany(ctx, slug, async () => {
-        const { id } = await ctx.fiken.create(`/companies/${slug}/generalJournalEntries`, defined({ description, open, journalEntries: [{ description, date, lines }] }));
+        // The Location header of POST /generalJournalEntries carries the transaction id, not a journal entry id.
+        const { id: transactionId } = await ctx.fiken.create(`/companies/${slug}/generalJournalEntries`, defined({ description, open, journalEntries: [{ description, date, lines }] }));
         try {
-          return toolJson(trimJournalEntry(await ctx.fiken.json<FikenJournalEntry>(`/companies/${slug}/journalEntries/${id}`)));
+          const t = await ctx.fiken.json<FikenTransaction>(`/companies/${slug}/transactions/${transactionId}`);
+          const entries = (t.entries ?? []).map(trimJournalEntry);
+          return toolJson(entries.length === 1 ? entries[0] : { transactionId, journalEntries: entries });
         } catch (err) {
           return toolText(
-            `Journal entry ${id} was created; fetching it back failed: ${errorText(err)}. Do not create it again; ` +
-              `${gatewayCall("fiken_read", "get_journal_entries", { companySlug: slug, dateGe: date, dateLe: date })} finds it.`,
+            `Journal entry transaction ${transactionId} was created; fetching it back failed: ${errorText(err)}. Do not create it again; ` +
+              `${gatewayCall("fiken_read", "get_transaction", { companySlug: slug, transactionId })} shows it.`,
           );
         }
       });

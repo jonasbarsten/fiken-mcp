@@ -62,7 +62,34 @@ describe("POST /mcp", () => {
     expect(body.result.isError).toBe(true);
   });
 
-  it("turns a Fiken 401 during a tool call into an HTTP 401 so the client refreshes", async () => {
+  it("answers 200 with a tool error when Fiken refuses one endpoint with 401 but /user confirms the login", async () => {
+    const cfgEndpoint = testConfig({
+      fetch: async (input) => {
+        const url = String(input);
+        if (url.endsWith("/counter")) return new Response("no access", { status: 401 });
+        if (url.endsWith("/user")) return Response.json({ name: "Jonas", email: "j@example.com" });
+        return new Response("unexpected", { status: 500 });
+      },
+    });
+    const appEndpoint = createApp(cfgEndpoint);
+    const tok = issueTokens(cfgEndpoint, { access_token: "FA", refresh_token: "FR", expires_in: 3600 }, "anon").access_token;
+    const res = await appEndpoint.request("/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${tok}` },
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: 6, method: "tools/call",
+        params: { name: "fiken_read", arguments: { operation: "get_counters", args: { companySlug: "demo" } } },
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("www-authenticate")).toBeNull();
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain("although the login is valid: no access");
+  });
+
+  it("turns a Fiken 401 during a tool call into an HTTP 401 so the client refreshes, when /user answers 401 too", async () => {
+    // Every Fiken path answers 401, /user included: the login itself is dead.
     const cfg401 = testConfig({ fetch: async () => new Response("expired", { status: 401 }) });
     const app401 = createApp(cfg401);
     const tok = issueTokens(cfg401, { access_token: "FA", refresh_token: "FR", expires_in: 3600 }, "anon").access_token;

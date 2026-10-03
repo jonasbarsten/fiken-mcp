@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { FikenQueue, createFikenClient } from "../../src/fiken/client.js";
 import { z } from "zod";
+import type { ToolContext } from "../../src/mcp/context.js";
 import type { Operation } from "../../src/mcp/operations.js";
 import type { ConnectorOptions } from "../../src/mcp/options.js";
 import { getOperation } from "../../src/mcp/registry.js";
@@ -32,9 +33,9 @@ export const farFutureExp = () => Math.floor(Date.now() / 1000) + 3600;
 
 export async function connected(
   fetchImpl: typeof fetch,
-  opts?: { usage?: UsageStore; session?: { fikenUnauthorized: boolean; wrote: boolean }; options?: ConnectorOptions },
+  opts?: { usage?: UsageStore; session?: ToolContext["session"]; options?: ConnectorOptions },
 ) {
-  const session = opts?.session ?? { fikenUnauthorized: false, wrote: false };
+  const session: ToolContext["session"] = opts?.session ?? { fikenUnauthorized: false, wrote: false };
   const fiken = createFikenClient({ baseUrl: "https://api.test/v2", fileBaseUrl: "https://files.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0), onWrite: () => { session.wrote = true; } });
   const server = createMcpServer({
     fiken,

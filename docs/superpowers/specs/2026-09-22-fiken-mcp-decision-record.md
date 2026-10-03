@@ -271,7 +271,10 @@ changed, and what it left open:
   write guard instead of per-tool reasoning: after any successful
   non-GET Fiken call in a request, a Fiken 401 stays a tool error and
   never becomes an HTTP 401, because the client would re-send and repeat
-  the write.
+  the write. Since 2026-10-03 a Fiken 401 only becomes an HTTP 401 when
+  `GET /user` (checked at most once per request) also answers 401,
+  because Fiken refused the counter endpoint with 401 for a valid login
+  and that forced a needless re-login.
 - **The upload ticket travels in `structuredContent` (accepted, with a
   follow-up, 2026-09-28).** The spec prescribes it and the spike proved
   it reaches the widget that way, but `structuredContent` is part of the
@@ -391,9 +394,11 @@ changed, and what it left open:
   everything. Fiken has no ETag, so an edit in Fiken between the GET and
   the PUT is overwritten; we accept that and say so in the README.
   `update_contact` sends `groups` back. Fiken never returns a contact's
-  `currency` or member number (write-only), so the tool accepts them
-  again and says so. Contact persons are not sent back until a live check
-  shows whether Fiken keeps them. `update_invoice_draft` refuses a draft
+  `currency` or member number (write-only), so the tool accepts them as
+  optional inputs. Live check 2026-10-03: a PUT that leaves them out
+  keeps them, Fiken does return the phone number, and a PUT without
+  `contactPerson` keeps the contact persons, so no caveat is needed.
+  `update_invoice_draft` refuses a draft
   with several customers.
 - **Counters are never reset.** `initialize_counter` only starts a series
   that does not exist and never changes an existing one, since a changed

@@ -171,8 +171,7 @@ export const contactsOperations: Operation[] = [
     description:
       "Change a contact. Only the fields you give change, everything else Fiken holds stays as it is; at least one is required. " +
       "Address fields merge into the existing address. " +
-      "Fiken does not return a contact's phone number, currency or member number, so an update may reset them; if the contact has any of these set, pass them again. " +
-      "Contact persons may be removed by an update until this is verified; check list_contact_persons (via fiken_read) first and add them back with add_contact_person (via fiken_write) if needed. " +
+      "Contact persons are managed with add_contact_person (via fiken_write). " +
       CONFIRM,
     input: z.object({
       companySlug,

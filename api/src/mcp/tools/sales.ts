@@ -122,7 +122,9 @@ export const salesOperations: Operation[] = [
         }
       }
       return withCompany(ctx, slug, async () => {
-        const { id } = await ctx.fiken.create(`/companies/${slug}/sales`, defined(sale));
+        // Fiken rejects a cash sale without totalPaid ("Missing field 'totalPaid' for sale marked as paid in NOK").
+        const totalPaid = sale.kind === "cash_sale" ? sale.lines.reduce((sum, l) => sum + l.netPrice + l.vat, 0) : undefined;
+        const { id } = await ctx.fiken.create(`/companies/${slug}/sales`, defined({ ...sale, totalPaid }));
         try {
           return toolJson(trimSaleDetail(await ctx.fiken.json<FikenSale>(`/companies/${slug}/sales/${id}`)));
         } catch (err) {

@@ -70,13 +70,72 @@ describe("read tools", () => {
     expect(f.calls[2]?.url).toContain("sortBy=createdDate+desc");
   });
 
-  it("a Fiken 401 on a read-only call sets session.fikenUnauthorized", async () => {
-    const f = fakeFiken([{ match: /\/projects\?/, status: 401, body: { message: "expired" } }]);
+  it("a Fiken 401 on a read-only call sets session.fikenUnauthorized when /user also answers 401", async () => {
+    const f = fakeFiken([
+      { match: /\/projects\?/, status: 401, body: { message: "expired" } },
+      { match: /\/user$/, status: 401, body: { message: "expired" } },
+    ]);
     const session = { fikenUnauthorized: false, wrote: false };
     const c = await connected(f.fetchImpl, { session });
     const r = await callJson(c, "list_projects", { companySlug: "demo" });
     expect(r.isError).toBe(true);
     expect(session.fikenUnauthorized).toBe(true);
+  });
+
+  it("a Fiken 401 on one endpoint while /user answers 200 is a tool error, not a dead session", async () => {
+    const f = fakeFiken([
+      { match: /\/invoices\/counter$/, status: 401, body: { message: "no access to counter" } },
+      { match: /\/user$/, body: { name: "Jonas", email: "j@example.com" } },
+    ]);
+    const session = { fikenUnauthorized: false, wrote: false };
+    const c = await connected(f.fetchImpl, { session });
+    const r = await callJson(c, "get_counters", { companySlug: "demo" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toBe(
+      'Fiken refused this request (401) although the login is valid: {"message":"no access to counter"}. The company may lack the module or permission this needs.',
+    );
+    expect(session.fikenUnauthorized).toBe(false);
+  });
+
+  it("several Fiken 401s in one request cost at most one /user check", async () => {
+    const f = fakeFiken([
+      { match: /\/counter$/, status: 401, body: "no" },
+      { match: /\/projects\?/, status: 401, body: "no" },
+      { match: /\/user$/, body: { name: "Jonas", email: "j@example.com" } },
+    ]);
+    const session = { fikenUnauthorized: false, wrote: false };
+    const c = await connected(f.fetchImpl, { session });
+    expect((await callJson(c, "get_counters", { companySlug: "demo" })).text).toContain("although the login is valid");
+    expect((await callJson(c, "list_projects", { companySlug: "demo" })).text).toContain("although the login is valid");
+    expect(f.calls.filter((x) => x.url.endsWith("/user"))).toHaveLength(1);
+    expect(session.fikenUnauthorized).toBe(false);
+  });
+
+  it("a failing /user check (not a 401) leaves the session alive", async () => {
+    const f = fakeFiken([
+      { match: /\/projects\?/, status: 401, body: "no" },
+      { match: /\/user$/, status: 503, body: "down" },
+    ]);
+    const session = { fikenUnauthorized: false, wrote: false };
+    const c = await connected(f.fetchImpl, { session });
+    const r = await callJson(c, "list_projects", { companySlug: "demo" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toBe('Fiken answered 401: "no". Retry; if it keeps happening, the user may need to reconnect the Fiken connector.');
+    expect(session.fikenUnauthorized).toBe(false);
+  });
+
+  it("a /user check that fails with a network error gives the neutral text and leaves the session alive", async () => {
+    const f = fakeFiken([{ match: /\/projects\?/, status: 401, body: "no" }]);
+    const fetchImpl: typeof fetch = async (input, init) => {
+      if (String(input).endsWith("/user")) throw new TypeError("fetch failed");
+      return f.fetchImpl(input, init);
+    };
+    const session = { fikenUnauthorized: false, wrote: false };
+    const c = await connected(fetchImpl, { session });
+    const r = await callJson(c, "list_projects", { companySlug: "demo" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toBe('Fiken answered 401: "no". Retry; if it keeps happening, the user may need to reconnect the Fiken connector.');
+    expect(session.fikenUnauthorized).toBe(false);
   });
 
   it("an unknown company slug lists the known slugs in the error", async () => {
@@ -219,6 +278,7 @@ describe("write tools", () => {
     expect(r.isError).toBe(true);
     expect(r.text).toContain("Purchase 77 was created");
     expect(session.fikenUnauthorized).toBe(false);
+    expect(f.calls.some((x) => x.url.endsWith("/user"))).toBe(false);
   });
 
   it("create_purchase refuses a mistyped key in a line before any call", async () => {
@@ -241,17 +301,34 @@ describe("write tools", () => {
 });
 
 describe("write guard", () => {
-  it("a Fiken 401 after a write in the same request is not flagged for an HTTP 401", () => {
-    const ctx = { session: { fikenUnauthorized: false, wrote: true } } as unknown as Parameters<typeof noteFikenError>[0];
-    noteFikenError(ctx, new FikenError(401, "expired"));
+  /** A Fiken client whose /user check answers `status` and counts how often it was asked. */
+  const loginCheck = (status: number) => {
+    const asked = { count: 0 };
+    const fiken = {
+      json: async (path: string) => {
+        asked.count++;
+        if (path !== "/user") throw new Error(`unexpected ${path}`);
+        if (status !== 200) throw new FikenError(status, "expired");
+        return { name: "Jonas", email: "j@example.com" };
+      },
+    };
+    return { fiken, asked };
+  };
+
+  it("a Fiken 401 after a write in the same request is not flagged for an HTTP 401 and makes no login check", async () => {
+    const written = loginCheck(401);
+    const ctx = { fiken: written.fiken, session: { fikenUnauthorized: false, wrote: true } } as unknown as ToolContext;
+    await noteFikenError(ctx, new FikenError(401, "expired"));
     expect(ctx.session.fikenUnauthorized).toBe(false);
-    const fresh = { session: { fikenUnauthorized: false, wrote: false } } as unknown as Parameters<typeof noteFikenError>[0];
-    noteFikenError(fresh, new FikenError(401, "expired"));
+    expect(written.asked.count).toBe(0);
+    const fresh = { fiken: loginCheck(401).fiken, session: { fikenUnauthorized: false, wrote: false } } as unknown as ToolContext;
+    await noteFikenError(fresh, new FikenError(401, "expired"));
     expect(fresh.session.fikenUnauthorized).toBe(true);
   });
 
   it("counted() does not flag a Fiken 401 thrown out of a handler that already wrote", async () => {
-    const ctx = { anonId: "anon", usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false } } as unknown as ToolContext;
+    const written = loginCheck(401);
+    const ctx = { fiken: written.fiken, anonId: "anon", usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false } } as unknown as ToolContext;
     const handler = counted(ctx, "probe", async () => {
       ctx.session.wrote = true;
       throw new FikenError(401, "x");
@@ -259,7 +336,8 @@ describe("write guard", () => {
     const result = await handler({}, undefined);
     expect(result.isError).toBe(true);
     expect(ctx.session.fikenUnauthorized).toBe(false);
-    const readOnly = { anonId: "anon", usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false } } as unknown as ToolContext;
+    expect(written.asked.count).toBe(0);
+    const readOnly = { fiken: loginCheck(401).fiken, anonId: "anon", usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false } } as unknown as ToolContext;
     await counted(readOnly, "probe", async () => {
       throw new FikenError(401, "x");
     })({}, undefined);

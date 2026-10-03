@@ -71,7 +71,9 @@ describe("invoices", () => {
     expect(r.isError).toBe(true);
     expect(r.text).toContain("Invoice 77 was created");
     expect(r.text).toContain("Do not create it again");
+    expect(r.text).toContain('Fiken answered 401: "expired". Retry; if it keeps happening, the user may need to reconnect the Fiken connector.');
     expect(session.fikenUnauthorized).toBe(false);
+    expect(f.calls.some((x) => x.url.endsWith("/user"))).toBe(false);
   });
 
   it("create_invoice_draft returns the draft id; create_invoice_from_draft issues it", async () => {

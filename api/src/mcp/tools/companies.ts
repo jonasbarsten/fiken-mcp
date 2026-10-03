@@ -28,8 +28,7 @@ export const companiesOperations: Operation[] = [
           companies.map((c) => ({ name: c.name, slug: c.slug, organizationNumber: c.organizationNumber, hasApiAccess: c.hasApiAccess })),
         );
       } catch (err) {
-        noteFikenError(ctx, err);
-        return toolError(err);
+        return toolError(err, await noteFikenError(ctx, err));
       }
     },
   }),

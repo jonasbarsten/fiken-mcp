@@ -19,7 +19,10 @@ describe("sales", () => {
     expect(typo.isError).toBe(true);
     const ok = await callJson(c, "create_sale", { companySlug: "demo", date: "2026-09-29", kind: "cash_sale", paymentAccount: "1920:10001", paymentDate: "2026-09-29", lines: [line] });
     expect(ok.json()).toMatchObject({ saleId: 9, kind: "cash_sale", payments: 1 });
-    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ date: "2026-09-29", kind: "cash_sale", currency: "NOK", paymentAccount: "1920:10001", paymentDate: "2026-09-29", lines: [line] });
+    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ date: "2026-09-29", kind: "cash_sale", currency: "NOK", paymentAccount: "1920:10001", paymentDate: "2026-09-29", totalPaid: 12500, lines: [line] });
+    const line2 = { description: "Kaffe", netPrice: 4000, vat: 1000, vatType: "HIGH", account: "3000" };
+    await callJson(c, "create_sale", { companySlug: "demo", date: "2026-09-29", kind: "cash_sale", paymentAccount: "1920:10001", paymentDate: "2026-09-29", lines: [line, line2] });
+    expect(JSON.parse(String(f.calls[2]?.init?.body))).toMatchObject({ totalPaid: 17500 });
   });
 
   it("create_sale refuses other currencies and fields of the other kind before any call", async () => {

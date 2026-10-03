@@ -45,11 +45,9 @@ Operations by concept (`read` unless marked write):
 - `companies`: `list_companies`
 - `contacts`: `search_contacts`, `get_contact`, `create_contact` (write),
   `update_contact` (write; only the given fields change, the rest of the
-  contact is sent back as it was, groups included. Fiken never returns a
-  contact's phone number, currency or member number, so send them again
-  when you update the contact; contact persons are not sent back, and until
-  it is verified that Fiken keeps them, check `list_contact_persons` first
-  and add any lost ones back with `add_contact_person`),
+  contact is sent back as it was, groups included; currency, member
+  number, phone number and contact persons are kept, verified live
+  2026-10-03),
   `list_contact_persons`, `add_contact_person` (write)
 - `projects`: `list_projects`, `get_project`, `create_project` (write),
   `update_project` (write; only the given fields change)
@@ -222,8 +220,13 @@ Fiken under Rediger konto, API.
 
 If Fiken rejects a login during a tool call (for example because you
 revoked access), the server answers with an HTTP 401 so the client asks
-you to log in again automatically; legacy JSON-RPC batch request bodies
-are refused with a 400 instead of being processed.
+you to log in again automatically. The server first asks Fiken whether
+the login itself is dead, and only then answers HTTP 401. When the login
+still works and Fiken refused only that one endpoint, the call returns
+an ordinary tool error saying so. When that check itself fails (or a
+401 comes after something was already written), the call returns a
+tool error suggesting a retry, never an HTTP 401. Legacy JSON-RPC batch
+request bodies are refused with a 400 instead of being processed.
 
 Claude (web, Desktop, iOS): Settings, Connectors, Add custom connector,
 URL `https://api.fiken-mcp.byjoba.com/mcp`, sign-in required. Log in with
