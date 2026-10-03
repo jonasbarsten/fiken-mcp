@@ -182,6 +182,7 @@ export const ledgerOperations: Operation[] = [
     description:
       "Book a manual journal entry (fri postering): corrections, depreciation, salary, transfers between accounts. " +
       "Each line moves amount (øre) to debitAccount and/or from creditAccount; debits and credits must balance. " +
+      "Returns the created journal entry, or { transactionId, journalEntries } when Fiken split it into several. " +
       `Fiken prefixes the description with 'Fri postering registrert via API: '. No VAT: book VAT through create_purchase or create_sale (via fiken_write). ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,

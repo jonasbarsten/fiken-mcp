@@ -16,41 +16,51 @@ export interface ToolContext {
    * and `GET /user` confirms the login is dead, so `/mcp` can answer HTTP 401. `loginChecked` caches that
    * check's outcome ("unknown" when it failed for another reason), so a request makes it at most once.
    */
-  session: { fikenUnauthorized: boolean; wrote: boolean; loginChecked?: "valid" | "invalid" | "unknown" };
+  session: { fikenUnauthorized: boolean; wrote: boolean; loginChecked?: LoginState };
 }
+
+/**
+ * What is known about the login when Fiken answered 401: `GET /user` confirmed it dead ("invalid") or
+ * working ("valid"), or it was not checked or the check failed another way ("unknown").
+ */
+export type LoginState = "valid" | "invalid" | "unknown";
 
 export function toolJson(value: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
 }
 
-/** `loginValid`: a Fiken 401 came from one endpoint while `GET /user` confirmed the login (see `noteFikenError`). */
-export function errorText(err: unknown, opts?: { loginValid?: boolean }): string {
+/**
+ * `login` only matters for a Fiken 401 and comes from `noteFikenError`. It defaults to "unknown",
+ * which is also what every read-back or follow-up after a write gets, since those never check.
+ */
+export function errorText(err: unknown, login: LoginState = "unknown"): string {
   if (err instanceof FikenError) {
     if (err.status === 401) {
-      if (opts?.loginValid) {
+      if (login === "invalid") return "Fiken rejected the login (401). Ask the user to disconnect and reconnect the Fiken connector, then retry.";
+      if (login === "valid") {
         return `Fiken refused this request (401) although the login is valid: ${err.body}. The company may lack the module or permission this needs.`;
       }
-      return "Fiken rejected the login (401). Ask the user to disconnect and reconnect the Fiken connector, then retry.";
+      return `Fiken answered 401: ${err.body}. Retry; if it keeps happening, the user may need to reconnect the Fiken connector.`;
     }
     return `Fiken responded ${err.status}: ${err.body}`;
   }
   return `Error: ${err instanceof Error ? err.message : String(err)}`;
 }
 
-export function toolError(err: unknown, opts?: { loginValid?: boolean }): CallToolResult {
-  return { content: [{ type: "text", text: errorText(err, opts) }], isError: true };
+export function toolError(err: unknown, login?: LoginState): CallToolResult {
+  return { content: [{ type: "text", text: errorText(err, login) }], isError: true };
 }
 
 /**
  * On a Fiken 401 where nothing was written yet, checks the login once per request with
  * `GET /user`: only a 401 there marks the session dead (so `/mcp` answers HTTP 401 and
  * the client re-sends the same tools/call after refreshing). A 401 on one endpoint with a
- * working login, or a check that fails another way, stays a tool error. Resolves true
- * when the login was confirmed valid, so the caller can say the refusal was endpoint-specific.
+ * working login, or a check that fails another way, stays a tool error. Resolves to what
+ * is known about the login, for `toolError`; "unknown" when no check was made.
  */
-export async function noteFikenError(ctx: ToolContext, err: unknown): Promise<boolean> {
+export async function noteFikenError(ctx: ToolContext, err: unknown): Promise<LoginState> {
   // After a write, a 401 must stay a tool error because the client would re-send the call.
-  if (!(err instanceof FikenError) || err.status !== 401 || ctx.session.wrote) return false;
+  if (!(err instanceof FikenError) || err.status !== 401 || ctx.session.wrote) return "unknown";
   if (ctx.session.loginChecked === undefined) {
     try {
       await ctx.fiken.json("/user");
@@ -60,7 +70,7 @@ export async function noteFikenError(ctx: ToolContext, err: unknown): Promise<bo
     }
   }
   if (ctx.session.loginChecked === "invalid") ctx.session.fikenUnauthorized = true;
-  return ctx.session.loginChecked === "valid";
+  return ctx.session.loginChecked;
 }
 
 /**
@@ -79,7 +89,7 @@ export function counted<A>(
     try {
       result = await handler(args, extra);
     } catch (err) {
-      result = toolError(err, { loginValid: await noteFikenError(ctx, err) });
+      result = toolError(err, await noteFikenError(ctx, err));
     }
     try {
       await ctx.usage.recordCall(ctx.anonId, name, result.isError !== true);

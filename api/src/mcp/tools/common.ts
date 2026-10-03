@@ -51,7 +51,7 @@ export async function withCompany(ctx: ToolContext, slug: string, fn: () => Prom
   try {
     return await fn();
   } catch (err) {
-    const loginValid = await noteFikenError(ctx, err);
+    const login = await noteFikenError(ctx, err);
     if (err instanceof FikenError && err.status === 404) {
       try {
         const companies = await ctx.fiken.json<Array<{ slug: string }>>("/companies");
@@ -64,6 +64,6 @@ export async function withCompany(ctx: ToolContext, slug: string, fn: () => Prom
         return toolError(err);
       }
     }
-    return toolError(err, { loginValid });
+    return toolError(err, login);
   }
 }

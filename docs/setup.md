@@ -286,6 +286,8 @@ unless noted, and any email recipient at jonasbj.com.
   (`create_journal_entry`): confirm the read-back via the transaction
   works (verified 2026-10-03); a purchase draft approved in Fiken's UI,
   then `create_purchase_from_draft` on another one.
+- A cash sale with a `paymentFee`: confirm Fiken accepts `totalPaid` as
+  the gross without the fee.
 - Two `create_purchase_draft` drafts with `paid: true`: approve one in
   Fiken's UI and the other with `create_purchase_from_draft`. For each,
   note whether Fiken records the payment or refuses the draft.

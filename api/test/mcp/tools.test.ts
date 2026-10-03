@@ -118,7 +118,23 @@ describe("read tools", () => {
     ]);
     const session = { fikenUnauthorized: false, wrote: false };
     const c = await connected(f.fetchImpl, { session });
-    expect((await callJson(c, "list_projects", { companySlug: "demo" })).isError).toBe(true);
+    const r = await callJson(c, "list_projects", { companySlug: "demo" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toBe('Fiken answered 401: "no". Retry; if it keeps happening, the user may need to reconnect the Fiken connector.');
+    expect(session.fikenUnauthorized).toBe(false);
+  });
+
+  it("a /user check that fails with a network error gives the neutral text and leaves the session alive", async () => {
+    const f = fakeFiken([{ match: /\/projects\?/, status: 401, body: "no" }]);
+    const fetchImpl: typeof fetch = async (input, init) => {
+      if (String(input).endsWith("/user")) throw new TypeError("fetch failed");
+      return f.fetchImpl(input, init);
+    };
+    const session = { fikenUnauthorized: false, wrote: false };
+    const c = await connected(fetchImpl, { session });
+    const r = await callJson(c, "list_projects", { companySlug: "demo" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toBe('Fiken answered 401: "no". Retry; if it keeps happening, the user may need to reconnect the Fiken connector.');
     expect(session.fikenUnauthorized).toBe(false);
   });
 
