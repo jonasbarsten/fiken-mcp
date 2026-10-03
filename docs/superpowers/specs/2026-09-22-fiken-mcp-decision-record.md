@@ -394,9 +394,10 @@ changed, and what it left open:
   everything. Fiken has no ETag, so an edit in Fiken between the GET and
   the PUT is overwritten; we accept that and say so in the README.
   `update_contact` sends `groups` back. Fiken never returns a contact's
-  `currency` or member number (write-only), so the tool accepts them
-  again and says so. Live check 2026-10-03: Fiken does return the phone
-  number, and a PUT without `contactPerson` keeps the contact persons.
+  `currency` or member number (write-only), so the tool accepts them as
+  optional inputs. Live check 2026-10-03: a PUT that leaves them out
+  keeps them, Fiken does return the phone number, and a PUT without
+  `contactPerson` keeps the contact persons, so no caveat is needed.
   `update_invoice_draft` refuses a draft
   with several customers.
 - **Counters are never reset.** `initialize_counter` only starts a series

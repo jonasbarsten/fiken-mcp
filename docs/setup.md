@@ -188,10 +188,10 @@ Verified 2026-10-03 (from Claude Code, against the demo company):
 - `create_accrual` on that line with account 1700 over 3 periods worked
   (numeric id returned).
 - `settle_sale` with `settledDate` worked (sale 14381053880).
-- `update_contact` keeps the phone number and the contact persons.
-  Currency and member number are pending a look in Fiken's UI at contact
-  "fiken-mcp testkunde" (id 14462705276): expected currency EUR, member
-  number M-42.
+- `update_contact` keeps the phone number, the contact persons, the
+  currency and the member number: after an email-only update, Fiken's UI
+  still showed currency EUR, member number M-42, the phone number and the
+  contact person on "fiken-mcp testkunde" (id 14462705276).
 - `update_invoice_draft` replaces the lines (two lines stay two), and
   `create_invoice_from_draft` then issued invoice 10521.
 - `create_product` and `update_product` keep the other fields.
