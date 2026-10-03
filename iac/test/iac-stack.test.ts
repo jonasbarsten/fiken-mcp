@@ -229,7 +229,8 @@ describe("IacStack", () => {
         const hasWildcard = resources.includes("*");
         if (!hasWildcard) continue;
         // LogDelivery is not read-only, but CloudWatch Logs delivery has no resource scoping at all.
-        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead", "CertificatesRead", "LogDelivery"].includes(statement.Sid);
+        // CloudFrontCreate is create-only: CloudFront's create actions have no resource-level permissions.
+        const isKnownReadOnly = statement.Sid !== undefined && ["DnsRead", "DynamoRead", "CertificatesRead", "LogDelivery", "CloudFrontCreate"].includes(statement.Sid);
         expect(statement.Condition !== undefined || isKnownReadOnly).toBe(true);
       }
     }
@@ -286,6 +287,14 @@ describe("IacStack", () => {
       "arn:aws:cloudfront::209479295726:cache-policy/*",
       "arn:aws:cloudfront::209479295726:response-headers-policy/*",
     ]);
+
+    expect(bySid("CloudFrontCreate").Action).toEqual([
+      "cloudfront:CreateDistribution",
+      "cloudfront:CreateOriginAccessControl",
+      "cloudfront:CreateCachePolicy",
+      "cloudfront:CreateResponseHeadersPolicy",
+    ]);
+    expect(bySid("CloudFrontCreate").Resource).toBe("*");
 
     expect(bySid("SiteLayer").Action).toEqual(["lambda:PublishLayerVersion", "lambda:GetLayerVersion", "lambda:DeleteLayerVersion"]);
     expect(bySid("SiteLayer").Resource).toEqual([

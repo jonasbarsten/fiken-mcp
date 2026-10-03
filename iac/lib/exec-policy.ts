@@ -221,6 +221,19 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       ),
     }),
     new iam.PolicyStatement({
+      // These four create actions support no resource-level permissions;
+      // update, delete, get, tag and invalidate stay pinned to ARNs in the
+      // CloudFront statement.
+      sid: "CloudFrontCreate",
+      actions: [
+        "cloudfront:CreateDistribution",
+        "cloudfront:CreateOriginAccessControl",
+        "cloudfront:CreateCachePolicy",
+        "cloudfront:CreateResponseHeadersPolicy",
+      ],
+      resources: ["*"],
+    }),
+    new iam.PolicyStatement({
       sid: "SiteLayer",
       actions: ["lambda:PublishLayerVersion", "lambda:GetLayerVersion", "lambda:DeleteLayerVersion"],
       resources: [
