@@ -53,6 +53,24 @@ describe("counters", () => {
     expect(other.calls.some((x) => x.init?.method === "POST")).toBe(false);
   });
 
+  it("treats Fiken's 401 'counter not initialized' (seen live 2026-10-03) as missing, and makes no login check for it", async () => {
+    const body = JSON.stringify({ error_description: "Company credit note counter not initialized, create a credit note in Fiken to set base number OR use POST /creditNotes/counter to set the base number", error: "401" });
+    const f = methodAwareFiken({ GET: { status: 401, body }, POST: { status: 201 } });
+    const c = await connected(f.fetchImpl);
+    const counters = await callJson(c, "get_counters", { companySlug: "demo" });
+    expect(counters.json()).toEqual({ invoice: null, creditNote: null });
+    expect(f.calls.some((x) => x.url.endsWith("/user"))).toBe(false);
+    const r = await callJson(c, "initialize_counter", { companySlug: "demo", kind: "credit_note", firstNumber: 10001 });
+    expect(r.isError).toBe(false);
+    const post = f.calls.find((x) => x.init?.method === "POST");
+    expect(JSON.parse(String(post?.init?.body))).toEqual({ value: 10000 });
+
+    const realAuth = methodAwareFiken({ GET: { status: 401, body: "invalid token" }, POST: { status: 201 } });
+    const c2 = await connected(realAuth.fetchImpl);
+    expect((await callJson(c2, "initialize_counter", { companySlug: "demo", kind: "credit_note", firstNumber: 1 })).isError).toBe(true);
+    expect(realAuth.calls.some((x) => x.init?.method === "POST")).toBe(false);
+  });
+
   it("initialize_counter makes no POST when the counter read fails or has no value", async () => {
     for (const GET of [{ status: 500, body: "boom" }, { status: 200, body: {} }]) {
       const f = methodAwareFiken({ GET, POST: { status: 201 } });
