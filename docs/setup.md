@@ -197,8 +197,14 @@ Verified 2026-10-03 (from Claude Code, against the demo company):
 - `create_product` and `update_product` keep the other fields.
 - `list_offers`, `list_recurring_invoices` and `list_ehf_documents` read
   fine.
-- Time tracking and projects answer 402 in the demo company (the modules
-  are not activated).
+- Time tracking and projects answered 402 in the demo company until Jonas
+  activated both modules the same day. Then `create_project` (MCP-1,
+  "fiken-mcp testprosjekt", id 14444164210) and `update_project`
+  (description only) worked, and `create_purchase` with that `projectId`
+  booked purchase 14463888319 on the project. `list_time_users` and
+  `list_time_entries` read fine; `list_activities` was empty, which
+  showed the connector could not create an activity (fixed by
+  `create_activity`).
 - `create_journal_entry` booked correctly (transaction 14462737897,
   journal entry 52), but its read-back failed: the Location of
   `POST /generalJournalEntries` is the transaction id, not a journal entry
@@ -299,6 +305,9 @@ unless noted, and any email recipient at jonasbj.com.
   then a full `create_credit_note` on invoice 10520 (id 14380891529).
   Confirm that this first credit note gets number 10001 (not 10002), which
   checks that the counter holds the last number used.
+- `create_activity`, then `create_time_entry` and
+  `create_invoice_draft_from_time_entries`: time tracking has to work in a
+  company that has no activities yet.
 - A cash sale (`create_sale`); a manual journal entry
   (`create_journal_entry`): confirm the read-back via the transaction
   works (verified 2026-10-03); a purchase draft approved in Fiken's UI,

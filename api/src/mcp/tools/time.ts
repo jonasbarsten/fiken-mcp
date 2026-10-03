@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
 import { toolJson } from "../context.js";
-import { companySlug, CONFIRM, defined, isoDate, paged, paging, withCompany } from "./common.js";
+import { companySlug, CONFIRM, defined, isoDate, ORE, paged, paging, readBackFailed, withCompany } from "./common.js";
 
-const ACTIVITY_ID_SOURCES = "from list_activities (via fiken_read)";
+const ACTIVITY_ID_SOURCES = "from list_activities (via fiken_read); create_activity (via fiken_write) returns one";
 const TIME_USER_ID_SOURCES = "from list_time_users (via fiken_read)";
 const TIME_ENTRY_ID_SOURCES = "from list_time_entries (via fiken_read); create_time_entry (via fiken_write) returns one";
 const HH_MM = z.string().regex(/^\d{2}:\d{2}$/);
@@ -24,6 +24,17 @@ interface FikenActivity {
   product?: { productId: number };
   project?: { projectId: number };
 }
+
+const trimActivity = (a: FikenActivity) => ({
+  activityId: a.activityId,
+  name: a.name,
+  description: a.description,
+  billable: a.billable,
+  hourlyRate: a.hourlyRate,
+  archived: a.archived,
+  productId: a.product?.productId,
+  projectId: a.project?.projectId,
+});
 
 interface FikenTimeEntry {
   timeEntryId: number;
@@ -69,17 +80,37 @@ export const timeOperations: Operation[] = [
     async run(ctx, { companySlug: slug, page, pageSize }) {
       return withCompany(ctx, slug, async () => {
         const { items, total } = await ctx.fiken.list<FikenActivity>(`/companies/${slug}/activities`, { page, pageSize });
-        const trimmed = items.map((a) => ({
-          activityId: a.activityId,
-          name: a.name,
-          description: a.description,
-          billable: a.billable,
-          hourlyRate: a.hourlyRate,
-          archived: a.archived,
-          productId: a.product?.productId,
-          projectId: a.project?.projectId,
-        }));
-        return paged(trimmed, total, page, pageSize);
+        return paged(items.map(trimActivity), total, page, pageSize);
+      });
+    },
+  }),
+
+  defineOperation({
+    name: "create_activity",
+    concept: "time_tracking",
+    kind: "write",
+    destructive: false,
+    title: "Create activity",
+    description:
+      "Create an activity (aktivitet) that time entries are logged against; activityId for create_time_entry (via fiken_write) comes from list_activities (via fiken_read) or this operation. " +
+      `${ORE} ${CONFIRM}`,
+    input: z.object({
+      companySlug,
+      name: z.string().min(1).describe("Activity name, unique within the company"),
+      hourlyRate: z.number().int().min(0).optional().describe("Hourly rate in øre (125000 = 1250,00 kr)"),
+      productId: z.number().int().optional().describe("Product id, from list_products (via fiken_read)"),
+      billable: z.boolean().optional().describe("Whether hours on this activity can be invoiced"),
+      description: z.string().optional(),
+      projectId: z.number().int().optional().describe("Project id, from list_projects"),
+    }),
+    async run(ctx, { companySlug: slug, ...fields }) {
+      return withCompany(ctx, slug, async () => {
+        const { id } = await ctx.fiken.create(`/companies/${slug}/activities`, defined(fields));
+        try {
+          return toolJson(trimActivity(await ctx.fiken.json<FikenActivity>(`/companies/${slug}/activities/${id}`)));
+        } catch (err) {
+          return readBackFailed(`Activity ${id}`, "created", err, "list_activities", { companySlug: slug });
+        }
       });
     },
   }),

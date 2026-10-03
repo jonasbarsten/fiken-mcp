@@ -112,6 +112,43 @@ describe("time tracking", () => {
     });
   });
 
+  it("create_activity posts the exact body for a full and a minimal activity and reads it back trimmed", async () => {
+    const stored = { activityId: 4, name: "Utvikling", description: "d", billable: true, hourlyRate: 125000, archived: false, product: { productId: 12, name: "P" }, project: { projectId: 8, name: "Q" } };
+    const f = fakeFiken([
+      { match: /\/activities$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/activities/4" } },
+      { match: /\/activities\/4$/, body: stored },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const full = { name: "Utvikling", hourlyRate: 125000, productId: 12, billable: true, description: "d", projectId: 8 };
+    const r = await callJson(c, "create_activity", { companySlug: "demo", ...full });
+    expect(r.json()).toEqual({ activityId: 4, name: "Utvikling", description: "d", billable: true, hourlyRate: 125000, archived: false, productId: 12, projectId: 8 });
+    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual(full);
+    expect(f.calls[1]?.url).toBe("https://api.test/v2/companies/demo/activities/4");
+    await callJson(c, "create_activity", { companySlug: "demo", name: "Møter" });
+    expect(JSON.parse(String(f.calls[2]?.init?.body))).toEqual({ name: "Møter" });
+  });
+
+  it("create_activity names the created activity when the read-back fails", async () => {
+    const f = fakeFiken([
+      { match: /\/activities$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/activities/4" } },
+      { match: /\/activities\/4$/, status: 500, body: "boom" },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_activity", { companySlug: "demo", name: "Utvikling" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("Activity 4 was created");
+    expect(r.text).toContain("Do not repeat it");
+    expect(r.text).toContain(`call fiken_read with ${JSON.stringify({ operation: "list_activities", args: { companySlug: "demo" } })}`);
+  });
+
+  it("create_activity refuses a mistyped key before any call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    expect((await callJson(c, "create_activity", { companySlug: "demo", name: "X", hourlyrate: 100 })).isError).toBe(true);
+    expect((await callJson(c, "create_activity", { companySlug: "demo" })).isError).toBe(true);
+    expect(f.calls).toHaveLength(0);
+  });
+
   it("list_time_entries filters and trims", async () => {
     const entry = {
       timeEntryId: 6, date: "2026-09-29", hours: 7.5, description: "Arbeid", internalNote: "n", startTime: "09:00", endTime: "16:30", invoiced: false, locked: false,
@@ -168,7 +205,7 @@ describe("explore", () => {
       "create_recurring_invoice_from_draft", "list_recurring_invoices", "set_recurring_invoice_job",
     ]);
     expect((await explore("time_tracking")).operations.map((o) => o.name).sort()).toEqual([
-      "create_invoice_draft_from_time_entries", "create_time_entry", "list_activities", "list_time_entries", "list_time_users",
+      "create_activity", "create_invoice_draft_from_time_entries", "create_time_entry", "list_activities", "list_time_entries", "list_time_users",
     ]);
   });
 });

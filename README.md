@@ -108,8 +108,8 @@ Operations by concept (`read` unless marked write):
   `frequency`; invoices are then issued on the schedule),
   `set_recurring_invoice_job` (write; pause, resume or stop, and stop is
   final)
-- `time_tracking`: `list_time_users`, `list_activities`, `list_time_entries`,
-  `create_time_entry` (write), `create_invoice_draft_from_time_entries`
+- `time_tracking`: `list_time_users`, `list_activities`, `create_activity` (write),
+  `list_time_entries`, `create_time_entry` (write), `create_invoice_draft_from_time_entries`
   (write; NOK only, sends only what you give; a draft that
   `create_invoice_from_draft` issues)
 - `payments`: `register_payment` (write; on a sale or a purchase, positive
