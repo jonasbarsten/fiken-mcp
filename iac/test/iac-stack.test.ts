@@ -268,5 +268,29 @@ describe("IacStack", () => {
       .flatMap((s) => (Array.isArray(s.Action) ? s.Action : [s.Action]))
       .filter((a) => a.startsWith("acm:"));
     expect(acmActions.sort()).toEqual(["acm:DescribeCertificate", "acm:ListTagsForCertificate"]);
-  });
+  }, STACK_TEST_TIMEOUT_MS);
+
+  it("lets CloudFormation manage the site bucket, CloudFront resources and the deployment layer, scoped by name", () => {
+    const t = synth();
+    const policy = Object.values(t.findResources("AWS::IAM::ManagedPolicy"))[0]!;
+    const statements = policy.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Action: string | string[]; Resource: string | string[] }>;
+    const bySid = (sid: string) => statements.find((s) => s.Sid === sid)!;
+
+    expect(bySid("SiteBucket").Action).toBe("s3:*");
+    expect(bySid("SiteBucket").Resource).toEqual(["arn:aws:s3:::fiken-mcp-web-*", "arn:aws:s3:::fiken-mcp-web-*/*"]);
+
+    expect(bySid("CloudFront").Action).toBe("cloudfront:*");
+    expect(bySid("CloudFront").Resource).toEqual([
+      "arn:aws:cloudfront::209479295726:distribution/*",
+      "arn:aws:cloudfront::209479295726:origin-access-control/*",
+      "arn:aws:cloudfront::209479295726:cache-policy/*",
+      "arn:aws:cloudfront::209479295726:response-headers-policy/*",
+    ]);
+
+    expect(bySid("SiteLayer").Action).toEqual(["lambda:PublishLayerVersion", "lambda:GetLayerVersion", "lambda:DeleteLayerVersion"]);
+    expect(bySid("SiteLayer").Resource).toEqual([
+      "arn:aws:lambda:eu-west-1:209479295726:layer:fiken-mcp-web-awscli",
+      "arn:aws:lambda:eu-west-1:209479295726:layer:fiken-mcp-web-awscli:*",
+    ]);
+  }, STACK_TEST_TIMEOUT_MS);
 }, STACK_TEST_TIMEOUT_MS);
