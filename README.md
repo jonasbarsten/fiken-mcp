@@ -218,6 +218,13 @@ Fiken under Rediger konto, API.
 
 ## Adding the connector
 
+Each Fiken company you want to use needs Fiken's API add-on. An owner
+orders it in Fiken under Foretak → Tilleggstjenester → API (99 kr a
+month; always on for test companies). `list_companies` shows
+`hasApiAccess` per company. Projects and time tracking are separate
+add-ons on the same page; without them Fiken answers 402 and the tool
+error says where to order them.
+
 If Fiken rejects a login during a tool call (for example because you
 revoked access), the server answers with an HTTP 401 so the client asks
 you to log in again automatically. The server first asks Fiken whether

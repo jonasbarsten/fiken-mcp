@@ -6,6 +6,22 @@ import { memoryUsageStore } from "../../src/usage/memory.js";
 import { callJson, connected, fakeFiken } from "./helpers.js";
 
 describe("read tools", () => {
+  it("a Fiken 402 (module not activated, seen live for projects and time tracking) says where to order the module", async () => {
+    const f = fakeFiken([{ match: /\/projects\?/, status: 402, body: { error_description: "Project/time-tracking module not activated", error: "402" } }]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "list_projects", { companySlug: "demo" });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("Project/time-tracking module not activated");
+    expect(r.text).toContain("Foretak → Tilleggstjenester");
+  });
+
+  it("list_companies says where the API module is ordered", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const tool = (await c.listTools()).tools.find((t) => t.name === "list_companies");
+    expect(tool?.description).toContain("Foretak → Tilleggstjenester → API");
+    expect(tool?.description).not.toContain("Rediger konto");
+  });
+
   it("list_projects pages and trims", async () => {
     const f = fakeFiken([{ match: /\/companies\/demo\/projects\?/, body: [{ projectId: 1, number: "P1", name: "Atlanter", completed: false, contact: { name: "x" } }], headers: { "Fiken-Api-Result-Count": "1" } }]);
     const c = await connected(f.fetchImpl);
@@ -92,7 +108,7 @@ describe("read tools", () => {
     const r = await callJson(c, "get_counters", { companySlug: "demo" });
     expect(r.isError).toBe(true);
     expect(r.text).toBe(
-      'Fiken refused this request (401) although the login is valid: {"message":"no access to counter"}. The company may lack the module or permission this needs.',
+      'Fiken refused this request (401) although the login is valid: {"message":"no access to counter"}. The company may lack the module or permission this needs (modules are ordered in Fiken under Foretak → Tilleggstjenester).',
     );
     expect(session.fikenUnauthorized).toBe(false);
   });

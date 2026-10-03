@@ -33,15 +33,20 @@ export function toolJson(value: unknown): CallToolResult {
  * `login` only matters for a Fiken 401 and comes from `noteFikenError`. It defaults to "unknown",
  * which is also what every read-back or follow-up after a write gets, since those never check.
  */
+/** Where a company owner orders Fiken's add-on modules (API, projects, time tracking, ...). */
+const MODULES_PAGE = "Foretak → Tilleggstjenester";
+
 export function errorText(err: unknown, login: LoginState = "unknown"): string {
   if (err instanceof FikenError) {
     if (err.status === 401) {
       if (login === "invalid") return "Fiken rejected the login (401). Ask the user to disconnect and reconnect the Fiken connector, then retry.";
       if (login === "valid") {
-        return `Fiken refused this request (401) although the login is valid: ${err.body}. The company may lack the module or permission this needs.`;
+        return `Fiken refused this request (401) although the login is valid: ${err.body}. The company may lack the module or permission this needs (modules are ordered in Fiken under ${MODULES_PAGE}).`;
       }
       return `Fiken answered 401: ${err.body}. Retry; if it keeps happening, the user may need to reconnect the Fiken connector.`;
     }
+    // Fiken answers 402 when a company has not activated a paid module (projects, time tracking, ...).
+    if (err.status === 402) return `Fiken responded 402: ${err.body}. The company has not activated this module; an owner can order it in Fiken under ${MODULES_PAGE}.`;
     return `Fiken responded ${err.status}: ${err.body}`;
   }
   return `Error: ${err instanceof Error ? err.message : String(err)}`;

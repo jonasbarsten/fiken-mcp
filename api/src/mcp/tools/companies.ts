@@ -18,7 +18,7 @@ export const companiesOperations: Operation[] = [
     title: "List companies",
     description:
       "Lists the Fiken companies the logged-in user is a member of, with the slug every other tool needs as companySlug. " +
-      "hasApiAccess false means the company has not ordered Fiken's API module (done inside Fiken under Rediger konto, API); " +
+      "hasApiAccess false means the company has not ordered Fiken's API module (an owner orders it in Fiken under Foretak → Tilleggstjenester → API; always on for test companies); " +
       "other tools fail for that company until it is ordered. A company the user is not a member of in Fiken is not listed at all.",
     input: z.object({}),
     async run(ctx) {
