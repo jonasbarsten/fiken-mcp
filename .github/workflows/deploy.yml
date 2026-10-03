@@ -4,12 +4,47 @@ on:
     branches: [main]
 permissions:
   contents: read
-  id-token: write
 concurrency: deploy
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      iac: ${{ steps.targets.outputs.iac }}
+      web: ${{ steps.targets.outputs.web }}
+      api: ${{ steps.targets.outputs.api }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # Compare with the last commit whose deploy succeeded, so a rejected,
+      # failed or superseded run never drops its changes from the next one.
+      - id: targets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          base=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
+          if [ -n "$base" ] && git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "Changed since the last successful deploy ($base):"
+            git -c core.quotePath=false diff --name-only "$base" "$GITHUB_SHA" | tee changed.txt
+            node iac/lib/deploy-targets.ts < changed.txt | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "No successful deploy to compare with; deploying everything."
+            printf 'iac=true\nweb=true\napi=true\n' | tee -a "$GITHUB_OUTPUT"
+          fi
   deploy:
+    needs: changes
+    if: needs.changes.outputs.iac == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -21,7 +56,13 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: eu-west-1
-      - run: npx cdk deploy fiken-mcp-iac --require-approval never
+      # iac first: it holds the execution policy the other stacks rely on.
+      - if: needs.changes.outputs.iac == 'true'
+        run: npx cdk deploy fiken-mcp-iac --require-approval never
         working-directory: iac
-      - run: npx cdk deploy fiken-mcp-api --require-approval never
+      - if: needs.changes.outputs.web == 'true'
+        run: npx cdk deploy fiken-mcp-web --require-approval never
+        working-directory: iac
+      - if: needs.changes.outputs.api == 'true'
+        run: npx cdk deploy fiken-mcp-api --require-approval never
         working-directory: api
