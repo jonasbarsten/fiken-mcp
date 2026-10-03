@@ -176,6 +176,14 @@ demo company):
 - The first request after a deploy took about 1.7 s (cold start with the
   5.1 MB bundle).
 
+Verified 2026-10-03 (from Claude Code, against the demo company):
+
+- `get_counters` in the demo company produced a 401 on the counter
+  endpoint with a valid login (the next call, `list_bank_accounts`,
+  worked with the same token). Before the fix this made `/mcp` answer
+  HTTP 401 and Claude Code asked to re-authenticate; now `GET /user`
+  confirms the login and the call is a tool error with Fiken's message.
+
 ## Verify after deploying the usage-and-cimd plan
 
 - `curl https://api.fiken-mcp.byjoba.com/stats` shows `totalUsers` and

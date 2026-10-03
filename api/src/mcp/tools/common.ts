@@ -51,7 +51,7 @@ export async function withCompany(ctx: ToolContext, slug: string, fn: () => Prom
   try {
     return await fn();
   } catch (err) {
-    noteFikenError(ctx, err);
+    const loginValid = await noteFikenError(ctx, err);
     if (err instanceof FikenError && err.status === 404) {
       try {
         const companies = await ctx.fiken.json<Array<{ slug: string }>>("/companies");
@@ -60,10 +60,10 @@ export async function withCompany(ctx: ToolContext, slug: string, fn: () => Prom
           : `Company "${slug}" was not found. Known company slugs: ${companies.map((c) => c.slug).join(", ")}`;
         return toolText(`${errorText(err)}\n${line}`);
       } catch (innerErr) {
-        noteFikenError(ctx, innerErr);
+        await noteFikenError(ctx, innerErr);
         return toolError(err);
       }
     }
-    return toolError(err);
+    return toolError(err, { loginValid });
   }
 }

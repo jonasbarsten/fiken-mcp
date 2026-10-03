@@ -594,7 +594,10 @@ too if you suspect a device or account was compromised.
   successful non-GET Fiken call (the write guard, `session.wrote`), a
   Fiken 401 stays a tool error so the client's re-send cannot repeat the
   write. Legacy JSON-RPC batch bodies are refused with
-  400 so one body can never mix a write with the 401 mapping.
+  400 so one body can never mix a write with the 401 mapping. Before
+  mapping, the login is checked once per request with `GET /user`: only
+  a 401 there maps to HTTP 401; otherwise the call is a tool error saying
+  Fiken refused this request although the login is valid.
 - Fiken 429: retry once after 1 s, then surface as tool error.
 - Fiken 4xx validation: pass Fiken's message through as `isError`.
 - Unknown company slug: error text lists the user's slugs.

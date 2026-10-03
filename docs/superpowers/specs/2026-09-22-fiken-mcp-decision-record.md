@@ -271,7 +271,10 @@ changed, and what it left open:
   write guard instead of per-tool reasoning: after any successful
   non-GET Fiken call in a request, a Fiken 401 stays a tool error and
   never becomes an HTTP 401, because the client would re-send and repeat
-  the write.
+  the write. Since 2026-10-03 a Fiken 401 only becomes an HTTP 401 when
+  `GET /user` (checked at most once per request) also answers 401,
+  because Fiken refused the counter endpoint with 401 for a valid login
+  and that forced a needless re-login.
 - **The upload ticket travels in `structuredContent` (accepted, with a
   follow-up, 2026-09-28).** The spec prescribes it and the spike proved
   it reaches the widget that way, but `structuredContent` is part of the

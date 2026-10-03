@@ -72,6 +72,7 @@ describe("invoices", () => {
     expect(r.text).toContain("Invoice 77 was created");
     expect(r.text).toContain("Do not create it again");
     expect(session.fikenUnauthorized).toBe(false);
+    expect(f.calls.some((x) => x.url.endsWith("/user"))).toBe(false);
   });
 
   it("create_invoice_draft returns the draft id; create_invoice_from_draft issues it", async () => {

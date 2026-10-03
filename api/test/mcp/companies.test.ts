@@ -30,7 +30,7 @@ describe("list_companies", () => {
     expect(text).not.toMatch(/Bearer/);
   });
 
-  it("tells the model to reconnect when Fiken answers 401", async () => {
+  it("tells the model to reconnect when Fiken answers 401 everywhere, /user included", async () => {
     const client = await connected(async () => new Response("expired tok", { status: 401 }));
     const result = await client.callTool({ name: "list_companies", arguments: {} });
     expect(result.isError).toBe(true);

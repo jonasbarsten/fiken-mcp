@@ -148,5 +148,6 @@ describe("gateway", () => {
     expect(r.text).toContain("Invoice 77 was created");
     expect(r.text).toContain('call fiken_read with {"operation":"get_invoice","args":{"companySlug":"demo","invoiceId":77}}');
     expect(session.fikenUnauthorized).toBe(false);
+    expect(f.calls.some((x) => x.url.endsWith("/user"))).toBe(false);
   });
 });
