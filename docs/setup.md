@@ -233,14 +233,26 @@ Verified 2026-10-03 (from Claude Code, against the demo company):
 - A `%2C` in an option path reaches the server decoded, so the challenge
   and metadata show a plain comma. Write the option path with plain
   commas.
+- User-facing paths checked in a browser. In Fiken, the user menu's
+  Rediger konto opens Brukerinnstillinger: the API tab lists the "Fiken
+  MCP" app (status Utvikling, at most 5 users), and the Sikkerhet tab's
+  "Apper du har gitt tilgang til" is where a user revokes it (it was
+  wrongly documented under API). Add-on modules, including the API
+  module, are ordered under Foretak, Tilleggstjenester. In Claude,
+  Settings, Connectors now points to Customize, Connectors; Add, Add
+  custom connector asks only for a name and a URL. A connector's menu
+  has "Refresh tools list", which loaded the new tool list without
+  re-adding. The ChatGPT path was not checked: the browser extension
+  has no access to chatgpt.com.
 
 ## Verify after deploying the usage-and-cimd plan
 
 - `curl https://api.fiken-mcp.byjoba.com/stats` shows `totalUsers` and
   this month's counters after a few tool calls.
 - `my_usage` in Claude matches what `/stats` reports for your own calls.
-- In Claude's connector settings, "Use Claude's published identity" logs
-  in and the consent page names Claude.
+- A CIMD login from Claude shows a consent page naming Claude. Claude's
+  Add custom connector dialog (checked 2026-10-03) has only a name and a
+  URL, with no identity option, so this is up to Claude's client.
 - Revoking "Fiken MCP" in Fiken and then calling a tool makes Claude
   re-authenticate instead of showing an error.
 
@@ -279,8 +291,8 @@ Do all of this against the demo company.
 
 ## Verify after deploying the operations plan
 
-- Remove and re-add the connector in Claude (tool lists are cached) and
-  check the new list: the hot-path tools, `upload_receipts`,
+- Refresh the tool list in Claude (Customize, Connectors, the connector,
+  "Refresh tools list"; tool lists are cached) and check the new list: the hot-path tools, `upload_receipts`,
   `get_upload_url`, `fiken_explore`, `fiken_read`, `fiken_write`.
 - Ask Claude to "send invoice 10042" and confirm it explores first, then
   uses `fiken_write` with a confirmation. For any email test, use an
@@ -297,7 +309,7 @@ Do all of this against the demo company.
 
 ## Verify after deploying the coverage plan
 
-Re-add the connector first (tool lists are cached). Use the demo company
+Refresh the connector's tool list first (tool lists are cached). Use the demo company
 unless noted, and any email recipient at jonasbj.com.
 
 - `get_counters`. If the credit note series is missing, run

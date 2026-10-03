@@ -78,7 +78,8 @@ Claude clients (verified by the spike, kept in git history at commit
   and the model reads them without any tool call. `resource` blocks are
   dropped. Each update replaces the previous one.
 - `ui/message` pre-fills the user's composer; the user taps send.
-- The tool list is cached per connector and refreshed on re-add. The
+- The tool list is cached per connector and refreshed on re-add or with
+  the connector's "Refresh tools list" menu item. The
   widget resource is re-read by URI before each tool call. A stable
   resource URI is required.
 - Tool results: text and image content are supported; embedded binary
@@ -584,7 +585,8 @@ server's memory on the way to Fiken and are not written or logged. We
 keep anonymous usage counters keyed by a salted hash of your email that
 we cannot reverse. Disconnecting the connector in Claude or ChatGPT only
 makes that app forget its tokens; to end our access to your Fiken
-account, revoke "Fiken MCP" in Fiken under Rediger konto, API. Do that
+account, revoke "Fiken MCP" in Fiken under Rediger konto, Sikkerhet,
+"Apper du har gitt tilgang til". Do that
 too if you suspect a device or account was compromised.
 
 ## 12. Error handling
