@@ -257,7 +257,9 @@ MCP».
 
 **Footer:** «Kildekoden ligger på GitHub» (link to
 `https://github.com/jonasbarsten/fiken-mcp`) · «MIT-lisens» (link to
-LICENSE on GitHub) · «Laget av Jonas Barsten».
+LICENSE on GitHub) · «byJoBa» with «(Jonas Barsten)» after it in
+smaller text. No «Laget av» in front: «by» already says it. The README
+footer uses the same signature.
 
 **404 page:** «Denne siden finnes ikke.» with a link «Til forsiden».
 
