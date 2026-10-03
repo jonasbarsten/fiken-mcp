@@ -214,7 +214,7 @@ whether each call succeeded, against that pseudonym. Ask for your own
 counters with the `my_usage` operation (through `fiken_read`), or see the same counts aggregated across
 every user, with no per-user detail, at
 `https://api.fiken-mcp.byjoba.com/stats`. Revoke access at any time in
-Fiken under Rediger konto, API.
+Fiken under Rediger konto, Sikkerhet, "Apper du har gitt tilgang til".
 
 ## Adding the connector
 
@@ -235,12 +235,13 @@ an ordinary tool error saying so. When that check itself fails (or a
 tool error suggesting a retry, never an HTTP 401. Legacy JSON-RPC batch
 request bodies are refused with a 400 instead of being processed.
 
-Claude (web, Desktop, iOS): Settings, Connectors, Add custom connector,
-URL `https://api.fiken-mcp.byjoba.com/mcp`, sign-in required. Log in with
-Fiken when asked. Claude's "Use Claude's published identity" option works
-too: we accept a client id metadata document from Claude (Anthropic
-hosts) and ChatGPT (OpenAI hosts) in place of dynamic registration, and
-check the redirect URI against the same allowlist either way.
+Claude (web, Desktop, iOS): Customize, Connectors, Add, Add custom
+connector. Any name, MCP server URL `https://api.fiken-mcp.byjoba.com/mcp`.
+Log in with Fiken when asked. A client that logs in with its published
+identity works too: we accept a client id metadata document from Claude
+(Anthropic hosts) and ChatGPT (OpenAI hosts) in place of dynamic
+registration, and check the redirect URI against the same allowlist
+either way.
 
 Claude Code:
 
@@ -249,8 +250,10 @@ claude mcp add --transport http fiken https://api.fiken-mcp.byjoba.com/mcp
 ```
 
 To add a narrower connection, use one of the option URLs above instead
-(for example `/mcp/readonly`). Claude caches a connector's tool list, so
-after an update remove and re-add the connector to see the new one.
+(for example `/mcp/readonly`). Claude caches a connector's tool list.
+After an update, open the connector under Customize, Connectors and
+choose "Refresh tools list" in its menu. In Claude Code, remove and
+re-add it (`claude mcp remove fiken`, then the add command above).
 
 ChatGPT: Settings, Apps, Advanced settings, Developer mode, add the same
 URL. Needs Plus or higher.
