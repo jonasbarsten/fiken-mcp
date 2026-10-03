@@ -164,6 +164,16 @@ kvitteringer, lag fakturaer og få svar om regnskapet rett fra chatten.
 > kvitteringer, lage fakturaer eller finne tall i regnskapet. Alt skjer
 > direkte i ditt eget Fiken-foretak.
 
+Below that, two buttons side by side (stacked on a phone):
+
+- «Bli med fra starten», an in-page link to the early-access section.
+- «Åpen kildekode på GitHub» with the GitHub mark, linking to
+  `https://github.com/jonasbarsten/fiken-mcp`. The mark is an inline
+  `<svg>` in `index.html` (GitHub's published Invertocat path, used
+  unmodified as their logo guidelines allow for linking to GitHub), so
+  nothing loads from GitHub and the CSP stays `img-src 'self'`. The SVG
+  has `aria-hidden="true"`; the button text carries the meaning.
+
 **Bli med fra starten**
 
 > Fiken MCP er helt nytt. Foreløpig er appen registrert hos Fiken som
