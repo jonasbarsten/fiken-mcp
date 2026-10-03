@@ -217,6 +217,13 @@ Verified 2026-10-03 (from Claude Code, against the demo company):
   the gross as totalPaid and booked the fee as a second payment), and
   `create_journal_entry` read back through the transaction (journal
   entry 58, transaction 14463730530).
+- After #32: `get_counters` showed the invoice series (current 10523,
+  next 10524) and the credit note series as not started;
+  `initialize_counter` credit_note with firstNumber 10001 started it, and
+  a full `create_credit_note` on invoice 10521 got credit note number
+  10001, confirming the counter semantics. A second `initialize_counter`
+  was refused ("already exists (current value 10001, next number
+  10002)").
 - A `%2C` in an option path reaches the server decoded, so the challenge
   and metadata show a plain comma. Write the option path with plain
   commas.
