@@ -676,7 +676,7 @@ invoices, time tracking, the EHF inbox and accruals. New concepts:
 Jonas decides; activity writes, contact groups, contact attachments, the
 product sales report and creating bank accounts are not covered.
 
-Still to build after that: ChatGPT verification and the website.
+Still to build after that: ChatGPT verification.
 
 - Confirm with Fiken whether the concurrency limit is per user.
 - ChatGPT: verify the widget, `connectDomains` and model-context support.
@@ -692,7 +692,7 @@ Still to build after that: ChatGPT verification and the website.
   "Fiken MCP".
 - The API lives at `api.fiken-mcp.byjoba.com` (certificate in eu-west-1,
   requested by hand).
-- **Website at `https://fiken-mcp.byjoba.com` (to build, section 10).**
+- **Website at `https://fiken-mcp.byjoba.com` (built 2026-10-03; see `2026-10-03-fiken-mcp-website-design.md`).**
   Static site on CloudFront: what the connector does, how to add it in
   Claude and ChatGPT, the privacy statement (section 11), and the live
   counters from `GET /stats`. Needs its own certificate in us-east-1

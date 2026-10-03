@@ -50,6 +50,7 @@ Operations plan executed 2026-09-29 (registry, `fiken_explore`,
 `fiken_read`, `fiken_write`, hot-path tools, connector URL options; see
 `docs/superpowers/plans/2026-09-29-fiken-mcp-operations.md`). Coverage plan
 executed 2026-09-29 (the remaining Fiken areas as operations; see
-`docs/superpowers/plans/2026-09-29-fiken-mcp-coverage.md`). Next: the
-decision on deletes, reversals and cancelling, ChatGPT verification and
-the website (spec section 14).
+`docs/superpowers/plans/2026-09-29-fiken-mcp-coverage.md`). Website plan executed 2026-10-03 (`web/`, stack `fiken-mcp-web`,
+per-stack deploys; see `docs/superpowers/plans/2026-10-03-fiken-mcp-website.md`).
+Next: the decision on deletes, reversals and cancelling, and ChatGPT
+verification (spec section 14).
