@@ -127,10 +127,11 @@ New statements, each pinned as tightly as CloudFront's ARNs allow:
 | Path | Stacks |
 |---|---|
 | `web/**`, `iac/lib/web-stack.ts` | web |
-| `iac/lib/exec-policy.ts`, `iac/lib/iac-stack.ts` | iac |
-| any other `iac/**` (bin, synthesizer, package.json, cdk.json, deploy-targets) | iac, web |
+| `iac/lib/iac-stack.ts` | iac |
+| any other `iac/**` (exec-policy, which also holds the site constants, bin, synthesizer, package.json, cdk.json) | iac, web |
 | `api/**` | api |
 | `package.json`, `package-lock.json`, `tsconfig.base.json`, `.github/workflows/deploy.yml` | iac, web, api |
+| `iac/test/**`, `api/test/**`, `iac/lib/deploy-targets.ts` | none (CI covers them; they change no stack) |
 | anything else (`docs/**`, `README.md`, `LICENSE`, `CLAUDE.md`, other workflows) | none |
 
 ### 2.4 Order of first deploy
