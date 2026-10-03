@@ -205,6 +205,11 @@ Verified 2026-10-03 (from Claude Code, against the demo company):
   `list_time_entries` read fine; `list_activities` was empty, which
   showed the connector could not create an activity (fixed by
   `create_activity`).
+- After #34: `create_activity` ("fiken-mcp konsulenttimer", 1 200 kr per
+  hour, billable, on the test project), `create_time_entry` (2 hours,
+  entry 14451860850) and `create_invoice_draft_from_time_entries` worked:
+  draft 14464113093 has one line of 2 hours at 1 200 kr (2 400 kr net,
+  3 000 kr gross) on the project.
 - `create_journal_entry` booked correctly (transaction 14462737897,
   journal entry 52), but its read-back failed: the Location of
   `POST /generalJournalEntries` is the transaction id, not a journal entry
