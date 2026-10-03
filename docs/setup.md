@@ -207,6 +207,16 @@ Verified 2026-10-03 (from Claude Code, against the demo company):
   sale marked as paid in NOK`. It now sends `totalPaid` (the sum of
   `netPrice + vat` over the lines).
 - `get_counters` hit the endpoint-401 bug fixed in 310c933.
+- After #31 deployed: the counter 401 came back as a tool error with
+  Fiken's message, no re-login. That message showed Fiken answers 401
+  (not 404 or 409) with "Company credit note counter not initialized" for
+  a series that was never started; `get_counters` and
+  `initialize_counter` now read that as "not started".
+- After #31: a cash sale worked (sale 14463888105, settled, totalPaid
+  12500), also with `paymentFee` 1500 (sale 14463888114; Fiken accepted
+  the gross as totalPaid and booked the fee as a second payment), and
+  `create_journal_entry` read back through the transaction (journal
+  entry 58, transaction 14463730530).
 - A `%2C` in an option path reaches the server decoded, so the challenge
   and metadata show a plain comma. Write the option path with plain
   commas.

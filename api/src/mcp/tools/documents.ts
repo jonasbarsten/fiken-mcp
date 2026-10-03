@@ -264,7 +264,7 @@ export function draftRequest(d: FikenDraft): Record<string, unknown> {
 
 /**
  * The counter's current value (the last number used), or null when the series was never started:
- * Fiken answers 404, or 409 "counter not initialized". Any other error, and an answer without a
+ * Fiken answers 404, or 409 or 401 "counter not initialized". Any other error, and an answer without a
  * numeric value, is thrown.
  */
 export async function readCounter(ctx: ToolContext, slug: string, path: "invoices" | "creditNotes"): Promise<number | null> {
@@ -272,7 +272,10 @@ export async function readCounter(ctx: ToolContext, slug: string, path: "invoice
   try {
     counter = await ctx.fiken.json<{ value?: unknown }>(`/companies/${slug}/${path}/counter`);
   } catch (err) {
-    if (err instanceof FikenError && (err.status === 404 || (err.status === 409 && /counter/i.test(err.body)))) return null;
+    // Fiken answers a never-started series with 404, or with 409 or 401 (seen live 2026-10-03) and
+    // "counter not initialized" in the body; any other 401 or 409 is a real error.
+    if (err instanceof FikenError && err.status === 404) return null;
+    if (err instanceof FikenError && (err.status === 409 || err.status === 401) && /counter not initialized/i.test(err.body)) return null;
     throw err;
   }
   if (typeof counter.value !== "number") throw new FikenError(502, "Fiken answered the counter without a numeric value.");
