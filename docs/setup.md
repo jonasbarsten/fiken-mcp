@@ -292,6 +292,9 @@ unless noted, and any email recipient at jonasbj.com.
   then a full `create_credit_note` on invoice 10520 (id 14380891529).
   Confirm that this first credit note gets number 10001 (not 10002), which
   checks that the counter holds the last number used.
+- `create_activity`, then `create_time_entry` and
+  `create_invoice_draft_from_time_entries`: time tracking has to work in a
+  company that has no activities yet.
 - A cash sale (`create_sale`); a manual journal entry
   (`create_journal_entry`): confirm the read-back via the transaction
   works (verified 2026-10-03); a purchase draft approved in Fiken's UI,
