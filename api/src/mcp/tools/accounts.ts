@@ -1,6 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, toolJson, type ToolContext } from "../server.js";
+import { defineOperation, type Operation } from "../operations.js";
+import { toolJson } from "../context.js";
 import { companySlug, paged, paging, withCompany } from "./common.js";
 
 interface FikenAccount {
@@ -12,25 +12,27 @@ interface FikenBankAccount {
   bankAccountId: number;
   name: string;
   accountCode?: string;
+  bankAccountNumber?: string;
   type: string;
   inactive: boolean;
 }
 
-export function registerAccounts(server: McpServer, ctx: ToolContext): void {
-  server.registerTool(
-    "list_accounts",
-    {
-      title: "List accounts",
-      description:
-        "Chart of accounts. Expense accounts (kostnadskonti) are 4000–7999; pass range like 4000-7999. Use the code as `account` on a purchase line.",
-      inputSchema: z.object({
-        companySlug,
-        ...paging,
-        range: z.string().optional().describe('Account code range, e.g. "4000-7999"'),
-      }),
-      annotations: { readOnlyHint: true },
-    },
-    counted(ctx, "list_accounts", async ({ companySlug: slug, page, pageSize, range }) => {
+export const accountsOperations: Operation[] = [
+  defineOperation({
+    name: "list_accounts",
+    concept: "accounts",
+    kind: "read",
+    destructive: false,
+    title: "List accounts",
+    description:
+      "Chart of accounts. Expense accounts (kostnadskonti) are 4000–7999; pass range like 4000-7999. Use the code as `account` on a purchase line. " +
+      "Balances per account: account_balances (via fiken_read).",
+    input: z.object({
+      companySlug,
+      ...paging,
+      range: z.string().optional().describe('Account code range, e.g. "4000-7999"'),
+    }),
+    async run(ctx, { companySlug: slug, page, pageSize, range }) {
       return withCompany(ctx, slug, async () => {
         const { items, total } = await ctx.fiken.list<FikenAccount>(`/companies/${slug}/accounts`, { page, pageSize, range });
         return paged(
@@ -40,19 +42,20 @@ export function registerAccounts(server: McpServer, ctx: ToolContext): void {
           pageSize,
         );
       });
-    }),
-  );
-
-  server.registerTool(
-    "list_bank_accounts",
-    {
-      title: "List bank accounts",
-      description:
-        "Bank and payment accounts. accountCode (e.g. 1920:10001) is the paymentAccount a paid cash purchase needs.",
-      inputSchema: z.object({ companySlug }),
-      annotations: { readOnlyHint: true },
     },
-    counted(ctx, "list_bank_accounts", async ({ companySlug: slug }) => {
+  }),
+
+  defineOperation({
+    name: "list_bank_accounts",
+    concept: "accounts",
+    kind: "read",
+    destructive: false,
+    title: "List bank accounts",
+    description:
+      "Bank and payment accounts. accountCode (e.g. 1920:10001) is what a cash purchase, create_invoice and register_payment " +
+      "(both via fiken_write) take; bankAccountNumber is what create_invoice_draft (via fiken_write) takes.",
+    input: z.object({ companySlug }),
+    async run(ctx, { companySlug: slug }) {
       return withCompany(ctx, slug, async () => {
         const { items } = await ctx.fiken.list<FikenBankAccount>(`/companies/${slug}/bankAccounts`);
         return toolJson({
@@ -60,11 +63,12 @@ export function registerAccounts(server: McpServer, ctx: ToolContext): void {
             bankAccountId: b.bankAccountId,
             name: b.name,
             accountCode: b.accountCode,
+            bankAccountNumber: b.bankAccountNumber,
             type: b.type,
             inactive: b.inactive,
           })),
         });
       });
-    }),
-  );
-}
+    },
+  }),
+];

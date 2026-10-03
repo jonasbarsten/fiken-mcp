@@ -4,7 +4,7 @@ import { z } from "zod";
 import { WIDGET_HTML } from "../../assets.js";
 import type { Config } from "../../config.js";
 import { issueUploadTicket, uploadTicketSeconds } from "../../upload/ticket.js";
-import { counted, type ToolContext } from "../server.js";
+import { counted, type ToolContext } from "../context.js";
 import { companySlug } from "./common.js";
 
 /**

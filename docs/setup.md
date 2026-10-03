@@ -157,6 +157,25 @@ hand-run `cdk deploy fiken-mcp-iac`, not in the workflow.
   rather than retrying. Not yet verified: the widget on Desktop and iOS,
   HEIC, a supplier-kind purchase, CIMD login, revoke-then-reauth.
 
+Verified 2026-09-29 (after deploying #26, from Claude Code, against the
+demo company):
+
+- Worked: `list_sales`, `list_invoices` (with `saleId`), `get_invoice`,
+  `list_products`, `account_balances`, `bank_balances` (empty in the
+  demo), `get_attachments`, `get_inbox_document` (PDF text per page and
+  the scan note, an image as an image; the real `documentUrl` passed the
+  host allowlist and pdf.js works in the Lambda), `create_invoice`
+  (including a line without a product) and `register_payment`.
+- Not verifiable in the demo company: `send_invoice` (Fiken refuses: the
+  demo company has hit its 101-document sending cap) and credit notes
+  (Fiken answers 409: the credit note counter is not initialized;
+  creating one credit note in Fiken's UI, or the counter operation
+  planned next, fixes it).
+- Attaching to an invoice needed the connector removed and re-added in
+  Claude Code; re-authenticating kept the old tool schema cached.
+- The first request after a deploy took about 1.7 s (cold start with the
+  5.1 MB bundle).
+
 ## Verify after deploying the usage-and-cimd plan
 
 - `curl https://api.fiken-mcp.byjoba.com/stats` shows `totalUsers` and
@@ -199,3 +218,21 @@ Do all of this against the demo company.
 - Expect a few unstructured pdf.js warnings about `@napi-rs/canvas` or
   `DOMMatrix` on the first PDF per container. They are harmless and
   carry no document content.
+
+## Verify after deploying the operations plan
+
+- Remove and re-add the connector in Claude (tool lists are cached) and
+  check the new list: the hot-path tools, `upload_receipts`,
+  `get_upload_url`, `fiken_explore`, `fiken_read`, `fiken_write`.
+- Ask Claude to "send invoice 10042" and confirm it explores first, then
+  uses `fiken_write` with a confirmation. For any email test, use an
+  address at jonasbj.com (Jonas's catch-all) as recipient, in a real
+  company.
+- Add a second connector with `/mcp/readonly` in Claude, confirm login
+  works and no write tool appears (no `fiken_write`, no upload tools).
+- Run the receipts flow on a phone and confirm it still needs no
+  `fiken_explore`.
+- `curl -i https://api.fiken-mcp.byjoba.com/mcp/invoices%2Csales` without
+  a token: expect 401, and check that `resource_metadata` in the
+  `WWW-Authenticate` header still shows `%2C`. That confirms API Gateway
+  passes the raw path through.

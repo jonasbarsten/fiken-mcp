@@ -1,6 +1,5 @@
-import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { counted, type ToolContext } from "../server.js";
+import { defineOperation, type Operation } from "../operations.js";
 import { companySlug, ORE, paged, paging, withCompany } from "./common.js";
 
 interface FikenProduct {
@@ -13,21 +12,21 @@ interface FikenProduct {
   active: boolean;
 }
 
-export function registerProducts(server: McpServer, ctx: ToolContext): void {
-  server.registerTool(
-    "list_products",
-    {
-      title: "List products",
-      description: `Products and services the company sells; productId goes on an invoice line and supplies its price, VAT type and income account. ${ORE}`,
-      inputSchema: z.object({
-        companySlug,
-        ...paging,
-        name: z.string().optional().describe("Only products with this name"),
-        active: z.boolean().optional().describe("Filter to active (or inactive) products"),
-      }),
-      annotations: { readOnlyHint: true },
-    },
-    counted(ctx, "list_products", async ({ companySlug: slug, page, pageSize, name, active }) => {
+export const productsOperations: Operation[] = [
+  defineOperation({
+    name: "list_products",
+    concept: "products",
+    kind: "read",
+    destructive: false,
+    title: "List products",
+    description: `Products and services the company sells; productId goes on an invoice line and supplies its price, VAT type and income account. ${ORE}`,
+    input: z.object({
+      companySlug,
+      ...paging,
+      name: z.string().optional().describe("Only products with this name"),
+      active: z.boolean().optional().describe("Filter to active (or inactive) products"),
+    }),
+    async run(ctx, { companySlug: slug, page, pageSize, name, active }) {
       return withCompany(ctx, slug, async () => {
         const { items, total } = await ctx.fiken.list<FikenProduct>(`/companies/${slug}/products`, { page, pageSize, name, active });
         return paged(
@@ -45,6 +44,6 @@ export function registerProducts(server: McpServer, ctx: ToolContext): void {
           pageSize,
         );
       });
-    }),
-  );
-}
+    },
+  }),
+];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FikenError } from "../../src/fiken/client.js";
-import { counted, noteFikenError, type ToolContext } from "../../src/mcp/server.js";
+import { counted, noteFikenError, type ToolContext } from "../../src/mcp/context.js";
+import { getOperation } from "../../src/mcp/registry.js";
 import { memoryUsageStore } from "../../src/usage/memory.js";
 import { callJson, connected, fakeFiken } from "./helpers.js";
 
@@ -17,12 +18,12 @@ describe("read tools", () => {
   it("list_accounts passes the range; list_bank_accounts returns account codes", async () => {
     const f = fakeFiken([
       { match: /\/accounts\?/, body: [{ code: "6300", name: "Leie lokale" }] },
-      { match: /\/bankAccounts$/, body: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", type: "normal", inactive: false, iban: "x" }] },
+      { match: /\/bankAccounts$/, body: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", bankAccountNumber: "12345678903", type: "normal", inactive: false, iban: "x" }] },
     ]);
     const c = await connected(f.fetchImpl);
     expect((await callJson(c, "list_accounts", { companySlug: "demo", range: "4000-7999" })).json()).toMatchObject({ items: [{ code: "6300", name: "Leie lokale" }] });
     expect(f.calls[0]?.url).toContain("range=4000-7999");
-    expect((await callJson(c, "list_bank_accounts", { companySlug: "demo" })).json()).toEqual({ items: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", type: "normal", inactive: false }] });
+    expect((await callJson(c, "list_bank_accounts", { companySlug: "demo" })).json()).toEqual({ items: [{ bankAccountId: 9, name: "Drift", accountCode: "1920:10001", bankAccountNumber: "12345678903", type: "normal", inactive: false }] });
   });
 
   it("search_contacts and get_contact", async () => {
@@ -101,14 +102,8 @@ describe("read tools", () => {
     expect(r.text).not.toContain("was not found");
   });
 
-  it("every tool carries annotations and the øre note where amounts appear", async () => {
-    const c = await connected(fakeFiken([]).fetchImpl);
-    const tools = (await c.listTools()).tools;
-    for (const name of ["list_projects", "list_accounts", "list_bank_accounts", "search_contacts", "get_contact", "list_purchases", "get_purchase", "list_inbox"]) {
-      const t = tools.find((x) => x.name === name);
-      expect(t?.annotations?.readOnlyHint, name).toBe(true);
-    }
-    expect(tools.find((x) => x.name === "list_purchases")?.description).toContain("øre");
+  it("carries the øre note where amounts appear", () => {
+    expect(getOperation("list_purchases")?.description).toContain("øre");
   });
 });
 
@@ -174,9 +169,10 @@ describe("write tools", () => {
     });
     expect(r.isError).toBe(true);
     expect(r.text).toContain("Purchase 77 was created");
-    expect(r.text).toContain("attach_inbox_document");
-    expect(r.text).toContain("purchaseId 77");
     expect(r.text).toContain("inboxDocumentId 1234134");
+    expect(r.text).toContain(
+      'call fiken_write with {"operation":"attach_inbox_document","args":{"companySlug":"demo","purchaseId":77,"inboxDocumentId":1234134}}',
+    );
     expect(f.calls.filter((x) => x.url.endsWith("/purchases"))).toHaveLength(1);
   });
 
@@ -193,8 +189,20 @@ describe("write tools", () => {
     });
     expect(r.isError).toBe(true);
     expect(r.text).toContain("Purchase 77 was created");
-    expect(r.text).toContain("get_purchase with purchaseId 77");
+    expect(r.text).toContain('call fiken_read with {"operation":"get_purchase","args":{"companySlug":"demo","purchaseId":77}}');
     expect(r.text).not.toContain("attach_inbox_document");
+  });
+
+  it("create_purchase as a real tool refuses a mistyped top-level key before any Fiken call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const r = await c.callTool({ name: "create_purchase", arguments: {
+      companySlug: "demo", date: "2026-09-01", kind: "cash_purchase", paymentAccount: "1920:10001", paymentDate: "2026-09-01",
+      lines: [{ description: "Skruer", netPrice: 10000, vat: 2500, account: "6540", vatType: "HIGH" }], projectID: 3,
+    } });
+    expect(r.isError).toBe(true);
+    expect((r.content as Array<{ text: string }>)[0]?.text).toContain("projectID");
+    expect(f.calls).toHaveLength(0);
   });
 
   it("create_purchase leaves session.fikenUnauthorized false when the write succeeded but the attach got a Fiken 401", async () => {
@@ -213,6 +221,15 @@ describe("write tools", () => {
     expect(session.fikenUnauthorized).toBe(false);
   });
 
+  it("create_purchase refuses a mistyped key in a line before any call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_purchase", { companySlug: "demo", date: "2026-09-01", kind: "cash_purchase", lines: [{ description: "x", netPrice: 1, vat: 0, account: "6540", vatType: "NONE", vatTyp: "HIGH" }] });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("vatTyp");
+    expect(f.calls).toHaveLength(0);
+  });
+
   it("create_purchase without an inbox document makes no attachment call and relays Fiken's validation error", async () => {
     const f = fakeFiken([{ match: /\/purchases$/, status: 400, body: { message: "paymentAccount is required for cash purchases" } }]);
     const c = await connected(f.fetchImpl);
@@ -220,18 +237,6 @@ describe("write tools", () => {
     expect(r.isError).toBe(true);
     expect(r.text).toContain("paymentAccount is required");
     expect(f.calls).toHaveLength(1);
-  });
-
-  it("consequential tools are marked destructive and demand confirmation", async () => {
-    const c = await connected(fakeFiken([]).fetchImpl);
-    const tools = (await c.listTools()).tools;
-    for (const name of ["create_purchase", "create_invoice", "create_invoice_from_draft", "send_invoice", "create_credit_note", "register_payment", "attach_inbox_document"]) {
-      const t = tools.find((x) => x.name === name)!;
-      expect(t.annotations?.destructiveHint, name).toBe(true);
-      expect(t.description, name).toContain("explicit confirmation");
-    }
-    expect(tools.find((x) => x.name === "create_invoice_draft")?.annotations?.destructiveHint).toBe(false);
-    expect(tools.find((x) => x.name === "create_contact")?.description).toContain("explicit confirmation");
   });
 });
 

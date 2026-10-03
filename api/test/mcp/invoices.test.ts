@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getOperation } from "../../src/mcp/registry.js";
 import { callJson, connected, fakeFiken } from "./helpers.js";
 
 const invoice77 = {
@@ -80,9 +81,9 @@ describe("invoices", () => {
       { match: /\/invoices\/77$/, body: invoice77 },
     ]);
     const c = await connected(f.fetchImpl);
-    const draft = await callJson(c, "create_invoice_draft", { companySlug: "demo", customerId: 7, daysUntilDueDate: 14, lines: [line] });
+    const draft = await callJson(c, "create_invoice_draft", { companySlug: "demo", customerId: 7, daysUntilDueDate: 14, bankAccountNumber: "12345678903", lines: [line] });
     expect(draft.json()).toEqual({ draftId: 12 });
-    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ type: "invoice", customerId: 7, daysUntilDueDate: 14, currency: "NOK", lines: [line] });
+    expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ type: "invoice", customerId: 7, daysUntilDueDate: 14, bankAccountNumber: "12345678903", currency: "NOK", lines: [line] });
     const issued = await callJson(c, "create_invoice_from_draft", { companySlug: "demo", draftId: 12 });
     expect(issued.json()).toMatchObject({ invoiceId: 77 });
     expect(f.calls[1]?.init?.body).toBeUndefined();
@@ -144,6 +145,22 @@ describe("send, credit, pay", () => {
     expect(bad.isError).toBe(true);
     expect(bad.text).toBe("Line 1 has no productId and is missing unitPrice, incomeAccount.");
     expect(f.calls).toHaveLength(0);
+  });
+
+  it("refuses a mistyped key in an invoice or credit-note line instead of dropping it", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const typo = { productId: 5, quantity: 1, netPrice: 50000 };
+    const inv = await callJson(c, "create_invoice", { ...createArgs, lines: [typo] });
+    expect(inv.isError).toBe(true);
+    expect(inv.text).toContain("netPrice");
+    const note = await callJson(c, "create_credit_note", { companySlug: "demo", kind: "partial", issueDate: "2026-09-29", invoiceId: 77, lines: [{ ...line, discunt: 10 }] });
+    expect(note.isError).toBe(true);
+    expect(note.text).toContain("discunt");
+    expect(f.calls).toHaveLength(0);
+    // The same schema is a real tool's inputSchema, so the real-tool path refuses it too.
+    expect(getOperation("create_invoice")?.input.safeParse({ ...createArgs, lines: [typo] }).success).toBe(false);
+    expect(getOperation("create_credit_note")?.input.safeParse({ companySlug: "demo", kind: "partial", issueDate: "2026-09-29", invoiceId: 77, lines: [{ ...line, discunt: 10 }] }).success).toBe(false);
   });
 
   it("a partial credit note needs unitPrice on every line, even with a productId", async () => {

@@ -25,6 +25,21 @@ describe("discovery", () => {
     });
   });
 
+  it("mirrors a connector option path in the protected resource metadata", async () => {
+    const res = await app.request("/.well-known/oauth-protected-resource/mcp/readonly");
+    expect(res.status).toBe(200);
+    expect((await res.json()).resource).toBe("https://fiken-mcp.test/mcp/readonly");
+    expect((await app.request("/.well-known/oauth-protected-resource/mcp/invoicez")).status).toBe(404);
+    expect((await (await app.request("/.well-known/oauth-protected-resource/mcp")).json()).resource).toBe("https://fiken-mcp.test/mcp");
+  });
+
+  it("keeps the path exactly as the client sent it, and 404s malformed encoding", async () => {
+    const encoded = await app.request("/.well-known/oauth-protected-resource/mcp/invoices%2Csales");
+    expect(encoded.status).toBe(200);
+    expect((await encoded.json()).resource).toBe("https://fiken-mcp.test/mcp/invoices%2Csales");
+    expect((await app.request("/.well-known/oauth-protected-resource/mcp/readonly%E0%A4%A")).status).toBe(404);
+  });
+
   it("serves authorization server metadata", async () => {
     const res = await app.request("/.well-known/oauth-authorization-server");
     expect(await res.json()).toEqual({

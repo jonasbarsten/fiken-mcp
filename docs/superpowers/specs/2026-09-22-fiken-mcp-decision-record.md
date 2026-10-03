@@ -317,6 +317,71 @@ changed, and what it left open:
   cold starts are rare. If they ever matter, the fix is to move pdf.js
   out as an external node module.
 
+## Rulings in the operations plan (2026-09-29)
+
+- **Progressive disclosure through tool results, not dynamic tool
+  lists.** Claude caches a connector's tool list until the connector is
+  re-added (spec section 3, verified by the spike), and the server is
+  stateless with no session to remember that a concept was opened. So
+  `fiken_explore` discloses in its results and the tool list never
+  changes.
+- **`fiken_read` and `fiken_write` are separate tools.** The host's
+  confirmation follows the tool's annotations (read-only or destructive).
+  One combined tool would either prompt for every read or let a write
+  through unprompted. The cost: `fiken_write` is always
+  `destructiveHint: true`, so hosts may now also ask before a draft
+  (`create_invoice_draft`) or a new contact (`create_contact`), which as
+  separate tools were not destructive and did not prompt.
+- **Options live in the URL path, not a query string.** The
+  protected-resource metadata must match the URL the client was given,
+  and OAuth discovery derives its URL from the path. `/mcp/readonly` gets
+  `/.well-known/oauth-protected-resource/mcp/readonly`; a query string
+  would give the client a resource that differs from what it connected to.
+  The options are read from the path on every request, so nothing is
+  stored. They limit what a connection offers the model and are not a
+  security boundary against the token holder (the same token works on
+  `/mcp`).
+- **A concept filter chooses which areas the model may change; all
+  reads stay available.** Every read operation is visible on every
+  connection; writes are visible only for the chosen concepts, and never
+  when `readonly`. Found in the final review: `/mcp/invoices` hid
+  `search_contacts` and `list_bank_accounts`, which every invoice needs,
+  and `/mcp/purchases` hid `list_inbox`. A first fix kept a fixed set of
+  lookup concepts, but the re-review found `/mcp/credit_notes`,
+  `/mcp/payments` and `/mcp/attachments` still hid where their ids come
+  from. The filter's purpose is to narrow what the model can change, so
+  reads are no longer filtered. A test asserts, for every concept alone
+  and with no exceptions, that every operation a visible description
+  names as "from <op>" is itself visible. Writes that also return an id
+  (`create_invoice`) are named after a ";" rather than as a "from"
+  source, since the lookup read is always there.
+- **Only real tools are called by name.** Every text that names an
+  operation which is not a hot-path tool says to run it through
+  `fiken_read` or `fiken_write`, and recovery texts give the exact call.
+  Found in the final review: descriptions told the model to "use
+  get_invoice", and a model that calls that as a tool gets "tool not
+  found".
+- **Strict top level everywhere.** `fiken_read`/`fiken_write` refuse a
+  key beside `operation` and `args` with a hint to nest it, and parse
+  `args` sent as a JSON string; the hot-path tools parse their input
+  strictly, so a mistyped key (`projectID`) is refused on the real tool
+  as it is through the gateway.
+- **The hot path stays as real tools.** The receipts flow (list
+  companies, accounts, bank accounts, projects, search contacts, list
+  inbox, create purchase) runs on a phone, where an extra
+  `fiken_explore` round trip is felt and gives the model a chance to
+  wander. These seven are also reachable through the gateway, so there is
+  one registry and no second implementation.
+- **Invoice and purchase lines are strict.** A mistyped key in a line is
+  refused instead of dropped. Found in review as a live risk: a misspelled
+  price on a product line would otherwise issue the invoice at list price.
+- **`create_invoice_draft` requires `bankAccountNumber`.** Found in
+  production testing: Fiken refuses to issue a draft without one
+  ("Kontonummer mangler på faktura"), so `list_bank_accounts` returns the
+  number and the draft asks for it up front. Also from that testing:
+  `get_journal_entries` lines carry `account` and `vatCode` again (Fiken
+  returns them; an earlier review wrongly removed them).
+
 ## Things we decided not to do, on purpose
 
 - No guard against a PDF decompression bomb in `get_inbox_document`. The

@@ -3,12 +3,13 @@ import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import { testConfig } from "../../src/config.js";
 import { FikenQueue, createFikenClient } from "../../src/fiken/client.js";
+import type { ConnectorOptions } from "../../src/mcp/options.js";
 import { createMcpServer } from "../../src/mcp/server.js";
 import { memoryUsageStore } from "../../src/usage/memory.js";
 import { UPLOAD_TICKET_SECONDS, readUploadTicket } from "../../src/upload/ticket.js";
 import { farFutureExp } from "./helpers.js";
 
-async function connectedWithUrl(exp = farFutureExp()) {
+async function connectedWithUrl(exp = farFutureExp(), options?: ConnectorOptions) {
   const fiken = createFikenClient({
     baseUrl: "https://api.test/v2",
     accessToken: "tok",
@@ -19,6 +20,7 @@ async function connectedWithUrl(exp = farFutureExp()) {
     { fiken, anonId: "anon", fikenAccessToken: "tok", exp, usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false } },
     "https://fiken-mcp.test",
     testConfig(),
+    options,
   );
   const [ct, st] = InMemoryTransport.createLinkedPair();
   await server.connect(st);
@@ -28,6 +30,16 @@ async function connectedWithUrl(exp = farFutureExp()) {
 }
 
 describe("upload tools", () => {
+  it("register only when the connection may write and sees purchases", async () => {
+    const names = async (options?: ConnectorOptions) => (await (await connectedWithUrl(undefined, options)).listTools()).tools.map((t) => t.name);
+    expect(await names()).toContain("upload_receipts");
+    expect(await names({ readOnly: false, concepts: new Set(["purchases"]) })).toContain("get_upload_url");
+    expect(await names({ readOnly: false, concepts: new Set(["inbox"]) })).not.toContain("upload_receipts");
+    expect(await names({ readOnly: true, concepts: new Set(["purchases"]) })).not.toContain("upload_receipts");
+    expect(await names({ readOnly: true })).not.toContain("upload_receipts");
+    expect(await names({ readOnly: false, concepts: new Set(["invoices"]) })).not.toContain("upload_receipts");
+  });
+
   it("upload_receipts returns a ticket bound to the company and points at the stable widget resource", async () => {
     const c = await connectedWithUrl();
     const tool = (await c.listTools()).tools.find((t) => t.name === "upload_receipts")!;
