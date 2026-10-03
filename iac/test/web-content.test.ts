@@ -72,6 +72,10 @@ describe("web content", () => {
     expect(html).toContain("byJoBa");
   });
 
+  it("keeps [hidden] elements hidden despite .button's display", () => {
+    expect(read("style.css")).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}/);
+  });
+
   it("references only files the site serves", () => {
     for (const name of ["index.html", "404.html"]) {
       const html = read(name);
