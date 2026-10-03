@@ -28,4 +28,8 @@ describe("deploy.yml", () => {
     expect(workflow).toContain("node iac/lib/deploy-targets.ts");
     expect(workflow).not.toContain("HEAD~1");
   });
+
+  it("fails the change detection step when any piped command fails", () => {
+    expect(workflow).toMatch(/- id: targets\s*\n\s*shell: bash\n/);
+  });
 });

@@ -25,6 +25,7 @@ jobs:
       # Compare with the last commit whose deploy succeeded, so a rejected,
       # failed or superseded run never drops its changes from the next one.
       - id: targets
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
