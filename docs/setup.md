@@ -183,6 +183,33 @@ Verified 2026-10-03 (from Claude Code, against the demo company):
   worked with the same token). Before the fix this made `/mcp` answer
   HTTP 401 and Claude Code asked to re-authenticate; now `GET /user`
   confirms the login and the call is a tool error with Fiken's message.
+- `create_purchase_draft` and `create_purchase_from_draft` worked
+  (purchase 14463007170, the lineId was returned).
+- `create_accrual` on that line with account 1700 over 3 periods worked
+  (numeric id returned).
+- `settle_sale` with `settledDate` worked (sale 14381053880).
+- `update_contact` keeps the phone number and the contact persons.
+  Currency and member number are pending a look in Fiken's UI at contact
+  "fiken-mcp testkunde" (id 14462705276): expected currency EUR, member
+  number M-42.
+- `update_invoice_draft` replaces the lines (two lines stay two), and
+  `create_invoice_from_draft` then issued invoice 10521.
+- `create_product` and `update_product` keep the other fields.
+- `list_offers`, `list_recurring_invoices` and `list_ehf_documents` read
+  fine.
+- Time tracking and projects answer 402 in the demo company (the modules
+  are not activated).
+- `create_journal_entry` booked correctly (transaction 14462737897,
+  journal entry 52), but its read-back failed: the Location of
+  `POST /generalJournalEntries` is the transaction id, not a journal entry
+  id. It now reads back with `GET /transactions/{id}`.
+- `create_sale` as a cash sale failed with `Missing field 'totalPaid' for
+  sale marked as paid in NOK`. It now sends `totalPaid` (the sum of
+  `netPrice + vat` over the lines).
+- `get_counters` hit the endpoint-401 bug fixed in 310c933.
+- A `%2C` in an option path reaches the server decoded, so the challenge
+  and metadata show a plain comma. Write the option path with plain
+  commas.
 
 ## Verify after deploying the usage-and-cimd plan
 
@@ -256,8 +283,8 @@ unless noted, and any email recipient at jonasbj.com.
   Confirm that this first credit note gets number 10001 (not 10002), which
   checks that the counter holds the last number used.
 - A cash sale (`create_sale`); a manual journal entry
-  (`create_journal_entry`): confirm the Location resolves to a journal
-  entry and the read-back works; a purchase draft approved in Fiken's UI,
+  (`create_journal_entry`): confirm the read-back via the transaction
+  works (verified 2026-10-03); a purchase draft approved in Fiken's UI,
   then `create_purchase_from_draft` on another one.
 - Two `create_purchase_draft` drafts with `paid: true`: approve one in
   Fiken's UI and the other with `create_purchase_from_draft`. For each,

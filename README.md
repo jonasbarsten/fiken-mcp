@@ -46,10 +46,8 @@ Operations by concept (`read` unless marked write):
 - `contacts`: `search_contacts`, `get_contact`, `create_contact` (write),
   `update_contact` (write; only the given fields change, the rest of the
   contact is sent back as it was, groups included. Fiken never returns a
-  contact's phone number, currency or member number, so send them again
-  when you update the contact; contact persons are not sent back, and until
-  it is verified that Fiken keeps them, check `list_contact_persons` first
-  and add any lost ones back with `add_contact_person`),
+  contact's currency or member number, so send them again when you update
+  the contact; phone number and contact persons are kept),
   `list_contact_persons`, `add_contact_person` (write)
 - `projects`: `list_projects`, `get_project`, `create_project` (write),
   `update_project` (write; only the given fields change)

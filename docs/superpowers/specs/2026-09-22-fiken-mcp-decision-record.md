@@ -395,8 +395,9 @@ changed, and what it left open:
   the PUT is overwritten; we accept that and say so in the README.
   `update_contact` sends `groups` back. Fiken never returns a contact's
   `currency` or member number (write-only), so the tool accepts them
-  again and says so. Contact persons are not sent back until a live check
-  shows whether Fiken keeps them. `update_invoice_draft` refuses a draft
+  again and says so. Live check 2026-10-03: Fiken does return the phone
+  number, and a PUT without `contactPerson` keeps the contact persons.
+  `update_invoice_draft` refuses a draft
   with several customers.
 - **Counters are never reset.** `initialize_counter` only starts a series
   that does not exist and never changes an existing one, since a changed
