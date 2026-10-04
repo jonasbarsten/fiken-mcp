@@ -46,11 +46,15 @@
     const app = new App({ name: "Fiken preview", version: "1.0.0" });
     const root = document.getElementById("root");
     const syncSize = () => app.sendSizeChanged({ height: document.body.scrollHeight }).catch(() => {});
+    // Once answered, a repeated tool result must not re-render and re-enable the buttons.
+    let answered = false;
     app.ontoolresult = (params) => {
+      if (answered) return;
       const sc = params.structuredContent;
       if (!sc?.title || !Array.isArray(sc.summary)) return;
       root.replaceChildren();
       renderPreview(document, root, sc, (text) => {
+        answered = true;
         app.sendMessage({ role: "user", content: [{ type: "text", text }] }).catch((e) => console.error("sendMessage failed", e));
       });
       syncSize();

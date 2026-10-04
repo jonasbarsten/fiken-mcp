@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { renderPreview } from "../src/widget/preview.mjs";
+import { runPageScript } from "./page-script.js";
 
 class FakeEl {
   children: FakeEl[] = [];
@@ -88,5 +89,16 @@ describe("built preview widget", () => {
     expect(html).toContain("globalThis.__widget=");
     expect(html).not.toContain("/*__LOGIC__*/");
     expect(html).not.toContain("innerHTML");
+  });
+
+  it("ignores a repeated tool result once the user has answered", async () => {
+    const page = await runPageScript(html, { renderPreview });
+    page.fire(preview);
+    const go = page.root.all().filter((e) => e.tag === "button")[0]!;
+    go.click();
+    expect(page.sent).toEqual(["Ja, før dette."]);
+    page.fire(preview);
+    expect(page.root.all().filter((e) => e.tag === "button")[0]).toBe(go);
+    expect(go.disabled).toBe(true);
   });
 });

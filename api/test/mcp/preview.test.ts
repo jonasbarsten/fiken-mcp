@@ -59,7 +59,8 @@ describe("preview_booking", () => {
     expect(p!.lines!.columns).toContain("debitAccount");
     const amountIdx = p!.lines!.columns.indexOf("amount");
     expect(p!.lines!.rows.map((row) => row[amountIdx])).toEqual([`1${NBSP}000,00${NBSP}kr`, `1${NBSP}250,00${NBSP}kr`]);
-    expect(p!.totals).toContainEqual({ label: "Mva", value: "Fiken beregner mva" });
+    expect(p!.totals).toContainEqual({ label: "Mva", value: "Fiken legger til mva på sider med mva-kode" });
+    expect(p!.totals!.map((t) => t.label)).toEqual(expect.arrayContaining(["Debet (eks. mva)", "Kredit"]));
     expect(p!.summary).toContainEqual({ label: "Foretak", value: "demo" });
     expect(text.endsWith("Ingenting er ført ennå.")).toBe(true);
     expect(f.calls).toHaveLength(0);
@@ -102,5 +103,77 @@ describe("preview_booking", () => {
     expect(p!.lines!.rows[0]).toContain(`25,00${NBSP}kr`);
     expect(text).toContain("| description |");
     expect(f.calls).toHaveLength(0);
+  });
+
+  it("keeps object and array args in the summary", async () => {
+    const contact = await preview("update_contact", { companySlug: "demo", contactId: 5, address: { city: "Oslo", postCode: "0150" } });
+    expect(contact.p!.checks).toBe("ok");
+    expect(contact.p!.summary).toContainEqual({ label: "address", value: JSON.stringify({ city: "Oslo", postCode: "0150" }) });
+    const send = await preview("send_invoice", { companySlug: "demo", invoiceId: 7, method: ["email"] });
+    expect(send.p!.summary).toContainEqual({ label: "method", value: JSON.stringify(["email"]) });
+  });
+
+  it("labels amounts with the document's currency", async () => {
+    const invoice = await preview("create_invoice", {
+      companySlug: "demo", customerId: 1, issueDate: "2026-10-01", dueDate: "2026-10-15", bankAccountCode: "1920:10001", currency: "EUR",
+      lines: [{ description: "Arbeid", quantity: 1, unitPrice: 10000, vatType: "HIGH", incomeAccount: "3000" }],
+    });
+    expect(invoice.p!.lines!.rows[0]).toContain(`100,00${NBSP}EUR`);
+    const credit = await preview("create_credit_note", {
+      companySlug: "demo", kind: "partial", issueDate: "2026-10-01", invoiceId: 3,
+      lines: [{ description: "Arbeid", quantity: 1, unitPrice: 10000, vatType: "HIGH", incomeAccount: "3000" }],
+    });
+    expect(credit.p!.lines!.rows[0]).toContain(`100,00${NBSP}(fakturaens valuta)`);
+  });
+
+  it("counts a two-sided line on both sides and explains VAT", async () => {
+    const both = await preview("create_journal_entry", {
+      companySlug: "demo", description: "x", date: "2026-10-01",
+      lines: [{ amount: 125000, debitAccount: "6540", creditAccount: "1920:10001" }],
+    });
+    expect(both.p!.checks).toBe("ok");
+    expect(both.p!.totals).toEqual([
+      { label: "Debet", value: `1${NBSP}250,00${NBSP}kr` },
+      { label: "Kredit", value: `1${NBSP}250,00${NBSP}kr` },
+    ]);
+  });
+
+  it("does not claim more than it checks", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const tool = (await c.listTools()).tools.find((t) => t.name === "preview_booking")!;
+    expect(tool.description).not.toContain("as the write would");
+    expect(tool.description).toContain("Fiken may still refuse");
+  });
+
+  it("accepts args as a JSON string", async () => {
+    const args = { companySlug: "demo", description: "Utlegg", date: "2026-10-01", lines: outlay };
+    const asObject = await preview("create_journal_entry", args);
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const r = await c.callTool({ name: "preview_booking", arguments: { operation: "create_journal_entry", args: JSON.stringify(args) } });
+    expect(r.structuredContent).toEqual(asObject.p);
+    const bad = await c.callTool({ name: "preview_booking", arguments: { operation: "create_journal_entry", args: "nope" } });
+    expect(bad.isError).toBe(true);
+  });
+
+  it("shows defaults the write will use", async () => {
+    const { p } = await preview("create_purchase", {
+      companySlug: "demo", date: "2026-10-01", kind: "cash_purchase", paymentAccount: "1920:10001", paymentDate: "2026-10-01",
+      lines: [{ description: "Kaffe", netPrice: 10000, vat: 2500, account: "6860", vatType: "HIGH" }],
+    });
+    expect(p!.summary).toContainEqual({ label: "Valuta", value: "NOK" });
+  });
+
+  it("keeps a newline in a description from breaking the Markdown", async () => {
+    const { text } = await preview("create_journal_entry", {
+      companySlug: "demo", description: "a\nb", date: "2026-10-01",
+      lines: [{ amount: 100, debitAccount: "6540", creditAccount: "2911", description: "x" }],
+    });
+    expect(text).toContain("- Beskrivelse: a b");
+    const { text: t2 } = await preview("create_purchase", {
+      companySlug: "demo", date: "2026-10-01", kind: "cash_purchase", paymentAccount: "1920:10001", paymentDate: "2026-10-01",
+      lines: [{ description: "Kaffe\nog te | mer", netPrice: 100, vat: 0, account: "6860", vatType: "NONE" }],
+    });
+    expect(t2).toContain("Kaffe og te \\| mer");
   });
 });

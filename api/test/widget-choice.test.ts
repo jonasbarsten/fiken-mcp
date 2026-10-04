@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { choiceMessage, renderChoice } from "../src/widget/choice.mjs";
+import { runPageScript } from "./page-script.js";
 
 class FakeEl {
   children: FakeEl[] = [];
@@ -89,5 +90,16 @@ describe("built choice widget", () => {
     expect(html).toContain("globalThis.__widget=");
     expect(html).not.toContain("/*__LOGIC__*/");
     expect(html).not.toContain("innerHTML");
+  });
+
+  it("ignores a repeated tool result once the user has answered", async () => {
+    const page = await runPageScript(html, { renderChoice });
+    page.fire(data);
+    const first = page.root.all().filter((e) => e.tag === "button")[0]!;
+    first.click();
+    expect(page.sent).toEqual(["Fiken-demo AS (fiken-demo-as)"]);
+    page.fire(data);
+    expect(page.root.all().filter((e) => e.tag === "button")[0]).toBe(first);
+    expect(first.disabled).toBe(true);
   });
 });
