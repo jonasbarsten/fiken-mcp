@@ -113,6 +113,10 @@ A short, fixed tool list instead of one tool per Fiken action:
   round trip: `list_companies`, `list_projects`, `list_accounts`,
   `list_bank_accounts`, `search_contacts`, `list_inbox`, `create_purchase`.
 - The upload tools: `upload_receipts` and `get_upload_url` (see below).
+- `ask_user_choice`: shows the user a question with 2-12 options as
+  buttons in clients that render widgets (others get a numbered list);
+  the answer comes back as the user's next chat message. Read-only, on
+  every connection.
 - The gateway: `fiken_explore`, `fiken_read` and `fiken_write`. Every
   operation below, the hot-path ones included, is reachable through it.
   `fiken_explore` lists the concepts, then a concept's operations with
@@ -393,10 +397,11 @@ npm run typecheck
 ```
 
 `api/` is the Lambda and its CDK stack; `iac/` is the shared
-infrastructure stack. The upload widget (`api/src/assets/upload.html`,
-generated and gitignored) is built by `api/scripts/build-widget.mjs`,
-which inlines the MCP Apps and pdf.js bundles into
-`api/src/widget/upload.template.html`. `npm test` runs it first, and the
+infrastructure stack. The widgets (`api/src/assets/<name>.html`,
+generated and gitignored) are built by `api/scripts/build-widget.mjs`,
+which inlines the MCP Apps bundle (and pdf.js for the upload widget, the
+render logic in `api/src/widget/choice.mjs` for the choice widget) into
+`api/src/widget/<name>.template.html`. `npm test` runs it first, and the
 CDK bundling step runs it again before every synth or deploy, so the
 Lambda bundle always carries a fresh widget. Deployments run from GitHub
 Actions only; see `docs/setup.md` for the one-time setup.
