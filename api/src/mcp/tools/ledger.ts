@@ -60,11 +60,17 @@ function trimTransactionSummary(t: FikenTransaction) {
   };
 }
 
+const vatCode = z.number().int().nonnegative();
+const VAT_CODE_HELP =
+  "Fiken's numeric VAT code; read it from an existing booking at the same rate (get_journal_entries returns each line's vatCode, via fiken_read), and tell the user which code and VAT amount you will use before writing.";
+
 const journalEntryLine = z
   .object({
-    amount: z.number().int().positive().describe(`Amount moved. ${ORE}`),
+    amount: z.number().int().positive().describe("Amount in øre. Fiken's API documents it as net (excluding VAT) on the debit side and gross (including VAT) on the credit side when VAT codes are set; how it reads a line with both accounts and VAT is being verified live, so state the amounts and VAT to the user before writing."),
     debitAccount: z.string().min(1).optional().describe("Account code to debit, from list_accounts (via fiken_read); bank accounts look like 1920:10001"),
     creditAccount: z.string().min(1).optional().describe("Account code to credit, from list_accounts (via fiken_read)"),
+    debitVatCode: vatCode.optional().describe(`${VAT_CODE_HELP} For the debit side, e.g. an expense with deductible input VAT.`),
+    creditVatCode: vatCode.optional().describe(`${VAT_CODE_HELP} For the credit side.`),
   })
   .strict();
 
@@ -183,7 +189,7 @@ export const ledgerOperations: Operation[] = [
       "Book a manual journal entry (fri postering): corrections, depreciation, salary, transfers between accounts. " +
       "Each line moves amount (øre) to debitAccount and/or from creditAccount; debits and credits must balance. " +
       "Returns the created journal entry, or { transactionId, journalEntries } when Fiken split it into several. " +
-      `Fiken prefixes the description with 'Fri postering registrert via API: '. No VAT: book VAT through create_purchase or create_sale (via fiken_write). ${ORE} ${CONFIRM}`,
+      `Fiken prefixes the description with 'Fri postering registrert via API: '. This is «Fri postering» in Fiken's help. Lines may carry debitVatCode/creditVatCode; then debit amounts are net and credit amounts gross, and Fiken checks the balance. For outlays or anything unusual, look it up first with fiken_help_index (via fiken_read). ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,
       description: z.string().min(1).max(166).describe("At most 166 characters: Fiken's 200-character limit includes its 34-character prefix"),
@@ -194,12 +200,15 @@ export const ledgerOperations: Operation[] = [
     async run(ctx, { companySlug: slug, description, date, lines, open }) {
       let debit = 0;
       let credit = 0;
+      const hasVat = lines.some((l) => l.debitVatCode !== undefined || l.creditVatCode !== undefined);
       for (const l of lines) {
         if (l.debitAccount === undefined && l.creditAccount === undefined) return toolText("Every line needs a debitAccount or a creditAccount.");
+        if (l.debitVatCode !== undefined && l.debitAccount === undefined) return toolText("A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.");
+        if (l.creditVatCode !== undefined && l.creditAccount === undefined) return toolText("A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.");
         if (l.creditAccount === undefined) debit += l.amount;
         else if (l.debitAccount === undefined) credit += l.amount;
       }
-      if (debit !== credit) return toolText(`The entry does not balance: debit ${debit} øre, credit ${credit} øre.`);
+      if (!hasVat && debit !== credit) return toolText(`The entry does not balance: debit ${debit} øre, credit ${credit} øre.`);
       return withCompany(ctx, slug, async () => {
         // The Location header of POST /generalJournalEntries carries the transaction id, not a journal entry id.
         const { id: transactionId } = await ctx.fiken.create(`/companies/${slug}/generalJournalEntries`, defined({ description, open, journalEntries: [{ description, date, lines }] }));
@@ -226,7 +235,7 @@ export const ledgerOperations: Operation[] = [
     description:
       "Spread a sale or purchase line over several months (periodisering). Exactly one of saleId and purchaseId. The line must be on a " +
       "result account (3000-7999). Purchases accrue to 1397, 1700, 1710, 1742, 1743, 1744, 1749 or 2961; sales to 1530 or 2965. " +
-      `Sales with sales-cost lines cannot be accrued. ${CONFIRM}`,
+      `Sales with sales-cost lines cannot be accrued. Unsure how? Look it up first with fiken_help_index (via fiken_read). ${CONFIRM}`,
     input: z.object({
       companySlug,
       saleId: z.number().int().optional().describe("Sale id, from list_sales (via fiken_read)"),

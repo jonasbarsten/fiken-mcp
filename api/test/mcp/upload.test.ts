@@ -3,6 +3,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import { testConfig } from "../../src/config.js";
 import { FikenQueue, createFikenClient } from "../../src/fiken/client.js";
+import { createHelpClient } from "../../src/help/client.js";
 import type { ConnectorOptions } from "../../src/mcp/options.js";
 import { createMcpServer } from "../../src/mcp/server.js";
 import { memoryUsageStore } from "../../src/usage/memory.js";
@@ -17,7 +18,7 @@ async function connectedWithUrl(exp = farFutureExp(), options?: ConnectorOptions
     queue: new FikenQueue(0),
   });
   const server = createMcpServer(
-    { fiken, anonId: "anon", fikenAccessToken: "tok", exp, usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false } },
+    { fiken, anonId: "anon", fikenAccessToken: "tok", exp, usage: memoryUsageStore(), session: { fikenUnauthorized: false, wrote: false }, help: createHelpClient({ fetch: async () => new Response("", { status: 404 }) }) },
     "https://fiken-mcp.test",
     testConfig(),
     options,
@@ -99,6 +100,7 @@ describe("upload tools", () => {
       exp: farFutureExp(),
       usage: memoryUsageStore(),
       session: { fikenUnauthorized: false, wrote: false },
+      help: createHelpClient({ fetch: async () => new Response("", { status: 404 }) }),
     });
     const [ct, st] = InMemoryTransport.createLinkedPair();
     await server.connect(st);

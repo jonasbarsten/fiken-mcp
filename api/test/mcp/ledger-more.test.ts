@@ -16,16 +16,53 @@ describe("manual journal entries", () => {
     expect(f.calls).toHaveLength(0);
   });
 
-  it("refuses VAT codes, line projects and a too long description, before any call", async () => {
+  it("refuses line projects and a too long description, before any call", async () => {
     const f = fakeFiken([]);
     const c = await connected(f.fetchImpl);
     const ok = [{ amount: 100, debitAccount: "6000" }, { amount: 100, creditAccount: "1200" }];
-    const vat = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-09-29", lines: [{ amount: 100, debitAccount: "6000", debitVatCode: 1 }, ok[1]] });
-    expect(vat.isError).toBe(true);
     const proj = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-09-29", lines: [{ ...ok[0], projectId: 1 }, ok[1]] });
     expect(proj.isError).toBe(true);
     const long = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x".repeat(170), date: "2026-09-29", lines: ok });
     expect(long.isError).toBe(true);
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("passes VAT codes through and leaves the balance to Fiken when a line has one", async () => {
+    const f = fakeFiken([
+      { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/transactions/77" } },
+      { match: /\/transactions\/77$/, body: transaction },
+    ]);
+    const c = await connected(f.fetchImpl);
+    // Debit is net (100 000 øre plus 25 % VAT), credit is gross: they do not sum to equal, Fiken books the VAT.
+    const lines = [{ amount: 100000, debitAccount: "6540", debitVatCode: 1 }, { amount: 125000, creditAccount: "2911" }];
+    const r = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "Utlegg Ola", date: "2026-10-05", lines });
+    expect(r.isError).toBe(false);
+    const body = JSON.parse(String(f.calls[0]!.init!.body)) as { journalEntries: Array<{ lines: unknown[] }> };
+    expect(body.journalEntries[0]!.lines).toEqual(lines);
+  });
+
+  it("still refuses an unbalanced entry without VAT codes, and a negative VAT code", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const r = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-10-05",
+      lines: [{ amount: 100, debitAccount: "6000" }, { amount: 90, creditAccount: "1200" }] });
+    expect(r).toMatchObject({ isError: true, text: "The entry does not balance: debit 100 øre, credit 90 øre." });
+    const neg = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-10-05",
+      lines: [{ amount: 100, debitAccount: "6000", debitVatCode: -1 }, { amount: 100, creditAccount: "1200" }] });
+    expect(neg.isError).toBe(true);
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("refuses a VAT code without its account on the same line, before any call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const msg = "A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.";
+    const debitVatOnCredit = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-10-05",
+      lines: [{ amount: 100, creditAccount: "1200", debitVatCode: 1 }, { amount: 100, debitAccount: "6000" }] });
+    expect(debitVatOnCredit).toMatchObject({ isError: true, text: msg });
+    const creditVatOnDebit = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-10-05",
+      lines: [{ amount: 100, debitAccount: "6000", creditVatCode: 1 }, { amount: 100, creditAccount: "1200" }] });
+    expect(creditVatOnDebit).toMatchObject({ isError: true, text: msg });
     expect(f.calls).toHaveLength(0);
   });
 

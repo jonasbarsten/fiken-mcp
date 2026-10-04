@@ -22,6 +22,7 @@ export const CONCEPTS = {
   inbox: "The company's document inbox",
   ehf: "Incoming EHF e-invoices",
   attachments: "Files attached to purchases, sales, invoices and journal entries",
+  help: "Fiken's own help articles, and how they map to this connector",
   usage: "Your own usage counters on this server",
 } as const;
 export type Concept = keyof typeof CONCEPTS;

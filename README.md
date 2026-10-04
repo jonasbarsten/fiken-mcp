@@ -149,11 +149,12 @@ Operations by concept (`read` unless marked write):
   range such as 3000-3999), `bank_balances`
 - `ledger`: `get_journal_entries`, `get_journal_entry`,
   `create_journal_entry` (write; a manual fri postering, refused unless
-  debits and credits balance; no VAT codes, so book VAT through
-  `create_purchase` or `create_sale`; the description is at most 166
-  characters, since Fiken's 200-character limit includes its 34-character
-  prefix), `list_transactions`, `get_transaction` (journal entries carry
-  the `transactionId` it takes),
+  debits and credits balance; accepts `debitVatCode` and `creditVatCode`
+  where the debit amount is net and the credit amount is gross, Fiken checks
+  the balance, and a VAT code needs its account on the same line; the
+  description is at most 166 characters, since Fiken's 200-character limit
+  includes its 34-character prefix), `list_transactions`, `get_transaction`
+  (journal entries carry the `transactionId` it takes),
   `create_accrual` (write; spreads a sale or purchase line over months,
   the line id comes from `get_sale` or `get_purchase`; the balance account
   to accrue to is required: 1397, 1700, 1710, 1742, 1743, 1744, 1749 or
@@ -216,6 +217,13 @@ Operations by concept (`read` unless marked write):
 - `attachments`: `get_attachments` (on a purchase, sale, invoice or journal
   entry), `attach_inbox_document` (write; an invoice gets a copy and the
   document stays in the inbox)
+- `help`: `fiken_help_index` (titles and slugs from https://hjelp.fiken.no,
+  filtered by title words, always returned as `{ articles, hint? }`) and `fiken_help_article` (one article as Markdown,
+  followed by notes on how its steps map to this connector). Articles are
+  fetched live from hjelp.fiken.no (its llms.txt index and the `.md` page of
+  each article) and cached in memory for at most an hour; nothing is stored
+  per user. The server also sends connect-time instructions telling the model
+  to look unusual cases up there first
 - `usage`: `my_usage` (your own pseudonymous monthly call counts on this
   server)
 
@@ -251,7 +259,7 @@ options are read from the path on every request, so nothing is stored.
 
 Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
 `purchases`, `sales`, `invoices`, `invoice_drafts`, `credit_notes`,
-`offers`, `order_confirmations`, `recurring_invoices`, `time_tracking`, `payments`, `products`, `inbox`, `ehf`, `attachments`, `usage`. A concept filter chooses which areas the
+`offers`, `order_confirmations`, `recurring_invoices`, `time_tracking`, `payments`, `products`, `inbox`, `ehf`, `attachments`, `help`, `usage`. A concept filter chooses which areas the
 model may change; all reads stay available, since operations take their
 slugs and ids from reads in other concepts. So `/mcp/invoices` can look
 up contacts and bank accounts but not create a contact, and

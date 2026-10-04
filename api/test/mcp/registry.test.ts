@@ -23,6 +23,7 @@ const EXPECTED = [
   "list_recurring_invoices", "create_recurring_invoice_from_draft", "set_recurring_invoice_job",
   "list_time_users", "list_activities", "create_activity", "list_time_entries", "create_time_entry", "create_invoice_draft_from_time_entries",
   "list_ehf_documents", "get_ehf_document", "create_accrual",
+  "fiken_help_index", "fiken_help_article",
 ];
 
 describe("operation registry", () => {

@@ -414,6 +414,35 @@ unless noted, and any email recipient at jonasbj.com.
   `CloudFrontCreate` statement in `iac/lib/exec-policy.ts`. The bucket is
   not retained on a failed create, so the retry is clean.
 
+## Verify after deploying the Fiken help plan
+
+Do all of this against the demo company.
+
+- `fiken_help_index { query: "utlegg" }` returns titles and slugs of help
+  articles; the result should include "Hvordan registrere ansattutlegg".
+- `fiken_help_article { slug: "hvordan-registrere-ansattutlegg" }` returns
+  the article as Markdown with the connector notes appended.
+- Claude shows the instructions behaviour: when you describe something that
+  looks like an employee outlay, Claude asks to look it up in Fiken's help
+  first.
+- First read an existing purchase's journal entry with 25 % VAT on the demo
+  company (`get_journal_entries`) and note the vatCode Fiken used on the
+  expense line.
+- Then `create_journal_entry` with lines
+  `[{ amount: 100000, debitAccount: "6540", debitVatCode: <that code> }, { amount: 125000, creditAccount: "2911" }]`
+  and check the read-back: expense 6540 1 000,00, input VAT 250,00 on
+  Fiken's input-VAT account, 2911 1 250,00. Record the code and Fiken's
+  postings here.
+- Then the same with credit amount 120000 and confirm Fiken refuses it
+  (unbalanced).
+- Then a two-sided line
+  `{ amount: 125000, debitAccount: "6540", debitVatCode: <code>, creditAccount: "1920:<bank sub-account>" }`,
+  and the same with a `creditVatCode` too. Record which amount Fiken took
+  as net or gross and the postings it made.
+- Record the outcome in this file; if Fiken's postings differ from the
+  expectation, the connector note and the field descriptions must be
+  corrected before anyone books outlays.
+
 Verified 2026-10-04 (after deploying #38):
 
 - The first deploy ran all three stacks, iac first (`deploy.yml` changed,

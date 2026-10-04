@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { FikenError, type FikenClient } from "../fiken/client.js";
+import type { HelpClient } from "../help/client.js";
 import { log } from "../log.js";
 import type { UsageStore } from "../usage/store.js";
 
@@ -11,6 +12,8 @@ export interface ToolContext {
   /** When the caller's access token expires; an upload ticket never outlives it. */
   exp: number;
   usage: UsageStore;
+  /** Fiken's help articles (hjelp.fiken.no), cached per Lambda container. */
+  help: HelpClient;
   /**
    * Per-request state. `fikenUnauthorized` is set when a Fiken 401 is seen on a path where nothing was written
    * and `GET /user` confirms the login is dead, so `/mcp` can answer HTTP 401. `loginChecked` caches that

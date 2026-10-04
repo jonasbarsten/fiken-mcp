@@ -120,7 +120,7 @@ export const creditNotesOperations: Operation[] = [
     description:
       "Credit an issued invoice, fully (kind full) or by the given lines (kind partial). The credit note is booked at once and is not sent. " +
       `full needs invoiceId and no lines; partial needs lines (each with unitPrice, even with a productId) and invoiceId or contactId. ` +
-      `Amounts are integers in the invoice currency's smallest unit (øre for NOK). ${CONFIRM}`,
+      `Amounts are integers in the invoice currency's smallest unit (øre for NOK). For unusual cases, look it up first with fiken_help_index (via fiken_read). ${CONFIRM}`,
     input: z.object({
       companySlug,
       kind: z.enum(["full", "partial"]),

@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { FikenQueue, createFikenClient } from "../../src/fiken/client.js";
+import { createHelpClient } from "../../src/help/client.js";
 import { z } from "zod";
 import type { ToolContext } from "../../src/mcp/context.js";
 import type { Operation } from "../../src/mcp/operations.js";
@@ -33,7 +34,7 @@ export const farFutureExp = () => Math.floor(Date.now() / 1000) + 3600;
 
 export async function connected(
   fetchImpl: typeof fetch,
-  opts?: { usage?: UsageStore; session?: ToolContext["session"]; options?: ConnectorOptions },
+  opts?: { usage?: UsageStore; session?: ToolContext["session"]; options?: ConnectorOptions; helpFetch?: typeof fetch },
 ) {
   const session: ToolContext["session"] = opts?.session ?? { fikenUnauthorized: false, wrote: false };
   const fiken = createFikenClient({ baseUrl: "https://api.test/v2", fileBaseUrl: "https://files.test/v2", accessToken: "tok", fetch: fetchImpl, queue: new FikenQueue(0), onWrite: () => { session.wrote = true; } });
@@ -44,6 +45,7 @@ export async function connected(
     exp: farFutureExp(),
     usage: opts?.usage ?? memoryUsageStore(),
     session,
+    help: createHelpClient({ fetch: opts?.helpFetch ?? (async () => new Response("", { status: 404 })) }),
   }, undefined, undefined, opts?.options);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);

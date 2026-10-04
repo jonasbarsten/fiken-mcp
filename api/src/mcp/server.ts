@@ -4,6 +4,7 @@ import type { ToolContext } from "./context.js";
 import { registerGateway } from "./gateway.js";
 import { type Operation, registerOperationTool } from "./operations.js";
 import { type ConnectorOptions, visibleOperations } from "./options.js";
+import { SERVER_INSTRUCTIONS } from "./tools/help.js";
 import { registerUploadTools } from "./tools/upload.js";
 
 /** Operations that stay real tools: the receipts flow on a phone needs them without an explore round trip. */
@@ -24,11 +25,14 @@ function registerAllTools(server: McpServer, ctx: ToolContext, visible: readonly
  * only when the connection may write and sees purchases.
  */
 export function createMcpServer(ctx: ToolContext, publicUrl?: string, cfg?: Config, options: ConnectorOptions = { readOnly: false }): McpServer {
-  const server = new McpServer({
-    name: "fiken-mcp",
-    version: "0.1.0",
-    ...(publicUrl ? { icons: [{ src: `${publicUrl}/icon.png`, mimeType: "image/png", sizes: ["512x512"] }] } : {}),
-  });
+  const server = new McpServer(
+    {
+      name: "fiken-mcp",
+      version: "0.1.0",
+      ...(publicUrl ? { icons: [{ src: `${publicUrl}/icon.png`, mimeType: "image/png", sizes: ["512x512"] }] } : {}),
+    },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
   registerAllTools(server, ctx, visibleOperations(options));
   // The upload tools tell the model to book with create_purchase, so they need purchases and writes.
   const uploads = !options.readOnly && (!options.concepts || options.concepts.has("purchases"));

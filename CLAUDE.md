@@ -22,7 +22,7 @@ Repo: `jonasbarsten/fiken-mcp` (public). AWS: byjoba account
 - Store no user data: no tokens, no files, no accounting data. Files pass
   through Lambda memory only. Only anonymous usage counters in DynamoDB.
 - One stable MCP App resource URI. Never version it per build.
-- All Fiken calls through one `fikenFetch` wrapper with the queue.
+- All Fiken API calls through one `fikenFetch` wrapper with the queue (Fiken's public help pages at hjelp.fiken.no are fetched separately, without a token).
   Fiken allows one concurrent request.
 - Secrets in Parameter Store (`/fiken_mcp/*`), read at cold start. Never
   in code, env vars or the CloudFormation template. Load the
@@ -52,5 +52,5 @@ Operations plan executed 2026-09-29 (registry, `fiken_explore`,
 executed 2026-09-29 (the remaining Fiken areas as operations; see
 `docs/superpowers/plans/2026-09-29-fiken-mcp-coverage.md`). Website plan executed 2026-10-03 (`web/`, stack `fiken-mcp-web`,
 per-stack deploys; see `docs/superpowers/plans/2026-10-03-fiken-mcp-website.md`).
-Next: the decision on deletes, reversals and cancelling, and ChatGPT
-verification (spec section 14).
+Fiken help plan executed 2026-10-05 (`fiken_help_index`, `fiken_help_article`, VAT codes on journal entries; see `docs/superpowers/plans/2026-10-05-fiken-mcp-accounting-guides.md`).
+Next: the eval set, deletes decision, ChatGPT verification.
