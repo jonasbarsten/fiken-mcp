@@ -7,26 +7,28 @@ import { fileURLToPath } from "node:url";
  * runs under Node's built-in type stripping (no install needed), so keep it
  * free of imports beyond node:* and of non-erasable TypeScript syntax.
  */
-export type StackKey = "iac" | "web" | "api";
-export const STACK_KEYS: StackKey[] = ["iac", "web", "api"];
+export type StackKey = "iac" | "web" | "content" | "api";
+// "content" is not a stack: it is the s3 sync and invalidation that ship web/ and the icon.
+export const STACK_KEYS: StackKey[] = ["iac", "web", "content", "api"];
 
 const SHARED = new Set(["package.json", "package-lock.json", "tsconfig.base.json", ".github/workflows/deploy.yml"]);
 
 export function stacksFor(path: string): StackKey[] {
-  if (SHARED.has(path)) return ["iac", "web", "api"];
+  if (SHARED.has(path)) return ["iac", "web", "content", "api"];
   if (path.startsWith("iac/test/") || path.startsWith("api/test/") || path === "iac/lib/deploy-targets.ts") return [];
-  if (path.startsWith("web/") || path === "iac/lib/web-stack.ts") return ["web"];
+  if (path.startsWith("web/")) return ["content"];
+  if (path === "iac/lib/web-stack.ts") return ["web"];
   if (path === "iac/lib/iac-stack.ts") return ["iac"];
   // exec-policy.ts holds the site constants too, so it feeds both stacks.
   if (path.startsWith("iac/")) return ["iac", "web"];
-  // The web stack ships this icon too, so it needs both stacks.
-  if (path === "api/src/assets/icon.png") return ["web", "api"];
+  // The content deploy ships this icon too, so it needs both.
+  if (path === "api/src/assets/icon.png") return ["content", "api"];
   if (path.startsWith("api/")) return ["api"];
   return [];
 }
 
 export function deployTargets(paths: string[]): Record<StackKey, boolean> {
-  const targets: Record<StackKey, boolean> = { iac: false, web: false, api: false };
+  const targets: Record<StackKey, boolean> = { iac: false, web: false, content: false, api: false };
   for (const raw of paths) {
     const path = raw.trim();
     if (path === "") continue;

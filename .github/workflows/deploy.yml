@@ -14,6 +14,7 @@ jobs:
     outputs:
       iac: ${{ steps.targets.outputs.iac }}
       web: ${{ steps.targets.outputs.web }}
+      content: ${{ steps.targets.outputs.content }}
       api: ${{ steps.targets.outputs.api }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,11 +37,11 @@ jobs:
             node iac/lib/deploy-targets.ts < changed.txt | tee -a "$GITHUB_OUTPUT"
           else
             echo "No successful deploy to compare with; deploying everything."
-            printf 'iac=true\nweb=true\napi=true\n' | tee -a "$GITHUB_OUTPUT"
+            printf 'iac=true\nweb=true\ncontent=true\napi=true\n' | tee -a "$GITHUB_OUTPUT"
           fi
   deploy:
     needs: changes
-    if: needs.changes.outputs.iac == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.iac == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.content == 'true' || needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -64,6 +65,17 @@ jobs:
       - if: needs.changes.outputs.web == 'true'
         run: npx cdk deploy fiken-mcp-web --require-approval never
         working-directory: iac
+      # The site's files ship directly, not through CloudFormation.
+      - if: needs.changes.outputs.content == 'true'
+        shell: bash
+        run: |
+          account=$(aws sts get-caller-identity --query Account --output text)
+          bucket="fiken-mcp-web-$account"
+          distribution=$(aws cloudformation describe-stacks --stack-name fiken-mcp-web --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)
+          # icon.png is not in web/; it ships from the API's assets folder.
+          aws s3 sync web/ "s3://$bucket" --delete --exclude icon.png
+          aws s3 cp api/src/assets/icon.png "s3://$bucket/icon.png"
+          aws cloudfront create-invalidation --distribution-id "$distribution" --paths '/*'
       - if: needs.changes.outputs.api == 'true'
         run: npx cdk deploy fiken-mcp-api --require-approval never
         working-directory: api

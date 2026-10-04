@@ -86,6 +86,16 @@ LICENSE                   MIT, Jonas Barsten
   `fiken-mcp-web-` name prefix.
 - **Outputs:** bucket name, distribution id and domain name.
 
+> **Changed 2026-10-04.** The stack no longer holds a `BucketDeployment`
+> (and so no Lambda, layer or role) or the A/AAAA records. Content ships
+> from the deploy workflow: `aws s3 sync web/ --delete`, a copy of the
+> icon and a CloudFront invalidation. The alias records move to the iac
+> stack in a follow-up change. The stack outputs the bucket name and
+> exports the distribution id and domain name as
+> `fiken-mcp-web-distribution-id` and
+> `fiken-mcp-web-distribution-domain-name`. See "Site content deploy" in
+> `docs/setup.md`.
+
 ### 2.2 Execution policy (stack `fiken-mcp-iac`)
 
 New statements, each pinned as tightly as CloudFront's ARNs allow:
@@ -134,6 +144,21 @@ New statements, each pinned as tightly as CloudFront's ARNs allow:
 | `package.json`, `package-lock.json`, `tsconfig.base.json`, `.github/workflows/deploy.yml` | iac, web, api |
 | `iac/test/**`, `api/test/**`, `iac/lib/deploy-targets.ts` | none (CI covers them; they change no stack) |
 | anything else (`docs/**`, `README.md`, `LICENSE`, `CLAUDE.md`, other workflows) | none |
+
+> **Changed 2026-10-04.** There is a fourth flag, `content`: the sync and
+> invalidation step that ships the site's files (it is not a stack). The
+> deploy order is iac, web, content, api. The table rows become:
+>
+> | Path | Flags |
+> |---|---|
+> | `web/**` | content |
+> | `iac/lib/web-stack.ts` | web |
+> | `iac/lib/iac-stack.ts` | iac |
+> | any other `iac/**` | iac, web |
+> | `api/src/assets/icon.png` | content, api |
+> | `api/**` | api |
+> | `package.json`, `package-lock.json`, `tsconfig.base.json`, `.github/workflows/deploy.yml` | iac, web, content, api |
+> | tests, `iac/lib/deploy-targets.ts`, docs and everything else | none |
 
 ### 2.4 Order of first deploy
 
