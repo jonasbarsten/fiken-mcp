@@ -387,3 +387,25 @@ unless noted, and any email recipient at jonasbj.com.
   actions in AWS's service authorization reference), add it to the
   `CloudFrontCreate` statement in `iac/lib/exec-policy.ts`. The bucket is
   not retained on a failed create, so the retry is clean.
+
+Verified 2026-10-04 (after deploying #38):
+
+- The first deploy ran all three stacks, iac first (`deploy.yml` changed,
+  so the changes job set every flag). `fiken-mcp-web` was created on the
+  first try; no CloudFront AccessDenied.
+- `https://fiken-mcp.byjoba.com` answers 200 with the CSP, HSTS (one
+  year, include subdomains), `nosniff`, `no-referrer` and `DENY` headers;
+  `http://` answers 301 to HTTPS.
+- `/site.js`, `/style.css`, `/icon.png` (from `api/src/assets`) and
+  `/404.html` are served with the right content types; `/upload.html` is
+  404, so only the icon ships from the API's assets folder.
+- `/nope` answers 404 with the Norwegian page.
+- `/stats` on the site matches the API's byte for byte and is a
+  CloudFront cache hit with `max-age=300`.
+- In Chrome: the counters filled (1 user, 1 active, 45 calls in
+  oktober), «Vis e-postadressen» revealed the mail link with the subject
+  «Tilgang til Fiken MCP», «Kopier» is shown, and the console had no CSP
+  violations.
+- Not yet observed: a web-only merge deploying only `fiken-mcp-web`, and
+  a docs-only merge asking for no approval. This PR is docs-only, so its
+  merge is the second check.
