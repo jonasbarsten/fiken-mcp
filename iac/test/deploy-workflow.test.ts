@@ -23,6 +23,12 @@ describe("deploy.yml", () => {
     expect(workflow).toContain("Outputs[?OutputKey=='DistributionId'].OutputValue");
   });
 
+  it("gives every uploaded file a short browser cache", () => {
+    expect(workflow).toContain('cache="public, max-age=300"');
+    expect(workflow).toContain('--delete --exclude icon.png --cache-control "$cache"');
+    expect(workflow).toContain('"s3://$bucket/icon.png" --cache-control "$cache"');
+  });
+
   it("sets all four flags when there is no successful deploy to compare with", () => {
     expect(workflow).toContain("printf 'iac=true\\nweb=true\\ncontent=true\\napi=true\\n'");
     expect(workflow).toContain("content: ${{ steps.targets.outputs.content }}");

@@ -73,8 +73,10 @@ async function loadStats() {
 const emailButton = document.getElementById("show-email");
 if (emailButton) emailButton.addEventListener("click", () => showEmail(emailButton), { once: true });
 
-const copyButton = document.getElementById("copy-url");
-const connectorUrl = document.getElementById("connector-url");
-if (copyButton && connectorUrl) setupCopy(copyButton, connectorUrl.textContent.trim());
+// Each copy button names the element whose text it copies in data-copy.
+for (const button of document.querySelectorAll("[data-copy]")) {
+  const source = document.getElementById(button.dataset.copy);
+  if (source) setupCopy(button, source.textContent.trim());
+}
 
 loadStats();

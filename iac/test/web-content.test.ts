@@ -79,18 +79,22 @@ describe("web content", () => {
     const button = {
       textContent: "Kopier",
       hidden: true,
+      dataset: { copy: "connector-url" },
       handler: undefined as undefined | (() => Promise<void>),
       addEventListener(_: string, fn: () => Promise<void>) { this.handler = fn; },
     };
     const elements: Record<string, unknown> = {
-      "copy-url": button,
       "connector-url": { textContent: " https://example.test/mcp " },
     };
+    const copied: string[] = [];
     const timers = new Map<number, () => void>();
     let nextId = 1;
     const context = vm.createContext({
-      document: { getElementById: (id: string) => elements[id] ?? null, querySelectorAll: () => [] },
-      navigator: { clipboard: { writeText: async () => {} } },
+      document: {
+        getElementById: (id: string) => elements[id] ?? null,
+        querySelectorAll: (selector: string) => (selector === "[data-copy]" ? [button] : []),
+      },
+      navigator: { clipboard: { writeText: async (text: string) => { copied.push(text); } } },
       fetch: async () => ({ ok: false }),
       Intl,
       Date,
@@ -103,8 +107,16 @@ describe("web content", () => {
     await button.handler!();
     await button.handler!();
     expect(button.textContent).toBe("Kopiert");
+    expect(copied).toEqual(["https://example.test/mcp", "https://example.test/mcp"]);
     for (const fn of timers.values()) fn();
     expect(button.textContent).toBe("Kopier");
+  });
+
+  it("points every copy button at an element on the page", () => {
+    const html = read("index.html");
+    const targets = [...html.matchAll(/data-copy="([^"]+)"/g)].map((m) => m[1]!);
+    expect(targets).toEqual(["connector-url", "readonly-url"]);
+    for (const id of targets) expect(html, id).toContain(`id="${id}"`);
   });
 
   it("keeps [hidden] elements hidden despite .button's display", () => {

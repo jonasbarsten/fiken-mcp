@@ -74,9 +74,12 @@ jobs:
           distribution=$(aws cloudformation describe-stacks --stack-name fiken-mcp-web --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)
           # Fail before touching the bucket if the output is missing (the CLI prints None).
           if [ -z "$distribution" ] || [ "$distribution" = None ]; then echo "fiken-mcp-web has no DistributionId output"; exit 1; fi
+          # Browsers revalidate after five minutes, so a deploy never leaves an
+          # old site.js next to new HTML for long; CloudFront is invalidated below.
+          cache="public, max-age=300"
           # icon.png is not in web/; it ships from the API's assets folder.
-          aws s3 sync web/ "s3://$bucket" --delete --exclude icon.png
-          aws s3 cp api/src/assets/icon.png "s3://$bucket/icon.png"
+          aws s3 sync web/ "s3://$bucket" --delete --exclude icon.png --cache-control "$cache"
+          aws s3 cp api/src/assets/icon.png "s3://$bucket/icon.png" --cache-control "$cache"
           aws cloudfront create-invalidation --distribution-id "$distribution" --paths '/*'
       - if: needs.changes.outputs.api == 'true'
         run: npx cdk deploy fiken-mcp-api --require-approval never
