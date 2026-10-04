@@ -18,16 +18,19 @@
 ---
 
 A remote [MCP](https://modelcontextprotocol.io) server for the
-[Fiken](https://fiken.no) accounting API. Fiken customers log in with
-Fiken themselves and use it from Claude (web, desktop, mobile, Claude
-Code) and ChatGPT, on their own AI subscription. Full read and write
-access, and nothing stored on our side.
+[Fiken](https://fiken.no) accounting API, built for my own company and
+open for anyone who wants to use it. You log in with Fiken yourself and
+use it from Claude (web, desktop, mobile, Claude Code) and ChatGPT, on
+your own AI subscription. It reads and writes nearly everything Fiken's
+API offers, but never deletes, reverses or cancels anything; that stays
+in Fiken. Nothing is stored on the server.
 
-> **Early access.** Fiken's development status caps the app at five
-> users, and it needs five active users before it can apply for
-> production status. Want in? Use the email button on
-> [fiken-mcp.byjoba.com](https://fiken-mcp.byjoba.com) and you will be
-> added as an approved user.
+> **Trying it.** While Fiken treats the app as a development app, at
+> most five people (me included) can use it, and I add each one by hand.
+> With five active users I can ask Fiken to open it for everyone. If you
+> want to try it, use the email button on
+> [fiken-mcp.byjoba.com](https://fiken-mcp.byjoba.com) and I will add
+> you.
 
 ## What you can ask
 
