@@ -435,6 +435,10 @@ Do all of this against the demo company.
   postings here.
 - Then the same with credit amount 120000 and confirm Fiken refuses it
   (unbalanced).
+- Then a two-sided line
+  `{ amount: 125000, debitAccount: "6540", debitVatCode: <code>, creditAccount: "1920:<bank sub-account>" }`,
+  and the same with a `creditVatCode` too. Record which amount Fiken took
+  as net or gross and the postings it made.
 - Record the outcome in this file; if Fiken's postings differ from the
   expectation, the connector note and the field descriptions must be
   corrected before anyone books outlays.

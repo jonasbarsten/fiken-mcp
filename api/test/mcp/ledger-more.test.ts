@@ -66,15 +66,6 @@ describe("manual journal entries", () => {
     expect(f.calls).toHaveLength(0);
   });
 
-  it("refuses a two-sided line with a VAT code, before any call", async () => {
-    const f = fakeFiken([]);
-    const c = await connected(f.fetchImpl);
-    const r = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-10-05",
-      lines: [{ amount: 100, debitAccount: "6000", creditAccount: "1200", debitVatCode: 1 }] });
-    expect(r).toMatchObject({ isError: true, text: "With a VAT code, put the debit and the credit on separate lines." });
-    expect(f.calls).toHaveLength(0);
-  });
-
   it("posts one entry and reads it back", async () => {
     const f = fakeFiken([
       { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/transactions/77" } },

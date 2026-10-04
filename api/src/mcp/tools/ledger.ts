@@ -66,7 +66,7 @@ const VAT_CODE_HELP =
 
 const journalEntryLine = z
   .object({
-    amount: z.number().int().positive().describe(`Amount moved. ${ORE} With a VAT code on the line, a debit line's amount is net (excluding VAT) and a credit line's amount is gross (including VAT); Fiken books the VAT. Such a line has only one account.`),
+    amount: z.number().int().positive().describe("Amount in øre. Fiken's API documents it as net (excluding VAT) on the debit side and gross (including VAT) on the credit side when VAT codes are set; how it reads a line with both accounts and VAT is being verified live, so state the amounts and VAT to the user before writing."),
     debitAccount: z.string().min(1).optional().describe("Account code to debit, from list_accounts (via fiken_read); bank accounts look like 1920:10001"),
     creditAccount: z.string().min(1).optional().describe("Account code to credit, from list_accounts (via fiken_read)"),
     debitVatCode: vatCode.optional().describe(`${VAT_CODE_HELP} For the debit side, e.g. an expense with deductible input VAT.`),
@@ -205,7 +205,6 @@ export const ledgerOperations: Operation[] = [
         if (l.debitAccount === undefined && l.creditAccount === undefined) return toolText("Every line needs a debitAccount or a creditAccount.");
         if (l.debitVatCode !== undefined && l.debitAccount === undefined) return toolText("A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.");
         if (l.creditVatCode !== undefined && l.creditAccount === undefined) return toolText("A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.");
-        if ((l.debitVatCode !== undefined || l.creditVatCode !== undefined) && l.debitAccount !== undefined && l.creditAccount !== undefined) return toolText("With a VAT code, put the debit and the credit on separate lines.");
         if (l.creditAccount === undefined) debit += l.amount;
         else if (l.debitAccount === undefined) credit += l.amount;
       }

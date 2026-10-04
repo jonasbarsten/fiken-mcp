@@ -151,8 +151,7 @@ Operations by concept (`read` unless marked write):
   `create_journal_entry` (write; a manual fri postering, refused unless
   debits and credits balance; accepts `debitVatCode` and `creditVatCode`
   where the debit amount is net and the credit amount is gross, Fiken checks
-  the balance, and a VAT code needs its account on the same line, with only
-  that one account (debit and credit go on separate lines); the
+  the balance, and a VAT code needs its account on the same line; the
   description is at most 166 characters, since Fiken's 200-character limit
   includes its 34-character prefix), `list_transactions`, `get_transaction`
   (journal entries carry the `transactionId` it takes),
