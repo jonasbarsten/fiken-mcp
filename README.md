@@ -149,11 +149,12 @@ Operations by concept (`read` unless marked write):
   range such as 3000-3999), `bank_balances`
 - `ledger`: `get_journal_entries`, `get_journal_entry`,
   `create_journal_entry` (write; a manual fri postering, refused unless
-  debits and credits balance; no VAT codes, so book VAT through
-  `create_purchase` or `create_sale`; the description is at most 166
-  characters, since Fiken's 200-character limit includes its 34-character
-  prefix), `list_transactions`, `get_transaction` (journal entries carry
-  the `transactionId` it takes),
+  debits and credits balance; accepts `debitVatCode` and `creditVatCode`
+  where the debit amount is net and the credit amount is gross, Fiken checks
+  the balance, and a VAT code needs its account on the same line; the
+  description is at most 166 characters, since Fiken's 200-character limit
+  includes its 34-character prefix), `list_transactions`, `get_transaction`
+  (journal entries carry the `transactionId` it takes),
   `create_accrual` (write; spreads a sale or purchase line over months,
   the line id comes from `get_sale` or `get_purchase`; the balance account
   to accrue to is required: 1397, 1700, 1710, 1742, 1743, 1744, 1749 or
@@ -216,13 +217,13 @@ Operations by concept (`read` unless marked write):
 - `attachments`: `get_attachments` (on a purchase, sale, invoice or journal
   entry), `attach_inbox_document` (write; an invoice gets a copy and the
   document stays in the inbox)
-- `help`: `fiken_help_index` (titles and slugs of Fiken's own help
-  articles at hjelp.fiken.no, filtered by title words) and
-  `fiken_help_article` (one article as Markdown, followed by notes on how
-  its steps map to this connector). Both read hjelp.fiken.no, not Fiken's
-  API; nothing is stored beyond a per-container cache. The server also
-  sends connect-time instructions telling the model to look unusual cases
-  up there first
+- `help`: `fiken_help_index` (titles and slugs from https://hjelp.fiken.no,
+  filtered by title words) and `fiken_help_article` (one article as Markdown,
+  followed by notes on how its steps map to this connector). Articles are
+  fetched live from hjelp.fiken.no (its llms.txt index and the `.md` page of
+  each article) and cached in memory for at most an hour; nothing is stored
+  per user. The server also sends connect-time instructions telling the model
+  to look unusual cases up there first
 - `usage`: `my_usage` (your own pseudonymous monthly call counts on this
   server)
 
@@ -280,24 +281,6 @@ Some tasks write in two areas, so choose both:
 These options limit what a connection offers the model. They are not a
 security boundary against whoever holds the token: the same login token
 works on `/mcp`. To stop a token, revoke access in Fiken.
-
-## Fiken's help
-
-When the model encounters something more complex than a routine purchase or
-sale, two read operations let it look up Fiken's own help first:
-
-- `fiken_help_index { query? }`: titles and slugs from https://hjelp.fiken.no,
-  filtered by words in the title if a query is given.
-- `fiken_help_article { slug }`: one article as Markdown, followed by
-  connector notes explaining how the article's steps map to this connector.
-
-Both operations fetch live from `hjelp.fiken.no` (its `llms.txt` and `.md`
-pages) and cache in memory for at most an hour. Nothing is stored. The server
-also sends connect-time instructions telling the model to look unusual cases
-up there before proposing a booking.
-
-`create_journal_entry` accepts `debitVatCode` and `creditVatCode` to book
-manual VAT lines directly on the journal entry.
 
 Receipts: `upload_receipts` opens a picker inside the chat (photos,
 camera, PDFs). Each file goes to the company's Fiken inbox and its
