@@ -49,9 +49,9 @@ export function registerDocumentViewTool(server: McpServer, ctx: ToolContext, pu
   const claims = { fikenAccessToken: ctx.fikenAccessToken, anonId: ctx.anonId, exp: ctx.exp };
 
   /** The file URL comes from Fiken's answer, never from the model, and is sealed into the ticket; only the ticket goes out. */
-  const shown = (slug: string, fileUrl: string, filename: string, text: string): CallToolResult => ({
+  const shown = (fileUrl: string, filename: string, text: string): CallToolResult => ({
     content: [{ type: "text", text }],
-    structuredContent: { documentUrl, ticket: issueViewTicket(cfg, claims, slug, fileUrl), filename },
+    structuredContent: { documentUrl, ticket: issueViewTicket(cfg, claims, fileUrl), filename },
   });
 
   registerAppTool(
@@ -71,7 +71,7 @@ export function registerDocumentViewTool(server: McpServer, ctx: ToolContext, pu
           const doc = await ctx.fiken.json<FikenInboxDocument>(`/companies/${slug}/inbox/${inboxDocumentId}`);
           const filename = doc.filename ?? "dokument";
           if (!doc.documentUrl) return toolText(`Fiken gives no download URL for inbox document ${inboxDocumentId} (${filename}); ask the user to open it in Fiken.`);
-          return shown(slug, doc.documentUrl, filename, `Viser ${filename} fra innboksen. Innholdet kan leses med get_inbox_document (via fiken_read).`);
+          return shown(doc.documentUrl, filename, `Viser ${filename} fra innboksen. Innholdet kan leses med get_inbox_document (via fiken_read).`);
         });
       }
       const target = pickTarget(ids);
@@ -82,7 +82,7 @@ export function registerDocumentViewTool(server: McpServer, ctx: ToolContext, pu
         if (!att) return toolText(`No attachment ${attachmentUuid} on ${target.key} ${target.id}; list them with get_attachments (via fiken_read).`);
         if (!att.downloadUrl) return toolText(`Fiken gives no download URL for attachment ${attachmentUuid}; ask the user to open it in Fiken.`);
         const filename = att.filename ?? "dokument";
-        return shown(slug, att.downloadUrl, filename, `Viser vedlegget ${filename}.`);
+        return shown(att.downloadUrl, filename, `Viser vedlegget ${filename}.`);
       });
     }),
   );

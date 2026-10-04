@@ -3,10 +3,10 @@ import { BlobError, decryptBlob, encryptBlob } from "../crypto/blob.js";
 
 export const VIEW_TICKET_SECONDS = 5 * 60;
 
-export interface ViewTicket { fikenAccessToken: string; anonId: string; companySlug: string; fileUrl: string; exp: number }
+export interface ViewTicket { fikenAccessToken: string; anonId: string; fileUrl: string; exp: number }
 
 /** Kind "v": every blob shares the key ring, so the tag alone keeps upload tickets, tokens and view tickets apart. */
-interface TicketWire { k: "v"; t: string; u: string; s: string; f: string; exp: number }
+interface TicketWire { k: "v"; t: string; u: string; f: string; exp: number }
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
@@ -23,16 +23,15 @@ export function viewTicketSeconds(claims: { exp: number }, now = nowSeconds()): 
 export function issueViewTicket(
   cfg: Config,
   claims: { fikenAccessToken: string; anonId: string; exp: number },
-  companySlug: string,
   fileUrl: string,
   now = nowSeconds(),
 ): string {
-  const wire: TicketWire = { k: "v", t: claims.fikenAccessToken, u: claims.anonId, s: companySlug, f: fileUrl, exp: now + viewTicketSeconds(claims, now) };
+  const wire: TicketWire = { k: "v", t: claims.fikenAccessToken, u: claims.anonId, f: fileUrl, exp: now + viewTicketSeconds(claims, now) };
   return encryptBlob(wire, cfg.keys);
 }
 
 export function readViewTicket(cfg: Config, ticket: string, now = nowSeconds()): ViewTicket {
   const wire = decryptBlob<Partial<TicketWire>>(ticket, cfg.keys, now);
-  if (wire.k !== "v" || !wire.t || !wire.u || !wire.s || !wire.f || typeof wire.exp !== "number") throw new BlobError("invalid");
-  return { fikenAccessToken: wire.t, anonId: wire.u, companySlug: wire.s, fileUrl: wire.f, exp: wire.exp };
+  if (wire.k !== "v" || !wire.t || !wire.u || !wire.f || typeof wire.exp !== "number") throw new BlobError("invalid");
+  return { fikenAccessToken: wire.t, anonId: wire.u, fileUrl: wire.f, exp: wire.exp };
 }

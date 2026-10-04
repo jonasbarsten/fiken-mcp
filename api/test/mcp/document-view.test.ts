@@ -71,7 +71,7 @@ describe("show_document", () => {
     expect(await names({ publicUrl: undefined })).not.toContain("show_document");
   });
 
-  it("looks up an inbox document and returns a view ticket sealed to that company and that file", async () => {
+  it("looks up an inbox document and returns a view ticket sealed to that one file", async () => {
     const f = fiken();
     const c = await connectedWithUrl(f.fetchImpl);
     const r = await c.callTool({ name: "show_document", arguments: { companySlug: "demo", inboxDocumentId: 7 } });
@@ -79,7 +79,9 @@ describe("show_document", () => {
     const sc = r.structuredContent as { documentUrl: string; ticket: string; filename: string };
     expect(sc.documentUrl).toBe("https://fiken-mcp.test/document");
     expect(sc.filename).toBe("taxi.pdf");
-    expect(readViewTicket(cfg, sc.ticket)).toMatchObject({ fikenAccessToken: "tok", anonId: "anon", companySlug: "demo", fileUrl: DOC_URL });
+    const sealed = readViewTicket(cfg, sc.ticket);
+    expect(sealed).toMatchObject({ fikenAccessToken: "tok", anonId: "anon", fileUrl: DOC_URL });
+    expect(sealed).not.toHaveProperty("companySlug");
     expect(() => readUploadTicket(cfg, sc.ticket)).toThrow();
     expect(textOf(r)).toBe("Viser taxi.pdf fra innboksen. Innholdet kan leses med get_inbox_document (via fiken_read).");
     // Only the lookup: the file itself is fetched by the widget through /document.

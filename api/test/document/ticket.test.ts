@@ -10,18 +10,18 @@ const session = (exp: number) => ({ fikenAccessToken: "FIKEN-ACCESS-TOKEN-PLAINT
 const FILE = "https://fiken.test/api/v2/files/abc";
 
 describe("view ticket", () => {
-  it("round-trips company and file URL, hides the token and the URL, expires after 5 minutes", () => {
+  it("round-trips the file URL and nothing else it does not check, hides the token and the URL, expires after 5 minutes", () => {
     expect(VIEW_TICKET_SECONDS).toBe(300);
-    const t = issueViewTicket(cfg, session(1_000_000), "demo", FILE, 1000);
+    const t = issueViewTicket(cfg, session(1_000_000), FILE, 1000);
     expect(t).not.toContain("FIKEN-ACCESS-TOKEN-PLAINTEXT");
     expect(t).not.toContain("files/abc");
-    expect(readViewTicket(cfg, t, 1300)).toEqual({ fikenAccessToken: "FIKEN-ACCESS-TOKEN-PLAINTEXT", anonId: "anon1", companySlug: "demo", fileUrl: FILE, exp: 1300 });
+    expect(readViewTicket(cfg, t, 1300)).toEqual({ fikenAccessToken: "FIKEN-ACCESS-TOKEN-PLAINTEXT", anonId: "anon1", fileUrl: FILE, exp: 1300 });
     expect(() => readViewTicket(cfg, t, 1301)).toThrow(BlobError);
   });
 
   it("never outlives the session it was minted from", () => {
     expect(viewTicketSeconds(session(1060), 1000)).toBe(60);
-    const t = issueViewTicket(cfg, session(1060), "demo", FILE, 1000);
+    const t = issueViewTicket(cfg, session(1060), FILE, 1000);
     expect(readViewTicket(cfg, t, 1060).exp).toBe(1060);
     expect(() => readViewTicket(cfg, t, 1061)).toThrow(BlobError);
     expect(viewTicketSeconds(session(900), 1000)).toBe(0);
@@ -29,7 +29,7 @@ describe("view ticket", () => {
 
   it("is never accepted as an upload ticket, and an upload ticket is never accepted as a view ticket", () => {
     const live = session(Math.floor(Date.now() / 1000) + 3600);
-    const view = issueViewTicket(cfg, live, "demo", FILE);
+    const view = issueViewTicket(cfg, live, FILE);
     const upload = issueUploadTicket(cfg, live, "demo");
     expect(() => readUploadTicket(cfg, view)).toThrow(expect.objectContaining({ code: "invalid" }));
     expect(() => readViewTicket(cfg, upload)).toThrow(expect.objectContaining({ code: "invalid" }));
@@ -40,7 +40,7 @@ describe("view ticket", () => {
     expect(() => readViewTicket(cfg, issued.access_token)).toThrow(BlobError);
     expect(() => readViewTicket(cfg, issued.refresh_token)).toThrow(BlobError);
     expect(() => readViewTicket(cfg, "garbage")).toThrow(BlobError);
-    const view = issueViewTicket(cfg, session(Math.floor(Date.now() / 1000) + 3600), "demo", FILE);
+    const view = issueViewTicket(cfg, session(Math.floor(Date.now() / 1000) + 3600), FILE);
     expect(() => readAccessToken(cfg, view)).toThrow(expect.objectContaining({ code: "invalid" }));
   });
 });

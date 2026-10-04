@@ -45,7 +45,7 @@ const get = (app: ReturnType<typeof createApp>, ticket: string | undefined, quer
 describe("GET /document", () => {
   it("downloads only the sealed file URL with the sealed token and answers it as an uncached PNG", async () => {
     const { app, cfg, calls } = setup();
-    const res = await get(app, issueViewTicket(cfg, claims(), "demo", FILE));
+    const res = await get(app, issueViewTicket(cfg, claims(), FILE));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
     expect(res.headers.get("cache-control")).toBe("no-store");
@@ -57,21 +57,21 @@ describe("GET /document", () => {
 
   it("types the answer by magic bytes, not by what Fiken claims", async () => {
     const { app, cfg } = setup(PDF, 200, { "content-type": "text/html" });
-    const res = await get(app, issueViewTicket(cfg, claims(), "demo", FILE));
+    const res = await get(app, issueViewTicket(cfg, claims(), FILE));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/pdf");
   });
 
   it("refuses anything that is not a PNG, JPEG, GIF or PDF", async () => {
     const { app, cfg } = setup(enc("<html><script>alert(1)</script>"), 200, { "content-type": "image/png" });
-    const res = await get(app, issueViewTicket(cfg, claims(), "demo", FILE));
+    const res = await get(app, issueViewTicket(cfg, claims(), FILE));
     expect(res.status).toBe(415);
     expect(await res.text()).toBe("");
   });
 
   it("answers 401 with no detail for a missing, garbage, expired or upload ticket, before calling Fiken", async () => {
     const { app, cfg, calls } = setup();
-    for (const ticket of [undefined, "", "garbage", issueViewTicket(cfg, claims(), "demo", FILE, 1), issueUploadTicket(cfg, claims(), "demo")]) {
+    for (const ticket of [undefined, "", "garbage", issueViewTicket(cfg, claims(), FILE, 1), issueUploadTicket(cfg, claims(), "demo")]) {
       const res = await get(app, ticket);
       expect(res.status).toBe(401);
       expect(await res.text()).toBe("");
@@ -81,16 +81,16 @@ describe("GET /document", () => {
 
   it("ignores a ticket in the query string, and never fetches a URL from it", async () => {
     const { app, cfg, calls } = setup();
-    const ticket = encodeURIComponent(issueViewTicket(cfg, claims(), "demo", FILE));
+    const ticket = encodeURIComponent(issueViewTicket(cfg, claims(), FILE));
     expect((await get(app, undefined, `?ticket=${ticket}`)).status).toBe(401);
-    const res = await get(app, issueViewTicket(cfg, claims(), "demo", FILE), "?url=https%3A%2F%2Fevil.example%2Fx&fileUrl=https%3A%2F%2Fevil.example%2Fx");
+    const res = await get(app, issueViewTicket(cfg, claims(), FILE), "?url=https%3A%2F%2Fevil.example%2Fx&fileUrl=https%3A%2F%2Fevil.example%2Fx");
     expect(res.status).toBe(200);
     expect(calls.map((c) => c.url)).toEqual([FILE]);
   });
 
   it("never sends the token outside Fiken, even for a sealed URL", async () => {
     const { app, cfg, calls } = setup();
-    const res = await get(app, issueViewTicket(cfg, claims(), "demo", "https://evil.example/x"));
+    const res = await get(app, issueViewTicket(cfg, claims(), "https://evil.example/x"));
     expect(res.status).toBe(502);
     expect(calls).toHaveLength(0);
   });
@@ -98,7 +98,7 @@ describe("GET /document", () => {
   it("passes on a Fiken 404 as 404 and a Fiken 401 as 401, without Fiken's body", async () => {
     for (const status of [404, 401]) {
       const { app, cfg } = setup(enc("secret detail from Fiken"), status, { "content-type": "text/plain" });
-      const res = await get(app, issueViewTicket(cfg, claims(), "demo", FILE));
+      const res = await get(app, issueViewTicket(cfg, claims(), FILE));
       expect(res.status).toBe(status);
       expect(await res.text()).toBe("");
     }
@@ -108,7 +108,7 @@ describe("GET /document", () => {
     const big = new Uint8Array(4 * 1024 * 1024 + 1);
     big.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const { app, cfg } = setup(big);
-    expect((await get(app, issueViewTicket(cfg, claims(), "demo", FILE))).status).toBe(413);
+    expect((await get(app, issueViewTicket(cfg, claims(), FILE))).status).toBe(413);
   });
 
   it("answers the CORS preflight for the widget origin only", async () => {
@@ -123,7 +123,7 @@ describe("GET /document", () => {
 
   it("logs neither the ticket, the token nor the file", async () => {
     const { app, cfg } = setup();
-    const ticket = issueViewTicket(cfg, claims(), "demo", FILE);
+    const ticket = issueViewTicket(cfg, claims(), FILE);
     const out = captureStdout();
     expect((await get(app, ticket)).status).toBe(200);
     expect((await get(app, "garbage")).status).toBe(401);
