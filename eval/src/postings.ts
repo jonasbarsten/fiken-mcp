@@ -17,6 +17,14 @@ const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v)
 const str = (v: unknown): string => (typeof v === "string" ? v : "?");
 const recordLines = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.filter(isRecord) : []);
 
+/** The account of a sale or invoice line that leaves it to Fiken (account/incomeAccount optional); grading does not check it. */
+export const DEFAULT_ACCOUNT = "(Fikens standardkonto)";
+function lineAccount(v: unknown, i: number, notes: string[]): string {
+  if (typeof v === "string") return v;
+  notes.push(`Linje ${i + 1} har ingen konto; Fiken velger standardkonto, og kontoen er ikke sjekket.`);
+  return DEFAULT_ACCOUNT;
+}
+
 /** True for a plain rate ("25", "0"), false for «kode N» or no VAT. */
 export const isRate = (vat: string | undefined): boolean => vat !== undefined && /^\d+$/.test(vat);
 const vatOn = (net: number, vat: string | undefined): number => (isRate(vat) ? Math.round((net * Number(vat)) / 100) : 0);
@@ -51,9 +59,10 @@ function purchase(args: Record<string, unknown>): Converted {
 }
 
 function sale(args: Record<string, unknown>): Converted {
-  const credits = recordLines(args.lines).map((l) => post("credit", str(l.account), num(l.netPrice), typeRate(l.vatType), num(l.vat)));
+  const notes: string[] = [];
+  const credits = recordLines(args.lines).map((l, i) => post("credit", lineAccount(l.account, i, notes), num(l.netPrice), typeRate(l.vatType), num(l.vat)));
   const account = args.kind === "cash_sale" ? str(args.paymentAccount) : "1500";
-  const notes = args.paymentFee !== undefined ? ["paymentFee er ikke med i posteringene."] : [];
+  if (args.paymentFee !== undefined) notes.push("paymentFee er ikke med i posteringene.");
   return { postings: [post("debit", account, grossOf(credits)), ...credits], notes };
 }
 
@@ -62,7 +71,7 @@ function documentLines(v: unknown, side: Side, notes: string[]): Posting[] {
     if (typeof l.unitPrice !== "number") notes.push(`Linje ${i + 1} har ingen unitPrice (produkt); beløpet er ikke kjent.`);
     const net = Math.round(num(l.quantity) * num(l.unitPrice) * (1 - num(l.discount) / 100));
     const vat = typeRate(l.vatType);
-    return post(side, str(l.incomeAccount), net, vat, vatOn(net, vat));
+    return post(side, lineAccount(l.incomeAccount, i, notes), net, vat, vatOn(net, vat));
   });
 }
 

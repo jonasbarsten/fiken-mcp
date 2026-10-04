@@ -27,6 +27,14 @@ describe("the cases", () => {
     }
   });
 
+  it("allow create_purchase only where a purchase can give the expected credit (bank or supplier, not an employee)", () => {
+    for (const c of ALL_CASES) {
+      if (!c.expect.operations.includes("create_purchase")) continue;
+      const credits = c.expect.postings.filter((p) => p.side === "credit").flatMap((p) => p.account);
+      expect(credits.every((a) => a.startsWith("1920") || a.startsWith("2400")), c.id).toBe(true);
+    }
+  });
+
   it("all point to a source and are unreviewed until an accountant has checked them", () => {
     for (const c of ALL_CASES) {
       expect(c.source.length, c.id).toBeGreaterThan(0);

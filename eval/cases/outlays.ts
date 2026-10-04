@@ -13,9 +13,9 @@ export const OUTLAYS: Case[] = [
     prompt: "En ansatt kjøpte kontorrekvisita for 500 kr inkl. 25 % mva med privat kort. Før utlegget i demoforetaket; vi betaler henne tilbake senere.",
     replies,
     expect: {
-      operations: ["create_journal_entry", "create_purchase"],
+      operations: ["create_journal_entry"],
       postings: [
-        { side: "debit", account: ["6800", "6810"], net: 40000, vat: "25" },
+        { side: "debit", account: ["6800"], net: 40000, vat: "25" },
         { side: "credit", account: EMPLOYEE_DEBT, amount: 50000 },
       ],
       behaviour: { previewFirst: true, readHelp: true },
@@ -29,7 +29,7 @@ export const OUTLAYS: Case[] = [
     prompt: "En ansatt tok taxi til et kundemøte for 336 kr inkl. 12 % mva og betalte privat. Før utlegget i demoforetaket.",
     replies,
     expect: {
-      operations: ["create_journal_entry", "create_purchase"],
+      operations: ["create_journal_entry"],
       postings: [
         { side: "debit", account: ["7140", "7130"], net: 30000, vat: "12" },
         { side: "credit", account: EMPLOYEE_DEBT, amount: 33600 },
@@ -45,7 +45,7 @@ export const OUTLAYS: Case[] = [
     prompt: "En ansatt betalte 150 kr i porto privat. Porto har ikke mva. Før utlegget i demoforetaket.",
     replies,
     expect: {
-      operations: ["create_journal_entry", "create_purchase"],
+      operations: ["create_journal_entry"],
       postings: [
         { side: "debit", account: ["6940"], net: 15000 },
         { side: "credit", account: EMPLOYEE_DEBT, amount: 15000 },
@@ -61,7 +61,7 @@ export const OUTLAYS: Case[] = [
     prompt: "En ansatt betalte én hotellnatt på jobbreise privat, 1 120 kr inkl. 12 % mva. Før utlegget i demoforetaket.",
     replies,
     expect: {
-      operations: ["create_journal_entry", "create_purchase"],
+      operations: ["create_journal_entry"],
       postings: [
         { side: "debit", account: ["7140", "7130"], net: 100000, vat: "12" },
         { side: "credit", account: EMPLOYEE_DEBT, amount: 112000 },

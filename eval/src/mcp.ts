@@ -25,11 +25,14 @@ export function retryOn503(fetchImpl: Fetch, sleep: (ms: number) => Promise<void
   };
 }
 
+export const LOGIN_EXPIRED = "Innloggingen er utløpt; start evalueringen på nytt.";
+
 /** OAuth state for one run, in memory only. */
 export class MemoryOAuthProvider implements OAuthClientProvider {
   private info: StoredOAuthClientInformation | undefined;
   private saved: StoredOAuthTokens | undefined;
   private verifier = "";
+  private done = false;
 
   constructor(
     private readonly redirect: string,
@@ -60,7 +63,12 @@ export class MemoryOAuthProvider implements OAuthClientProvider {
   saveTokens(tokens: StoredOAuthTokens): void {
     this.saved = tokens;
   }
+  /** The callback server is gone once logged in, so a later authorization (a failed refresh) must stop the run. */
+  loggedIn(): void {
+    this.done = true;
+  }
   redirectToAuthorization(url: URL): void {
+    if (this.done) throw new Error(LOGIN_EXPIRED);
     this.open(url);
   }
   saveCodeVerifier(verifier: string): void {
@@ -114,6 +122,7 @@ export async function connectHost(apiUrl: string): Promise<ToolHost & { close():
   } finally {
     callback.close();
   }
+  provider.loggedIn();
 
   const { tools } = await client.listTools();
   return {

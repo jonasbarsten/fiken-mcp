@@ -1,5 +1,5 @@
 import type { Case, Expected } from "../cases/types.js";
-import { isRate, toPostings, type Posting, type Proposal } from "./postings.js";
+import { DEFAULT_ACCOUNT, isRate, toPostings, type Posting, type Proposal } from "./postings.js";
 
 export type Call = { name: string; args: Record<string, unknown>; blocked?: boolean };
 export type Trace = { calls: Call[]; proposal?: Proposal; error?: string };
@@ -18,7 +18,7 @@ export function accountMatches(pattern: string, account: string): boolean {
 function postingMatches(e: Expected, p: Posting): boolean {
   return (
     e.side === p.side &&
-    e.account.some((a) => accountMatches(a, p.account)) &&
+    (p.account === DEFAULT_ACCOUNT || e.account.some((a) => accountMatches(a, p.account))) &&
     (e.net === undefined || e.net === p.net) &&
     (e.amount === undefined || e.amount === p.net + p.vatAmount) &&
     (e.vat === undefined || e.vat === p.vat)

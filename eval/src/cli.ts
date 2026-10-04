@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ALL_CASES, selectCases } from "../cases/index.js";
 import { grade } from "./grade.js";
 import { runConversation } from "./loop.js";
-import { connectHost } from "./mcp.js";
+import { connectHost, LOGIN_EXPIRED } from "./mcp.js";
 import { MODELS, selectModels } from "./models.js";
 import { parseSummary, renderReport, type RunRecord } from "./report.js";
 
@@ -35,7 +35,7 @@ const model = { create: (p: Anthropic.MessageCreateParamsNonStreaming) => anthro
 const records: RunRecord[] = [];
 
 try {
-  for (const c of cases) {
+  all: for (const c of cases) {
     for (const m of models) {
       for (let run = 1; run <= runs; run++) {
         const start = Date.now();
@@ -43,6 +43,7 @@ try {
         const g = grade(c.expect, result.trace);
         records.push({ caseId: c.id, area: c.area, reviewed: c.reviewed, model: m, run, ms: Date.now() - start, usage: result.usage, expectBehaviour: c.expect.behaviour, grade: g, transcript: result.transcript });
         console.log(`${c.id} ${m} ${run}: ${g.outcome}${g.problems[0] ? ` – ${g.problems[0]}` : ""}`);
+        if (result.trace.error?.includes(LOGIN_EXPIRED)) break all;
       }
     }
   }

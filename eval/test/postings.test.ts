@@ -58,9 +58,13 @@ describe("toPostings", () => {
     ]);
   });
 
-  it("invoice line without unitPrice is noted", () => {
+  it("a product line without unitPrice and incomeAccount is noted for both", () => {
     const c = toPostings(p("create_invoice", { lines: [{ productId: 5, quantity: 1 }] }));
-    expect(c!.notes).toEqual(["Linje 1 har ingen unitPrice (produkt); beløpet er ikke kjent."]);
+    expect(c!.notes).toEqual([
+      "Linje 1 har ingen unitPrice (produkt); beløpet er ikke kjent.",
+      "Linje 1 har ingen konto; Fiken velger standardkonto, og kontoen er ikke sjekket.",
+    ]);
+    expect(c!.postings[1]!.account).toBe("(Fikens standardkonto)");
   });
 
   it("partial credit note swaps the sides; a full one has no postings and a note", () => {

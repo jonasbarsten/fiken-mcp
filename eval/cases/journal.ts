@@ -76,7 +76,7 @@ export const JOURNAL: Case[] = [
     expect: {
       operations: ["create_journal_entry"],
       postings: [
-        { side: "debit", account: ["6420", "6550", "6551", "6553"], amount: 100000 },
+        { side: "debit", account: ["6420", "6550", "6553", "6810"], amount: 100000 },
         { side: "credit", account: ["17*"], amount: 100000 },
       ],
       behaviour: { previewFirst: true, readHelp: true },
@@ -92,7 +92,7 @@ export const JOURNAL: Case[] = [
     expect: {
       operations: ["create_journal_entry"],
       postings: [
-        { side: "debit", account: ["6000", "6010", "6015"], amount: 600000 },
+        { side: "debit", account: ["601*"], amount: 600000 },
         { side: "credit", account: ["1250"], amount: 600000 },
       ],
       behaviour: { previewFirst: true, readHelp: true },

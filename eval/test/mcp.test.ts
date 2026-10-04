@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MemoryOAuthProvider, retryOn503 } from "../src/mcp.js";
+import { LOGIN_EXPIRED, MemoryOAuthProvider, retryOn503 } from "../src/mcp.js";
 
 describe("retryOn503", () => {
   it("retries once after a 503, with the same request", async () => {
@@ -35,5 +35,13 @@ describe("MemoryOAuthProvider", () => {
     expect(p.tokens()).toBeUndefined();
     p.redirectToAuthorization(new URL("https://api.test/authorize?x=1"));
     expect(opened).toEqual(["https://api.test/authorize?x=1"]);
+  });
+
+  it("after login, a new authorization stops the run instead of opening another tab", () => {
+    const opened: string[] = [];
+    const p = new MemoryOAuthProvider("http://127.0.0.1:5000/callback", (u) => opened.push(u.toString()));
+    p.loggedIn();
+    expect(() => p.redirectToAuthorization(new URL("https://api.test/authorize"))).toThrow(LOGIN_EXPIRED);
+    expect(opened).toEqual([]);
   });
 });

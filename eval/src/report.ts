@@ -53,11 +53,13 @@ export function renderReport(runs: RunRecord[], startedAt: Date, previous?: Map<
   lines.push(`# Evaluering ${startedAt.toISOString()}`, "");
   if (unreviewed > 0) lines.push(`${unreviewed} av sakene er ikke revidert av regnskapsfører.`, "");
 
-  lines.push(previous ? "| Sak | Modell | Bestått | Atferd | Forrige |" : "| Sak | Modell | Bestått | Atferd |");
-  lines.push(previous ? "|---|---|---|---|---|" : "|---|---|---|---|");
+  lines.push(previous ? "| Sak | Modell | Bestått | Atferd | Tokens inn/ut | Tid | Forrige |" : "| Sak | Modell | Bestått | Atferd | Tokens inn/ut | Tid |");
+  lines.push(previous ? "|---|---|---|---|---|---|---|" : "|---|---|---|---|---|---|");
   for (const [key, rs] of groups(runs)) {
     const cell = `${rs.filter((r) => r.grade.outcome === "pass").length}/${rs.length}`;
-    let row = `| ${rs[0]!.caseId} | ${rs[0]!.model} | ${cell} | ${behaviourCell(rs)} |`;
+    const tokens = `${rs.reduce((s, r) => s + r.usage.input, 0)}/${rs.reduce((s, r) => s + r.usage.output, 0)}`;
+    const time = `${Math.round(rs.reduce((s, r) => s + r.ms, 0) / 1000)} s`;
+    let row = `| ${rs[0]!.caseId} | ${rs[0]!.model} | ${cell} | ${behaviourCell(rs)} | ${tokens} | ${time} |`;
     if (previous) {
       const before = previous.get(key);
       const mark = before === undefined ? "ny" : passes(cell) > passes(before) ? `${before} ↑` : passes(cell) < passes(before) ? `${before} ↓` : before;

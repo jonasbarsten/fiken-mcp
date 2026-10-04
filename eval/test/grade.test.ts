@@ -70,6 +70,15 @@ describe("grade", () => {
     expect(g).toMatchObject({ outcome: "pass", notes: ["create_contact har ingen omregning til posteringer; bare operasjonen er sjekket."] });
   });
 
+  it("does not check the account of a line that leaves it to Fiken, and says so", () => {
+    const g = grade(
+      { operations: ["create_sale"], postings: [{ side: "credit", account: ["3*"], net: 200000, vat: "25" }, { side: "debit", account: ["1920:10001"], amount: 250000 }] },
+      { calls: [], proposal: { operation: "create_sale", via: "write", args: { kind: "cash_sale", paymentAccount: "1920:10001", lines: [{ description: "Varer", netPrice: 200000, vat: 50000, vatType: "HIGH" }] } } },
+    );
+    expect(g.outcome).toBe("pass");
+    expect(g.notes).toEqual(["Linje 1 har ingen konto; Fiken velger standardkonto, og kontoen er ikke sjekket."]);
+  });
+
   it("has outcomes for no proposal and an error", () => {
     expect(grade(outlay, { calls: [] }).outcome).toBe("none");
     expect(grade(outlay, { calls: [], error: "boom" })).toMatchObject({ outcome: "error", problems: ["boom"] });

@@ -12,9 +12,10 @@ describe("renderReport", () => {
   const runs = [run("a", "sonnet", "pass", 1), run("a", "sonnet", "wrong", 2), run("a", "opus", "pass", 1)];
   const md = renderReport(runs, new Date("2026-10-04T10:00:00Z"));
 
-  it("has a summary row per case and model with the pass count and behaviour", () => {
-    expect(md).toContain("| a | sonnet | 1/2 | forhåndsvisning 1/2 |");
-    expect(md).toContain("| a | opus | 1/1 | forhåndsvisning 1/1 |");
+  it("has a summary row per case and model with the pass count, behaviour, tokens and time", () => {
+    expect(md).toContain("| Sak | Modell | Bestått | Atferd | Tokens inn/ut | Tid |");
+    expect(md).toContain("| a | sonnet | 1/2 | forhåndsvisning 1/2 | 200/20 | 2 s |");
+    expect(md).toContain("| a | opus | 1/1 | forhåndsvisning 1/1 | 100/10 | 1 s |");
   });
   it("says the cases are not reviewed by an accountant", () => {
     expect(md).toContain("ikke revidert av regnskapsfører");
@@ -27,6 +28,6 @@ describe("renderReport", () => {
   it("round-trips the summary and marks changes against an earlier report", () => {
     expect(parseSummary(md)).toEqual(new Map([["a|sonnet", "1/2"], ["a|opus", "1/1"]]));
     const next = renderReport([run("a", "sonnet", "pass", 1), run("a", "sonnet", "pass", 2)], new Date(), parseSummary(md));
-    expect(next).toContain("| a | sonnet | 2/2 | forhåndsvisning 2/2 | 1/2 ↑ |");
+    expect(next).toContain("| a | sonnet | 2/2 | forhåndsvisning 2/2 | 200/20 | 2 s | 1/2 ↑ |");
   });
 });

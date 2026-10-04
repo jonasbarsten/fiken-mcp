@@ -13,7 +13,7 @@ export const PURCHASES: Case[] = [
     expect: {
       operations: ["create_purchase", "create_journal_entry"],
       postings: [
-        { side: "debit", account: ["6800", "6810"], net: 50000, vat: "25" },
+        { side: "debit", account: ["6800"], net: 50000, vat: "25" },
         { side: "credit", account: ["1920:10001"], amount: 62500 },
       ],
       behaviour: { previewFirst: true },
@@ -61,7 +61,7 @@ export const PURCHASES: Case[] = [
     expect: {
       operations: ["create_purchase"],
       postings: [
-        { side: "debit", account: ["6420", "6550", "6551", "6553"], net: 100000, vat: "25" },
+        { side: "debit", account: ["6420", "6550", "6553", "6810"], net: 100000, vat: "25" },
         { side: "credit", account: ["2400*"], amount: 125000 },
       ],
       behaviour: { previewFirst: true },
@@ -72,13 +72,13 @@ export const PURCHASES: Case[] = [
   {
     id: "kjop-blandet-mva",
     area: "kjøp",
-    prompt: "Kvittering fra Rema betalt med firmakortet: matvarer til personalmøte 230 kr inkl. 15 % mva og tørkepapir 125 kr inkl. 25 % mva. Før den i demoforetaket.",
+    prompt: "Kvittering fra grossisten betalt med firmakortet: brus vi skal selge videre i kiosken 230 kr inkl. 15 % mva og tørkepapir til kiosken 125 kr inkl. 25 % mva. Før den i demoforetaket.",
     replies,
     expect: {
       operations: ["create_purchase", "create_journal_entry"],
       postings: [
-        { side: "debit", account: ["5*", "6*", "7*"], net: 20000, vat: "15" },
-        { side: "debit", account: ["5*", "6*", "7*"], net: 10000, vat: "25" },
+        { side: "debit", account: ["4*"], net: 20000, vat: "15" },
+        { side: "debit", account: ["6*", "7*"], net: 10000, vat: "25" },
         { side: "credit", account: ["1920:10001"], amount: 35500 },
       ],
       behaviour: { previewFirst: true, readHelp: true },
