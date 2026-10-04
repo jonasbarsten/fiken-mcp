@@ -50,11 +50,23 @@ function parseArticle(slug: string, text: string): HelpArticle {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+  let url = `${HELP_BASE}/${slug}`;
+  const canonical = field("canonical");
+  if (canonical) {
+    try {
+      const parsed = new URL(canonical);
+      if (parsed.protocol === "https:" && parsed.hostname === HOST) {
+        url = canonical;
+      }
+    } catch {
+      // Invalid URL, fall back to default
+    }
+  }
   return {
     slug,
     title: field("title") ?? slug,
     lastUpdated: field("last_updated"),
-    url: field("canonical") ?? `${HELP_BASE}/${slug}`,
+    url,
     deprioritized: field("chatbot_deprioritize") === "true",
     body,
   };
@@ -79,9 +91,17 @@ export function createHelpClient(opts: { fetch?: typeof fetch; now?: () => numbe
       throw new HelpError(`Fiken's help (${url}) did not answer.`);
     }
     if (res.url && new URL(res.url).hostname !== HOST) throw new HelpError(`Refusing a redirect outside hjelp.fiken.no (${res.url}).`);
+    if (res.redirected && (!res.url || new URL(res.url).hostname !== HOST)) throw new HelpError(`Refusing a redirect outside hjelp.fiken.no (${res.url || "unknown"}).`);
     if (res.status === 404) throw new HelpError(`No help article at ${url}. Find the right slug with fiken_help_index.`);
     if (!res.ok) throw new HelpError(`Fiken's help answered ${res.status} for ${url}.`);
-    const bytes = new Uint8Array(await res.arrayBuffer());
+    const contentLength = res.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > maxBytes) throw new HelpError(`The help page ${url} is too large (${contentLength} bytes).`);
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await res.arrayBuffer());
+    } catch {
+      throw new HelpError(`Fiken's help (${url}) did not answer.`);
+    }
     if (bytes.byteLength > maxBytes) throw new HelpError(`The help page ${url} is too large (${bytes.byteLength} bytes).`);
     const text = new TextDecoder().decode(bytes);
     cache.set(path, { at: now(), text });

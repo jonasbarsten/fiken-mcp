@@ -114,6 +114,50 @@ describe("help client", () => {
     await expect(help.article("big")).rejects.toThrow(/too large/);
   });
 
+  it("catches body stream errors and throws HelpError", async () => {
+    const impl: typeof fetch = async (input) => {
+      const url = String(input);
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.error(new DOMException("timeout", "TimeoutError"));
+        },
+      });
+      const res = new Response(stream, { status: 200 });
+      Object.defineProperty(res, "url", { value: url });
+      return res;
+    };
+    await expect(createHelpClient({ fetch: impl }).index()).rejects.toBeInstanceOf(HelpError);
+    await expect(createHelpClient({ fetch: impl }).index()).rejects.toThrow(/did not answer/);
+  });
+
+  it("pre-checks content-length header against maxBytes", async () => {
+    const f = fakeFetch({
+      "https://hjelp.fiken.no/big.md": { body: "x", headers: { "content-length": "999" } },
+    });
+    const help = createHelpClient({ fetch: f.impl, maxBytes: 10 });
+    await expect(help.article("big")).rejects.toThrow(/too large/);
+  });
+
+  it("refuses a redirect when res.redirected is true and url is empty", async () => {
+    const impl: typeof fetch = async (input) => {
+      const url = String(input);
+      const res = new Response(ARTICLE, { status: 200 });
+      Object.defineProperty(res, "url", { value: "" });
+      Object.defineProperty(res, "redirected", { value: true });
+      return res;
+    };
+    await expect(createHelpClient({ fetch: impl }).article("x")).rejects.toThrow(/outside hjelp.fiken.no/);
+  });
+
+  it("falls back to default URL when canonical is not a valid https://hjelp.fiken.no URL", async () => {
+    const badArticle = ARTICLE.replace("canonical: https://hjelp.fiken.no/hvordan-registrere-ansattutlegg", "canonical: https://example.com/x");
+    const f = fakeFetch({
+      "https://hjelp.fiken.no/x.md": { body: badArticle },
+    });
+    const a = await createHelpClient({ fetch: f.impl }).article("x");
+    expect(a.url).toBe("https://hjelp.fiken.no/x");
+  });
+
   it("times out", async () => {
     const slow: typeof fetch = (_input, init) => new Promise((_resolve, reject) => {
       init?.signal?.addEventListener("abort", () => reject(new DOMException("timeout", "TimeoutError")));
