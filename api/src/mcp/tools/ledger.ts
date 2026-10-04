@@ -187,7 +187,7 @@ export const ledgerOperations: Operation[] = [
       "Book a manual journal entry (fri postering): corrections, depreciation, salary, transfers between accounts. " +
       "Each line moves amount (øre) to debitAccount and/or from creditAccount; debits and credits must balance. " +
       "Returns the created journal entry, or { transactionId, journalEntries } when Fiken split it into several. " +
-      `Fiken prefixes the description with 'Fri postering registrert via API: '. This is «Fri postering» in Fiken's help. Lines may carry debitVatCode/creditVatCode; then debit amounts are net and credit amounts gross, and Fiken checks the balance. ${ORE} ${CONFIRM}`,
+      `Fiken prefixes the description with 'Fri postering registrert via API: '. This is «Fri postering» in Fiken's help. Lines may carry debitVatCode/creditVatCode; then debit amounts are net and credit amounts gross, and Fiken checks the balance. For outlays or anything unusual, look it up first with fiken_help_index (via fiken_read). ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,
       description: z.string().min(1).max(166).describe("At most 166 characters: Fiken's 200-character limit includes its 34-character prefix"),
@@ -233,7 +233,7 @@ export const ledgerOperations: Operation[] = [
     description:
       "Spread a sale or purchase line over several months (periodisering). Exactly one of saleId and purchaseId. The line must be on a " +
       "result account (3000-7999). Purchases accrue to 1397, 1700, 1710, 1742, 1743, 1744, 1749 or 2961; sales to 1530 or 2965. " +
-      `Sales with sales-cost lines cannot be accrued. ${CONFIRM}`,
+      `Sales with sales-cost lines cannot be accrued. Unsure how? Look it up first with fiken_help_index (via fiken_read). ${CONFIRM}`,
     input: z.object({
       companySlug,
       saleId: z.number().int().optional().describe("Sale id, from list_sales (via fiken_read)"),

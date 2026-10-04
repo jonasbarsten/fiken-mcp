@@ -5,6 +5,7 @@ import { companiesOperations } from "./tools/companies.js";
 import { contactsOperations } from "./tools/contacts.js";
 import { creditNotesOperations } from "./tools/credit-notes.js";
 import { ehfOperations } from "./tools/ehf.js";
+import { helpOperations } from "./tools/help.js";
 import { inboxDocumentOperations } from "./tools/inbox-document.js";
 import { inboxOperations } from "./tools/inbox.js";
 import { invoicesOperations } from "./tools/invoices.js";
@@ -40,6 +41,7 @@ export const OPERATIONS: readonly Operation[] = [
   ...productsOperations,
   ...ledgerOperations,
   ...usageOperations,
+  ...helpOperations,
 ];
 
 const BY_NAME = new Map(OPERATIONS.map((op) => [op.name, op]));

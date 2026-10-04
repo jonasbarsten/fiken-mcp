@@ -3,12 +3,15 @@ import { type Context, Hono } from "hono";
 import { readAccessToken } from "../auth/tokens.js";
 import type { Config } from "../config.js";
 import { createFikenClient } from "../fiken/client.js";
+import { createHelpClient } from "../help/client.js";
 import type { ToolContext } from "./context.js";
 import { type ConnectorOptions, parseConnectorOptions } from "./options.js";
 import { createMcpServer } from "./server.js";
 
 export function mcpRoutes(cfg: Config): Hono {
   const app = new Hono();
+  // One client for the container's lifetime, so its cache of Fiken's help is shared by every request.
+  const help = createHelpClient({ fetch: cfg.fetch });
 
   /**
    * Serves `/mcp` and `/mcp/<options>`. The options are parsed from Hono's decoded param,
@@ -34,7 +37,7 @@ export function mcpRoutes(cfg: Config): Hono {
     const session: ToolContext["session"] = { fikenUnauthorized: false, wrote: false };
     const fiken = createFikenClient({ baseUrl: cfg.fikenBaseUrl, fileBaseUrl: cfg.fikenFileBaseUrl, accessToken: claims.fikenAccessToken, fetch: cfg.fetch, onWrite: () => { session.wrote = true; } });
     const server = createMcpServer(
-      { fiken, anonId: claims.anonId, fikenAccessToken: claims.fikenAccessToken, exp: claims.exp, usage: cfg.usage, session },
+      { fiken, anonId: claims.anonId, fikenAccessToken: claims.fikenAccessToken, exp: claims.exp, usage: cfg.usage, session, help },
       cfg.publicUrl,
       cfg,
       options,

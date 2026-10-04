@@ -165,7 +165,7 @@ export const salesOperations: Operation[] = [
     kind: "write",
     destructive: true,
     title: "Write off sale",
-    description: `Book a sale as a loss (tapsføring). The reason must be true for Fiken's rules; the date must be after the sale date. ${CONFIRM}`,
+    description: `Book a sale as a loss (tapsføring). The reason must be true for Fiken's rules; the date must be after the sale date. For losses or anything unusual, look it up first with fiken_help_index (via fiken_read). ${CONFIRM}`,
     input: z.object({
       companySlug,
       saleId: z.number().int().describe("Sale id, from list_sales (via fiken_read)"),

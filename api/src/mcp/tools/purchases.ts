@@ -222,7 +222,7 @@ export const purchasesOperations: Operation[] = [
       "list_bank_accounts) and paymentDate; a supplier purchase (kind supplier) needs supplierId (from search_contacts) and dueDate. " +
       "vatType for purchase lines: HIGH (25%), MEDIUM (15%), LOW (12%), NONE, EXEMPT, OUTSIDE. " +
       `${ORE} projectId comes from list_projects. inboxDocumentId attaches an existing inbox document as the receipt and removes it ` +
-      `from the inbox. ${CONFIRM}`,
+      `from the inbox. For outlays or anything unusual, look it up first with fiken_help_index (via fiken_read). ${CONFIRM}`,
     input: z.object({
       companySlug,
       date: isoDate.describe("Purchase date (YYYY-MM-DD)"),

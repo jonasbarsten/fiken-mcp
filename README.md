@@ -216,6 +216,13 @@ Operations by concept (`read` unless marked write):
 - `attachments`: `get_attachments` (on a purchase, sale, invoice or journal
   entry), `attach_inbox_document` (write; an invoice gets a copy and the
   document stays in the inbox)
+- `help`: `fiken_help_index` (titles and slugs of Fiken's own help
+  articles at hjelp.fiken.no, filtered by title words) and
+  `fiken_help_article` (one article as Markdown, followed by notes on how
+  its steps map to this connector). Both read hjelp.fiken.no, not Fiken's
+  API; nothing is stored beyond a per-container cache. The server also
+  sends connect-time instructions telling the model to look unusual cases
+  up there first
 - `usage`: `my_usage` (your own pseudonymous monthly call counts on this
   server)
 
@@ -251,7 +258,7 @@ options are read from the path on every request, so nothing is stored.
 
 Concept names: `companies`, `contacts`, `projects`, `accounts`, `ledger`,
 `purchases`, `sales`, `invoices`, `invoice_drafts`, `credit_notes`,
-`offers`, `order_confirmations`, `recurring_invoices`, `time_tracking`, `payments`, `products`, `inbox`, `ehf`, `attachments`, `usage`. A concept filter chooses which areas the
+`offers`, `order_confirmations`, `recurring_invoices`, `time_tracking`, `payments`, `products`, `inbox`, `ehf`, `attachments`, `help`, `usage`. A concept filter chooses which areas the
 model may change; all reads stay available, since operations take their
 slugs and ids from reads in other concepts. So `/mcp/invoices` can look
 up contacts and bank accounts but not create a contact, and
