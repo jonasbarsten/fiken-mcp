@@ -2,14 +2,14 @@
 export const NOTE_OPERATIONS = [
   "create_journal_entry", "create_purchase", "upload_receipts", "get_upload_url", "attach_inbox_document",
   "list_accounts", "create_invoice_draft", "create_invoice_from_draft", "send_invoice", "create_credit_note",
-  "create_accrual", "write_off_sale",
+  "create_accrual", "write_off_sale", "get_journal_entries",
 ] as const;
 
 export const CONNECTOR_NOTES = `## Connector notes (fiken-mcp)
 
 Fiken's help describes Fiken's screens. With this connector:
 
-- «Fri postering» (Annet → Fri postering) is create_journal_entry via fiken_write. Amounts are in øre. With a VAT code (debitVatCode/creditVatCode, Fiken's numeric codes), a debit line's amount is net and a credit line's amount is gross.
+- «Fri postering» (Annet → Fri postering) is create_journal_entry via fiken_write. Amounts are in øre. With a VAT code (debitVatCode/creditVatCode), a debit line's amount is net and a credit line's amount is gross, and the line has only one account. The code is Fiken's numeric VAT code; read it from an existing booking at the same rate (get_journal_entries returns each line's vatCode, via fiken_read), and tell the user which code and VAT amount you will use before writing.
 - «Nytt kjøp» (Kjøp → Nytt kjøp) is create_purchase: kind cash_purchase with a bank paymentAccount and paymentDate, or kind supplier with supplierId and dueDate. Receipts come in through upload_receipts or get_upload_url, or from the inbox (list_inbox), and are linked with inboxDocumentId.
 - «Betalt av ansatt» or «betalt privat» under Betaling on a purchase is not available in the API. Book it as one create_journal_entry: each expense on its account with its VAT code, the gross total credited to the account the article names (2911 for an employee), and attach the receipts with attach_inbox_document via fiken_write.
 - Accounts written like 2930:1000X are an account with a person or contact sub-account; find the exact code with list_accounts.

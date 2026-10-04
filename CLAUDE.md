@@ -22,7 +22,7 @@ Repo: `jonasbarsten/fiken-mcp` (public). AWS: byjoba account
 - Store no user data: no tokens, no files, no accounting data. Files pass
   through Lambda memory only. Only anonymous usage counters in DynamoDB.
 - One stable MCP App resource URI. Never version it per build.
-- All Fiken calls through one `fikenFetch` wrapper with the queue.
+- All Fiken API calls through one `fikenFetch` wrapper with the queue (Fiken's public help pages at hjelp.fiken.no are fetched separately, without a token).
   Fiken allows one concurrent request.
 - Secrets in Parameter Store (`/fiken_mcp/*`), read at cold start. Never
   in code, env vars or the CloudFormation template. Load the

@@ -109,8 +109,8 @@ it):
 
 «For anything other than a plain purchase or sale, look the case up in
 Fiken's own help first: fiken_help_index with a query, then
-fiken_help_article. The articles describe Fiken's screens; translate them
-with the connector notes at the end of each article. Go through the
+fiken_help_article (both through fiken_read). The articles describe Fiken's
+screens; translate them with the connector notes at the end of each article. Go through the
 proposed booking with the user before writing anything.»
 
 Relevant operation descriptions point to the help: `create_purchase`

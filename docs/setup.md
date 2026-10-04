@@ -425,10 +425,19 @@ Do all of this against the demo company.
 - Claude shows the instructions behaviour: when you describe something that
   looks like an employee outlay, Claude asks to look it up in Fiken's help
   first.
-- Create a live journal entry: call `create_journal_entry` with
-  `debitVatCode` pointing to an account such as 2911 (a VAT code account).
-  Record the VAT code used and Fiken's response. Verify in Fiken that the
-  entry shows the VAT line.
+- First read an existing purchase's journal entry with 25 % VAT on the demo
+  company (`get_journal_entries`) and note the vatCode Fiken used on the
+  expense line.
+- Then `create_journal_entry` with lines
+  `[{ amount: 100000, debitAccount: "6540", debitVatCode: <that code> }, { amount: 125000, creditAccount: "2911" }]`
+  and check the read-back: expense 6540 1 000,00, input VAT 250,00 on
+  Fiken's input-VAT account, 2911 1 250,00. Record the code and Fiken's
+  postings here.
+- Then the same with credit amount 120000 and confirm Fiken refuses it
+  (unbalanced).
+- Record the outcome in this file; if Fiken's postings differ from the
+  expectation, the connector note and the field descriptions must be
+  corrected before anyone books outlays.
 
 Verified 2026-10-04 (after deploying #38):
 

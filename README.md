@@ -151,7 +151,8 @@ Operations by concept (`read` unless marked write):
   `create_journal_entry` (write; a manual fri postering, refused unless
   debits and credits balance; accepts `debitVatCode` and `creditVatCode`
   where the debit amount is net and the credit amount is gross, Fiken checks
-  the balance, and a VAT code needs its account on the same line; the
+  the balance, and a VAT code needs its account on the same line, with only
+  that one account (debit and credit go on separate lines); the
   description is at most 166 characters, since Fiken's 200-character limit
   includes its 34-character prefix), `list_transactions`, `get_transaction`
   (journal entries carry the `transactionId` it takes),
@@ -218,7 +219,7 @@ Operations by concept (`read` unless marked write):
   entry), `attach_inbox_document` (write; an invoice gets a copy and the
   document stays in the inbox)
 - `help`: `fiken_help_index` (titles and slugs from https://hjelp.fiken.no,
-  filtered by title words) and `fiken_help_article` (one article as Markdown,
+  filtered by title words, always returned as `{ articles, hint? }`) and `fiken_help_article` (one article as Markdown,
   followed by notes on how its steps map to this connector). Articles are
   fetched live from hjelp.fiken.no (its llms.txt index and the `.md` page of
   each article) and cached in memory for at most an hour; nothing is stored
