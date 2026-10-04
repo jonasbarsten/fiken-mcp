@@ -61,8 +61,15 @@ function trimTransactionSummary(t: FikenTransaction) {
 }
 
 const vatCode = z.number().int().nonnegative();
+/**
+ * The Tax Administration's standard VAT codes (SAF-T) that Fiken uses, by rate in percent. 1 and 3 verified on Fiken
+ * 2026-10-05 (booked to 2711 and 2701); the others are the same standard.
+ */
+export const VAT_CODE_RATES: Readonly<Record<number, number>> = { 1: 25, 11: 15, 13: 12, 3: 25, 31: 15, 33: 12 };
 const VAT_CODE_HELP =
-  "Fiken's numeric VAT code (seen in Fiken: 1 is 25 % input VAT on purchases, booked to 2711; 3 is 25 % output VAT on sales, booked to 2701). For other rates read the code from an existing booking at that rate (get_journal_entries returns each line's vatCode, via fiken_read). Tell the user which code and VAT amount you will use before writing.";
+  "Fiken's numeric VAT code, the Tax Administration's standard codes: input VAT on purchases 1 (25 %), 11 (15 %, food), 13 (12 %, e.g. passenger transport, hotels); " +
+  "output VAT on sales 3 (25 %), 31 (15 %), 33 (12 %). For any other code read it from an existing booking at that rate (get_journal_entries returns each line's vatCode, via fiken_read). " +
+  "Tell the user which code and VAT amount you will use before writing.";
 
 const journalEntryLine = z
   .object({
@@ -87,7 +94,40 @@ export function checkJournalLines(lines: z.output<typeof journalEntryLine>[]): s
     else if (l.debitAccount === undefined) credit += l.amount;
   }
   if (!hasVat && debit !== credit) return `The entry does not balance: debit ${debit} øre, credit ${credit} øre.`;
+  if (hasVat) return checkBalanceWithVat(lines);
   return undefined;
+}
+
+/**
+ * With VAT codes the amount on a coded side is net and Fiken adds the VAT; a side without a code is as given (verified
+ * 2026-10-05). When every code has a known rate, both sides including VAT must match, allowing 1 øre of rounding per
+ * coded side. An unknown code leaves the balance to Fiken.
+ */
+function checkBalanceWithVat(lines: z.output<typeof journalEntryLine>[]): string | undefined {
+  let debit = 0;
+  let credit = 0;
+  let coded = 0;
+  for (const l of lines) {
+    for (const [account, code, add] of [
+      [l.debitAccount, l.debitVatCode, (n: number) => (debit += n)],
+      [l.creditAccount, l.creditVatCode, (n: number) => (credit += n)],
+    ] as const) {
+      if (account === undefined) continue;
+      if (code === undefined) {
+        add(l.amount);
+        continue;
+      }
+      const rate = VAT_CODE_RATES[code];
+      if (rate === undefined) return undefined;
+      coded++;
+      add(l.amount + Math.round((l.amount * rate) / 100));
+    }
+  }
+  if (Math.abs(debit - credit) <= coded) return undefined;
+  return (
+    `The entry does not balance with VAT: debit ${debit} øre, credit ${credit} øre. On a side with a VAT code the amount is net and Fiken adds the VAT; ` +
+    "a side without a code takes the amount as given, so it must carry the gross amount (e.g. a separate credit line)."
+  );
 }
 
 export const ledgerOperations: Operation[] = [
@@ -205,7 +245,7 @@ export const ledgerOperations: Operation[] = [
       "Book a manual journal entry (fri postering): corrections, depreciation, salary, transfers between accounts. " +
       "Each line moves amount (øre) to debitAccount and/or from creditAccount; debits and credits must balance. " +
       "Returns the created journal entry, or { transactionId, journalEntries } when Fiken split it into several. " +
-      `Fiken prefixes the description with 'Fri postering registrert via API: '. This is «Fri postering» in Fiken's help. Lines may carry debitVatCode/creditVatCode; the amount on a side with a code is net and Fiken adds the VAT, and Fiken checks the balance. For outlays or anything unusual, look it up first with fiken_help_index (via fiken_read). ${ORE} ${CONFIRM}`,
+      `Fiken prefixes the description with 'Fri postering registrert via API: '. This is «Fri postering» in Fiken's help. Lines may carry debitVatCode/creditVatCode; the amount on a side with a code is net and Fiken adds the VAT, so the side without a code must carry the gross amount; with the standard codes the balance is checked including VAT before writing. For outlays or anything unusual, look it up first with fiken_help_index (via fiken_read). ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,
       description: z.string().min(1).max(166).describe("At most 166 characters: Fiken's 200-character limit includes its 34-character prefix"),
