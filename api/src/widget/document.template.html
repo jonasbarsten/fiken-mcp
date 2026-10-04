@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dokument</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; color: #222; background: transparent; }
+    .title { margin: 0 0 8px; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+    .status { margin: 0 0 8px; color: #555; }
+    .status:empty { display: none; }
+    .view canvas { display: block; max-width: 100%; height: auto; background: #fff; border-radius: 4px; box-shadow: 0 0 0 1px #ddd; }
+    .nav { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .nav button { padding: 6px 12px; border-radius: 8px; border: 1px solid #5b3df5; background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+    .nav button[disabled] { opacity: 0.5; cursor: default; }
+    .pages { font-size: 13px; color: #555; }
+    @media (prefers-color-scheme: dark) {
+      body { color: #eee; }
+      .status, .pages { color: #bbb; }
+      .nav button { border-color: #a394ff; }
+      .view canvas { box-shadow: 0 0 0 1px #444; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Each inlined bundle gets its own module scope; module scripts run in order. -->
+  <script type="module">/*__PDFJS_WORKER__*/</script>
+  <script type="module">/*__PDFJS__*/</script>
+  <script type="module">/*__BUNDLE__*/</script>
+  <script type="module">/*__LOGIC__*/</script>
+  <script type="module">
+    const { App } = globalThis.__mcpApps;
+    const { showDocument, renderPager } = globalThis.__widget;
+    const app = new App({ name: "Fiken document", version: "1.0.0" });
+    const root = document.getElementById("root");
+    const syncSize = () => app.sendSizeChanged({ height: document.body.scrollHeight }).catch(() => {});
+
+    // Images go through a canvas rather than an <img> with a blob: URL, because the host's CSP decides img-src
+    // and may not list blob:. Drawing a decoded bitmap needs no image source at all.
+    async function drawImage(blob) {
+      const bitmap = await globalThis.createImageBitmap(blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      canvas.getContext("2d").drawImage(bitmap, 0, 0);
+      bitmap.close?.();
+      return canvas;
+    }
+
+    async function renderPdf(bytes, container) {
+      const pdf = await globalThis.__pdfjs.getDocument({ data: bytes, isEvalSupported: false, useSystemFonts: true }).promise;
+      await renderPager(document, container, pdf.numPages, async (n) => {
+        const page = await pdf.getPage(n);
+        const base = page.getViewport({ scale: 1 });
+        // Sharp on a retina screen at the widget's width; CSS scales the canvas down to fit.
+        const cssWidth = Math.max(320, root.clientWidth || 640);
+        const viewport = page.getViewport({ scale: (cssWidth * (globalThis.devicePixelRatio || 1)) / base.width });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+        return canvas;
+      }, syncSize);
+    }
+
+    // One fetch per tool result: a replayed result (same ticket) must not fetch again. A ticket from a result
+    // replayed after five minutes is expired, and the widget says so.
+    let shown = null;
+    app.ontoolresult = (params) => {
+      const sc = params.structuredContent;
+      if (!sc?.documentUrl || !sc?.ticket || sc.ticket === shown) return;
+      shown = sc.ticket;
+      root.replaceChildren();
+      showDocument(document, root, sc, { fetch: (url, init) => globalThis.fetch(url, init), drawImage, renderPdf })
+        .catch((e) => console.error("showing the document failed", e))
+        .finally(syncSize);
+    };
+    await app.connect();
+  </script>
+</body>
+</html>

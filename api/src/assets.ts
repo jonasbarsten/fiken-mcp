@@ -28,5 +28,8 @@ export const TABLE_HTML = readFileSync(new URL("./assets/table.html", import.met
 /** The built booking preview widget. Produced by scripts/build-widget.mjs; gitignored. */
 export const PREVIEW_HTML = readFileSync(new URL("./assets/preview.html", import.meta.url), "utf8");
 
+/** The built document viewer widget. Produced by scripts/build-widget.mjs; gitignored. */
+export const DOCUMENT_HTML = readFileSync(new URL("./assets/document.html", import.meta.url), "utf8");
+
 /** The connector icon that serverInfo.icons points at. */
 export const ICON_PNG = new Uint8Array(readFileSync(new URL("./assets/icon.png", import.meta.url)));

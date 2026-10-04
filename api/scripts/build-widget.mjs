@@ -53,6 +53,15 @@ const WIDGETS = [
       ["/*__LOGIC__*/", new URL("../src/widget/preview.mjs", import.meta.url), "__widget"],
     ],
   },
+  {
+    name: "document",
+    bundles: [
+      ["/*__PDFJS_WORKER__*/", "pdfjs-dist/build/pdf.worker.min.mjs", "__pdfjsWorker"],
+      ["/*__PDFJS__*/", "pdfjs-dist/build/pdf.min.mjs", "__pdfjs"],
+      ["/*__BUNDLE__*/", "@modelcontextprotocol/ext-apps/app-with-deps", "__mcpApps"],
+      ["/*__LOGIC__*/", new URL("../src/widget/document.mjs", import.meta.url), "__widget"],
+    ],
+  },
 ];
 
 /** Reads an ES module and rewrites its trailing `export{…}` into `globalThis.<name>={…}`. `source` is a package specifier or a file URL. */

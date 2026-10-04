@@ -5,6 +5,7 @@ import { registerGateway } from "./gateway.js";
 import { type Operation, registerOperationTool } from "./operations.js";
 import { type ConnectorOptions, visibleOperations } from "./options.js";
 import { registerChoiceTool } from "./tools/choice.js";
+import { registerDocumentViewTool } from "./tools/document-view.js";
 import { registerFormTool } from "./tools/form.js";
 import { SERVER_INSTRUCTIONS } from "./tools/help.js";
 import { registerPreviewTool } from "./tools/preview.js";
@@ -48,5 +49,8 @@ export function createMcpServer(ctx: ToolContext, publicUrl?: string, cfg?: Conf
   // The upload tools tell the model to book with create_purchase, so they need purchases and writes.
   const uploads = !options.readOnly && (!options.concepts || options.concepts.has("purchases"));
   if (publicUrl && cfg && uploads) registerUploadTools(server, ctx, publicUrl, cfg);
+  // Reads only, so on every connection; like the upload tools it needs the public URL (where the widget fetches)
+  // and the config (whose key ring seals the view ticket).
+  if (publicUrl && cfg) registerDocumentViewTool(server, ctx, publicUrl, cfg);
   return server;
 }

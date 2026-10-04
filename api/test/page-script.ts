@@ -2,9 +2,10 @@ import { FakeEl } from "./fake-dom.js";
 
 /**
  * Runs a built widget's page script (the last inline module) against a fake App and a fake document, with the
- * widget's render function passed in as `__widget`. Returns what the page did, so tests can fire tool results.
+ * widget's render function passed in as `__widget`. `globals` adds browser globals the page reads (fetch, ...).
+ * Returns what the page did, so tests can fire tool results.
  */
-export async function runPageScript(html: string, widget: Record<string, unknown>) {
+export async function runPageScript(html: string, widget: Record<string, unknown>, globals: Record<string, unknown> = {}) {
   const scripts = [...html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)].map((m) => m[1]!);
   const page = scripts.at(-1)!;
   const sent: string[] = [];
@@ -26,7 +27,7 @@ export async function runPageScript(html: string, widget: Record<string, unknown
     getElementById: () => root,
     body: { scrollHeight: 100 },
   };
-  const fakeGlobal = { __mcpApps: { App }, __widget: widget };
+  const fakeGlobal = { ...globals, __mcpApps: { App }, __widget: widget };
   const run = new (Object.getPrototypeOf(async () => {}).constructor)("globalThis", "document", page) as (g: unknown, d: unknown) => Promise<void>;
   await run(fakeGlobal, doc);
   return { root, sent, fire: (structuredContent: unknown) => onResult!({ structuredContent }) };

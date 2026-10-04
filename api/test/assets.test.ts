@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { CHOICE_HTML, FORM_HTML, ICON_PNG, WIDGET_HTML } from "../src/assets.js";
+import { CHOICE_HTML, DOCUMENT_HTML, FORM_HTML, ICON_PNG, WIDGET_HTML } from "../src/assets.js";
 
 const SRC = fileURLToPath(new URL("../src", import.meta.url));
 
@@ -35,6 +35,7 @@ describe("static assets", () => {
     expect(WIDGET_HTML.startsWith("<!doctype html>")).toBe(true);
     expect(CHOICE_HTML.startsWith("<!doctype html>")).toBe(true);
     expect(FORM_HTML.startsWith("<!doctype html>")).toBe(true);
+    expect(DOCUMENT_HTML.startsWith("<!doctype html>")).toBe(true);
     expect([...ICON_PNG.slice(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   });
 });

@@ -17,14 +17,14 @@ interface FikenAttachment {
   comment: string;
 }
 
-const targetSchema = {
+export const targetSchema = {
   purchaseId: z.number().int().optional().describe("Purchase id, from list_purchases (via fiken_read)"),
   saleId: z.number().int().optional().describe("Sale id, from list_sales (via fiken_read)"),
   invoiceId: z.number().int().optional().describe(`Invoice id, ${INVOICE_ID_SOURCES}`),
   journalEntryId: z.number().int().optional().describe("Journal entry id, from get_journal_entries (via fiken_read)"),
 };
 
-type TargetArgs = { purchaseId?: number; saleId?: number; invoiceId?: number; journalEntryId?: number };
+export type TargetArgs = { purchaseId?: number; saleId?: number; invoiceId?: number; journalEntryId?: number };
 type Target = { key: keyof TargetArgs; segment: string; id: number };
 
 const SEGMENTS: Record<keyof TargetArgs, string> = {
@@ -35,7 +35,7 @@ const SEGMENTS: Record<keyof TargetArgs, string> = {
 };
 
 /** The single target given, or undefined when none or several are. */
-function pickTarget(args: TargetArgs): Target | undefined {
+export function pickTarget(args: TargetArgs): Target | undefined {
   const given = (Object.keys(SEGMENTS) as Array<keyof TargetArgs>).filter((k) => args[k] !== undefined);
   if (given.length !== 1) return undefined;
   const key = given[0]!;

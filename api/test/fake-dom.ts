@@ -10,7 +10,7 @@ export class FakeEl {
   checked = false;
   inputMode = "";
   listeners: Record<string, Array<(e?: { key: string; isComposing?: boolean }) => void>> = {};
-  replaceChildren?: () => void;
+  replaceChildren?: (...els: FakeEl[]) => void = (...els) => { this.children = els; };
   constructor(public tag: string) {}
   append(...els: FakeEl[]) { this.children.push(...els); }
   addEventListener(ev: string, fn: (e?: { key: string; isComposing?: boolean }) => void) { (this.listeners[ev] ??= []).push(fn); }
