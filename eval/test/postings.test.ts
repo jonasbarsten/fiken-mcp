@@ -19,9 +19,28 @@ describe("toPostings", () => {
   });
 
   it("journal entry: an unknown VAT code is kept as «kode N» with a note", () => {
-    const c = toPostings(p("create_journal_entry", { lines: [{ amount: 1000, debitAccount: "6800", debitVatCode: 11, creditAccount: "1920:10001" }] }));
-    expect(c!.postings[0]).toEqual({ side: "debit", account: "6800", net: 1000, vat: "kode 11", vatAmount: 0 });
-    expect(c!.notes).toEqual(["Mva-kode 11 er ukjent for evalueringen; balansen er ikke sjekket."]);
+    const c = toPostings(p("create_journal_entry", { lines: [{ amount: 1000, debitAccount: "6800", debitVatCode: 99, creditAccount: "1920:10001" }] }));
+    expect(c!.postings[0]).toEqual({ side: "debit", account: "6800", net: 1000, vat: "kode 99", vatAmount: 0 });
+    expect(c!.notes).toEqual(["Mva-kode 99 er ukjent for evalueringen; balansen er ikke sjekket."]);
+  });
+
+  it("journal entry: the standard codes 11, 13, 31 and 33 carry 15 % and 12 %", () => {
+    const c = toPostings(p("create_journal_entry", { lines: [
+      { amount: 30000, debitAccount: "7140", debitVatCode: 13 },
+      { amount: 20000, debitAccount: "4330", debitVatCode: 11 },
+      { amount: 10000, creditAccount: "3030", creditVatCode: 31 },
+      { amount: 10000, creditAccount: "3050", creditVatCode: 33 },
+    ] }));
+    expect(c!.postings.map((x) => [x.vat, x.vatAmount])).toEqual([["12", 3600], ["15", 3000], ["15", 1500], ["12", 1200]]);
+    expect(c!.notes).toEqual([]);
+  });
+
+  it("invoice draft converts like an invoice", () => {
+    const c = toPostings(p("create_invoice_draft", { lines: [{ description: "Kurs", quantity: 1, unitPrice: 300000, vatType: "OUTSIDE", incomeAccount: "3220" }] }));
+    expect(c!.postings).toEqual([
+      { side: "debit", account: "1500", net: 300000, vat: undefined, vatAmount: 0 },
+      { side: "credit", account: "3220", net: 300000, vat: "0", vatAmount: 0 },
+    ]);
   });
 
   it("cash purchase: lines debit, the payment account credits the gross total", () => {

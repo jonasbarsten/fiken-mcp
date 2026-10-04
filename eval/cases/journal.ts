@@ -13,7 +13,7 @@ export const JOURNAL: Case[] = [
       operations: ["create_journal_entry"],
       postings: [
         { side: "debit", account: ["1920:10001"], amount: 5000000 },
-        { side: "credit", account: ["22*", "29*"], amount: 5000000 },
+        { side: "credit", account: ["2255", "2915"], amount: 5000000 },
       ],
       behaviour: { previewFirst: true, readHelp: true },
     },
@@ -45,7 +45,7 @@ export const JOURNAL: Case[] = [
       operations: ["create_journal_entry"],
       postings: [
         { side: "debit", account: ["1920:10001"], amount: 31200 },
-        { side: "credit", account: ["8040", "8050"], amount: 31200 },
+        { side: "credit", account: ["8051"], amount: 31200 },
       ],
       behaviour: { previewFirst: true },
     },
@@ -55,12 +55,12 @@ export const JOURNAL: Case[] = [
   {
     id: "bilag-omklassifisering",
     area: "bilag",
-    prompt: "Vi førte 1 500 kr på konto 6800 som skulle vært på 6550. Rett det med en postering i demoforetaket.",
+    prompt: "Vi førte 1 500 kr på konto 6800 Kontorrekvisita som skulle vært på 6553 Programvare. Rett det med en postering i demoforetaket.",
     replies,
     expect: {
       operations: ["create_journal_entry"],
       postings: [
-        { side: "debit", account: ["6550"], amount: 150000 },
+        { side: "debit", account: ["6553"], amount: 150000 },
         { side: "credit", account: ["6800"], amount: 150000 },
       ],
       behaviour: { previewFirst: true, readHelp: true },
@@ -76,8 +76,8 @@ export const JOURNAL: Case[] = [
     expect: {
       operations: ["create_journal_entry"],
       postings: [
-        { side: "debit", account: ["6420", "6550", "6553", "6810"], amount: 100000 },
-        { side: "credit", account: ["17*"], amount: 100000 },
+        { side: "debit", account: ["6553"], amount: 100000 },
+        { side: "credit", account: ["1749"], amount: 100000 },
       ],
       behaviour: { previewFirst: true, readHelp: true },
     },
@@ -92,7 +92,7 @@ export const JOURNAL: Case[] = [
     expect: {
       operations: ["create_journal_entry"],
       postings: [
-        { side: "debit", account: ["601*"], amount: 600000 },
+        { side: "debit", account: ["6017"], amount: 600000 },
         { side: "credit", account: ["1250"], amount: 600000 },
       ],
       behaviour: { previewFirst: true, readHelp: true },

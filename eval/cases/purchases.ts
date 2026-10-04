@@ -3,6 +3,7 @@ import type { Case } from "./types.js";
 const company = "fiken-demo-amerikansk-hytte-as3";
 const replies = { company, default: "Ja, det stemmer. Bruk bankkontoen 1920:10001 og dagens dato." };
 const PURCHASE = "https://hjelp.fiken.no/registrere-kjoep-og-utgifter.md";
+// Accounts follow Fiken's chart in the demo company (list_accounts, 2026-10-04), not the bare NS 4102 standard.
 
 export const PURCHASES: Case[] = [
   {
@@ -29,7 +30,7 @@ export const PURCHASES: Case[] = [
     expect: {
       operations: ["create_purchase", "create_journal_entry"],
       postings: [
-        { side: "debit", account: ["7140", "7130"], net: 40000, vat: "12" },
+        { side: "debit", account: ["7140"], net: 40000, vat: "12" },
         { side: "credit", account: ["1920:10001"], amount: 44800 },
       ],
       behaviour: { previewFirst: true },
@@ -60,8 +61,9 @@ export const PURCHASES: Case[] = [
     replies,
     expect: {
       operations: ["create_purchase"],
+      args: { kind: "supplier", supplierId: 5128544942 },
       postings: [
-        { side: "debit", account: ["6420", "6550", "6553", "6810"], net: 100000, vat: "25" },
+        { side: "debit", account: ["6907", "6553"], net: 100000, vat: "25" },
         { side: "credit", account: ["2400*"], amount: 125000 },
       ],
       behaviour: { previewFirst: true },
@@ -77,8 +79,8 @@ export const PURCHASES: Case[] = [
     expect: {
       operations: ["create_purchase", "create_journal_entry"],
       postings: [
-        { side: "debit", account: ["4*"], net: 20000, vat: "15" },
-        { side: "debit", account: ["6*", "7*"], net: 10000, vat: "25" },
+        { side: "debit", account: ["4330"], net: 20000, vat: "15" },
+        { side: "debit", account: ["6560", "6890"], net: 10000, vat: "25" },
         { side: "credit", account: ["1920:10001"], amount: 35500 },
       ],
       behaviour: { previewFirst: true, readHelp: true },
@@ -110,7 +112,7 @@ export const PURCHASES: Case[] = [
     expect: {
       operations: ["create_purchase", "create_journal_entry"],
       postings: [
-        { side: "debit", account: ["6900"], net: 39920, vat: "25" },
+        { side: "debit", account: ["6901"], net: 39920, vat: "25" },
         { side: "credit", account: ["1920:10001"], amount: 49900 },
       ],
       behaviour: { previewFirst: true },

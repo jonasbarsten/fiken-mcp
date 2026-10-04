@@ -52,9 +52,9 @@ describe("grade", () => {
   });
 
   it("does not check the balance with an unknown VAT code, and says so", () => {
-    const g = grade({ operations: ["create_journal_entry"], postings: [], exact: false }, journal([{ amount: 100, debitAccount: "6800", debitVatCode: 11, creditAccount: "1920:10001" }]));
+    const g = grade({ operations: ["create_journal_entry"], postings: [], exact: false }, journal([{ amount: 100, debitAccount: "6800", debitVatCode: 99, creditAccount: "1920:10001" }]));
     expect(g.outcome).toBe("pass");
-    expect(g.notes).toEqual(["Mva-kode 11 er ukjent for evalueringen; balansen er ikke sjekket."]);
+    expect(g.notes).toEqual(["Mva-kode 99 er ukjent for evalueringen; balansen er ikke sjekket."]);
   });
 
   it("refuses an operation outside the list and checks expected args", () => {

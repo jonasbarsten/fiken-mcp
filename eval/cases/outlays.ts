@@ -4,7 +4,8 @@ const company = "fiken-demo-amerikansk-hytte-as3";
 const replies = { company, default: "Ja, det stemmer. Bruk bankkontoen 1920:10001 og dagens dato." };
 const OUTLAY = "https://hjelp.fiken.no/hvordan-registrere-ansattutlegg.md";
 const TRAVEL = "https://hjelp.fiken.no/reiseregning-og-utlegg-for-ansatte.md";
-const EMPLOYEE_DEBT = ["2910", "2911"];
+/** «Gjeld til ansatte kortsiktig» in Fiken's chart (there is no 2910). */
+const EMPLOYEE_DEBT = ["2911"];
 
 export const OUTLAYS: Case[] = [
   {
@@ -31,7 +32,7 @@ export const OUTLAYS: Case[] = [
     expect: {
       operations: ["create_journal_entry"],
       postings: [
-        { side: "debit", account: ["7140", "7130"], net: 30000, vat: "12" },
+        { side: "debit", account: ["7140"], net: 30000, vat: "12" },
         { side: "credit", account: EMPLOYEE_DEBT, amount: 33600 },
       ],
       behaviour: { previewFirst: true, readHelp: true },
@@ -63,7 +64,7 @@ export const OUTLAYS: Case[] = [
     expect: {
       operations: ["create_journal_entry"],
       postings: [
-        { side: "debit", account: ["7140", "7130"], net: 100000, vat: "12" },
+        { side: "debit", account: ["7140"], net: 100000, vat: "12" },
         { side: "credit", account: EMPLOYEE_DEBT, amount: 112000 },
       ],
       behaviour: { previewFirst: true, readHelp: true },

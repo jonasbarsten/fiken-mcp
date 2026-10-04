@@ -17,7 +17,7 @@ export const SALES: Case[] = [
       operations: ["create_invoice"],
       args: { customerId: DEMOKUNDE },
       postings: [
-        { side: "credit", account: ["3*"], net: 1200000, vat: "25" },
+        { side: "credit", account: ["3020"], net: 1200000, vat: "25" },
         { side: "debit", account: ["1500*"], amount: 1500000 },
       ],
       behaviour: { previewFirst: true },
@@ -31,10 +31,11 @@ export const SALES: Case[] = [
     prompt: "Lag en faktura i demoforetaket til Demokunde for et kurs som er unntatt mva, 3 000 kr. Forfall om 14 dager. Ikke send den.",
     replies,
     expect: {
-      operations: ["create_invoice"],
+      // «Lag en faktura … ikke send den» may be an issued invoice or a draft. «Unntatt» (outside the VAT Act) is 3220, not «fritatt» 3120.
+      operations: ["create_invoice", "create_invoice_draft"],
       args: { customerId: DEMOKUNDE },
       postings: [
-        { side: "credit", account: ["3*"], net: 300000, vat: "0" },
+        { side: "credit", account: ["3220"], net: 300000, vat: "0" },
         { side: "debit", account: ["1500*"], amount: 300000 },
       ],
       behaviour: { previewFirst: true },
@@ -50,7 +51,7 @@ export const SALES: Case[] = [
     expect: {
       operations: ["create_sale"],
       postings: [
-        { side: "credit", account: ["3*"], net: 200000, vat: "25" },
+        { side: "credit", account: ["3000"], net: 200000, vat: "25" },
         { side: "debit", account: ["1920:10001"], amount: 250000 },
       ],
       behaviour: { previewFirst: true },
@@ -81,7 +82,7 @@ export const SALES: Case[] = [
       operations: ["create_credit_note"],
       args: { kind: "partial", invoiceId: 5191494176 },
       postings: [
-        { side: "debit", account: ["3*"], net: 45600, vat: "25" },
+        { side: "debit", account: ["3020"], net: 45600, vat: "25" },
         { side: "credit", account: ["1500*"], amount: 57000 },
       ],
       behaviour: { previewFirst: true },

@@ -35,6 +35,18 @@ describe("the cases", () => {
     }
   });
 
+  it("expect only accounts that exist in the demo company's chart (checked with list_accounts 2026-10-04)", () => {
+    const chart = new Set([
+      "1250", "1749", "1920:10001", "2255", "2911", "2915", "3000", "3020", "3220", "4330", "6017", "6553", "6560", "6800", "6890",
+      "6901", "6907", "6940", "7140", "7500", "7770", "8040", "8051",
+    ]);
+    for (const c of ALL_CASES) {
+      for (const p of c.expect.postings) {
+        for (const a of p.account) if (!a.endsWith("*")) expect(chart.has(a), `${c.id}: ${a}`).toBe(true);
+      }
+    }
+  });
+
   it("all point to a source and are unreviewed until an accountant has checked them", () => {
     for (const c of ALL_CASES) {
       expect(c.source.length, c.id).toBeGreaterThan(0);

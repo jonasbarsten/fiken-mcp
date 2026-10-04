@@ -9,8 +9,8 @@ export type Proposal = { operation: string; args: Record<string, unknown>; via: 
 export type Converted = { postings: Posting[]; notes: string[] };
 
 const TYPE_RATE: Record<string, string> = { HIGH: "25", MEDIUM: "15", LOW: "12", NONE: "0", EXEMPT: "0", OUTSIDE: "0", EXEMPT_IMPORT_EXPORT: "0" };
-/** Journal VAT codes verified on Fiken 2026-10-05: 1 input VAT 25 %, 3 output VAT 25 %. */
-const CODE_RATE: Record<number, string> = { 1: "25", 3: "25" };
+/** The standard (SAF-T) VAT codes Fiken uses: input 1/11/13, output 3/31/33; 1 and 3 verified on Fiken 2026-10-05. */
+const CODE_RATE: Record<number, string> = { 1: "25", 11: "15", 13: "12", 3: "25", 31: "15", 33: "12" };
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
@@ -105,6 +105,7 @@ export const CONVERTERS: Record<string, (args: Record<string, unknown>) => Conve
   create_purchase: purchase,
   create_sale: sale,
   create_invoice: invoice,
+  create_invoice_draft: invoice,
   create_credit_note: creditNote,
   register_payment: payment,
 };
