@@ -38,7 +38,10 @@ normal development.
    ```
    The second bootstrap swaps the execution role's AdministratorAccess for
    the scoped policy the first deploy created. Note the `DeployRoleArn`
-   output.
+   output. On a new account the first `fiken-mcp-iac` deploy needs the
+   site records and the invalidation import commented out, and the web
+   stack must deploy before iac is deployed again with them restored; see
+   "Fresh setup order" below.
 4. Every future `cdk bootstrap` for qualifier `fikenmcp` (CDK upgrades,
    re-bootstraps) must repeat
    `--cloudformation-execution-policies arn:aws:iam::209479295726:policy/fiken-mcp-cfn-exec`.
@@ -140,10 +143,22 @@ The iac stack owns the site's A and AAAA records and imports the web stack's
 exports (`fiken-mcp-web-distribution-id` and
 `fiken-mcp-web-distribution-domain-name`). On a new account iac therefore
 cannot deploy until the web stack exists, and the web stack needs iac's
-execution policy. Deploy iac with the site records and the invalidation
-import temporarily commented out, then the web stack, then iac again with
-them restored. The web stack cannot remove or rename those exports while iac
-imports them.
+execution policy. The full order on a new account:
+
+1. `cdk bootstrap` (default execution policy).
+2. `cdk deploy fiken-mcp-iac` with the site alias records and the deploy
+   role's invalidation import temporarily commented out in
+   `iac/lib/iac-stack.ts`.
+3. `cdk bootstrap` again with `--cloudformation-execution-policies` set to
+   `fiken-mcp-cfn-exec` (step 3 above).
+4. `cdk deploy fiken-mcp-web`.
+5. Restore the commented-out code and `cdk deploy fiken-mcp-iac` again.
+6. `cdk deploy fiken-mcp-api`, then the content deploy (merge anything to
+   main, or run the content step's commands by hand).
+
+The web stack cannot remove or rename those exports while iac imports them,
+and a replacement of the distribution (for example renaming its construct)
+would be blocked for the same reason.
 
 ## Before the first production deploy
 
@@ -452,3 +467,26 @@ It ships in two PRs, because the workflow deploys iac before web and a Route
 The site is unreachable from PR A's deploy until PR B's deploy (no DNS
 records in between). Jonas accepted that. The first content step also
 populates the bucket again from git.
+
+Merge PR B only after PR A's deploy run is green. If it failed or was
+rejected, its changes are still undeployed, PR B's run would deploy iac
+before the web stack has the exports, and the iac step would fail. Before
+merging PR B, check with `--profile byjoba`:
+
+- `aws cloudformation list-exports` lists both `fiken-mcp-web-*` exports.
+- `aws route53 list-resource-record-sets --hosted-zone-id Z04810525CNVQNP7ALNV`
+  has no A or AAAA record for `fiken-mcp.byjoba.com.`.
+- `aws lambda list-layer-versions --layer-name fiken-mcp-web-awscli
+  --region eu-west-1` is empty (a delete that failed in the cleanup phase
+  leaves the stack green; once PR B drops `SiteLayer` an orphaned layer can
+  only be removed by hand).
+
+Verify after PR B's deploy:
+
+- `dig +short A fiken-mcp.byjoba.com` and `dig +short AAAA
+  fiken-mcp.byjoba.com` return CloudFront addresses.
+- `curl -sI https://fiken-mcp.byjoba.com/` answers 200 with the security
+  headers, and `/stats` matches the API's.
+- The deploy role's policy (`DeployRoleDefaultPolicy` in `fiken-mcp-iac`)
+  names the concrete distribution ARN for the invalidation statement.
+- A later merge touching only `web/` runs only the content step.

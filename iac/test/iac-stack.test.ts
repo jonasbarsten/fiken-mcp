@@ -318,7 +318,7 @@ describe("IacStack", () => {
     expect(acmActions.sort()).toEqual(["acm:DescribeCertificate", "acm:ListTagsForCertificate"]);
   }, STACK_TEST_TIMEOUT_MS);
 
-  it("lets CloudFormation manage the site bucket, CloudFront resources, scoped by name", () => {
+  it("lets CloudFormation manage the site bucket and CloudFront resources, scoped by name", () => {
     const t = synth();
     const policy = Object.values(t.findResources("AWS::IAM::ManagedPolicy"))[0]!;
     const statements = policy.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Action: string | string[]; Resource: string | string[] }>;
