@@ -19,7 +19,7 @@ export const inboxOperations: Operation[] = [
     title: "List inbox documents",
     description:
       "Documents in the company's inbox (bilag) not yet used as documentation. The upload widget puts receipts here; " +
-      "documentId is what create_purchase takes as inboxDocumentId.",
+      "documentId is what create_purchase takes as inboxDocumentId. To show the result to the user, use show_table.",
     input: z.object({
       companySlug,
       ...paging,

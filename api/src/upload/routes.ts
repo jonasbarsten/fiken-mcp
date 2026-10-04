@@ -9,7 +9,8 @@ import { readUploadTicket } from "./ticket.js";
 // Lambda's request payload ceiling is 6 MiB base64-encoded, which is 4.5 MiB of
 // raw bytes: exactly on that edge, so leave a margin.
 const MAX_BYTES = 4 * 1024 * 1024;
-const WIDGET_ORIGIN = /^https:\/\/[a-z0-9-]+\.claudemcpcontent\.com$/;
+/** Where Claude serves MCP App widgets; the only origin allowed to call the widget routes cross-origin. */
+export const WIDGET_ORIGIN = /^https:\/\/[a-z0-9-]+\.claudemcpcontent\.com$/;
 
 /**
  * The widget percent-encodes the name, because a header value may not carry the

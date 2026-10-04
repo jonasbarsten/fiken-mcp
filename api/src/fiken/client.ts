@@ -52,6 +52,9 @@ export interface FikenClient {
 
 export const MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024;
 
+/** How long download() waits for a file, body included, before giving up: a hanging file host must not hold the queue. */
+export const DOWNLOAD_TIMEOUT_MS = 20_000;
+
 function withQuery(path: string, query: Query = {}): string {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(query)) if (v !== undefined) params.set(k, String(v));
@@ -77,6 +80,8 @@ export function createFikenClient(opts: {
   fetch: typeof fetch;
   queue?: FikenQueue;
   onWrite?: () => void;
+  /** Overrides DOWNLOAD_TIMEOUT_MS; for tests. */
+  downloadTimeoutMs?: number;
 }): FikenClient {
   const queue = opts.queue ?? globalQueue;
 
@@ -156,13 +161,20 @@ export function createFikenClient(opts: {
       else if (opts.fileBaseUrl !== undefined && url.startsWith(`${opts.fileBaseUrl}/`)) target = url;
       else if (url.startsWith("/") && !url.startsWith("//")) target = `${opts.baseUrl}${url}`;
       else throw new FikenError(400, "refusing to fetch a URL outside the Fiken API");
-      const res = await fetchFikenUrl(target, { headers: { accept: "*/*" } });
-      if (!res.ok) throw new FikenError(res.status, await res.text());
-      const tooLarge = () => new FikenError(413, "document larger than 10 MB");
-      if (Number(res.headers.get("content-length") ?? 0) > MAX_DOWNLOAD_BYTES) throw tooLarge();
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      if (bytes.byteLength > MAX_DOWNLOAD_BYTES) throw tooLarge();
-      return { bytes, contentType: res.headers.get("content-type") };
+      // One signal for the request and the body read, so a host that stalls mid-body times out too.
+      const signal = AbortSignal.timeout(opts.downloadTimeoutMs ?? DOWNLOAD_TIMEOUT_MS);
+      try {
+        const res = await fetchFikenUrl(target, { headers: { accept: "*/*" }, signal });
+        if (!res.ok) throw new FikenError(res.status, await res.text());
+        const tooLarge = () => new FikenError(413, "document larger than 10 MB");
+        if (Number(res.headers.get("content-length") ?? 0) > MAX_DOWNLOAD_BYTES) throw tooLarge();
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        if (bytes.byteLength > MAX_DOWNLOAD_BYTES) throw tooLarge();
+        return { bytes, contentType: res.headers.get("content-type") };
+      } catch (err) {
+        if (signal.aborted && !(err instanceof FikenError)) throw new FikenError(504, "Fiken did not deliver the file in time");
+        throw err;
+      }
     },
   };
 }

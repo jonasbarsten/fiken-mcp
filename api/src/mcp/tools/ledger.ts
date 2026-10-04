@@ -74,6 +74,22 @@ const journalEntryLine = z
   })
   .strict();
 
+/** The checks create_journal_entry makes before calling Fiken; undefined when the lines may be sent. */
+export function checkJournalLines(lines: z.output<typeof journalEntryLine>[]): string | undefined {
+  let debit = 0;
+  let credit = 0;
+  const hasVat = lines.some((l) => l.debitVatCode !== undefined || l.creditVatCode !== undefined);
+  for (const l of lines) {
+    if (l.debitAccount === undefined && l.creditAccount === undefined) return "Every line needs a debitAccount or a creditAccount.";
+    if (l.debitVatCode !== undefined && l.debitAccount === undefined) return "A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.";
+    if (l.creditVatCode !== undefined && l.creditAccount === undefined) return "A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.";
+    if (l.creditAccount === undefined) debit += l.amount;
+    else if (l.debitAccount === undefined) credit += l.amount;
+  }
+  if (!hasVat && debit !== credit) return `The entry does not balance: debit ${debit} øre, credit ${credit} øre.`;
+  return undefined;
+}
+
 export const ledgerOperations: Operation[] = [
   defineOperation({
     name: "account_balances",
@@ -198,17 +214,8 @@ export const ledgerOperations: Operation[] = [
       open: z.boolean().optional().describe("Whether the entry is left open"),
     }),
     async run(ctx, { companySlug: slug, description, date, lines, open }) {
-      let debit = 0;
-      let credit = 0;
-      const hasVat = lines.some((l) => l.debitVatCode !== undefined || l.creditVatCode !== undefined);
-      for (const l of lines) {
-        if (l.debitAccount === undefined && l.creditAccount === undefined) return toolText("Every line needs a debitAccount or a creditAccount.");
-        if (l.debitVatCode !== undefined && l.debitAccount === undefined) return toolText("A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.");
-        if (l.creditVatCode !== undefined && l.creditAccount === undefined) return toolText("A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.");
-        if (l.creditAccount === undefined) debit += l.amount;
-        else if (l.debitAccount === undefined) credit += l.amount;
-      }
-      if (!hasVat && debit !== credit) return toolText(`The entry does not balance: debit ${debit} øre, credit ${credit} øre.`);
+      const problem = checkJournalLines(lines);
+      if (problem !== undefined) return toolText(problem);
       return withCompany(ctx, slug, async () => {
         // The Location header of POST /generalJournalEntries carries the transaction id, not a journal entry id.
         const { id: transactionId } = await ctx.fiken.create(`/companies/${slug}/generalJournalEntries`, defined({ description, open, journalEntries: [{ description, date, lines }] }));

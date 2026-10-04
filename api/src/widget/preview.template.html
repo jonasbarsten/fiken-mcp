@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Forhåndsvisning</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; color: #222; background: transparent; }
+    .title { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
+    .row { display: flex; gap: 12px; padding: 3px 0; font-size: 14px; }
+    .row .label { flex: 0 0 38%; color: #666; }
+    .row .value { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .table-wrap { overflow-x: auto; margin: 12px 0; }
+    table.lines { border-collapse: collapse; width: 100%; font-size: 13px; }
+    table.lines th, table.lines td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ccc; white-space: nowrap; }
+    table.lines th { font-weight: 600; color: #666; }
+    .totals { margin: 8px 0 12px; padding-top: 6px; border-top: 1px solid #ccc; font-weight: 600; }
+    .checks { margin: 12px 0; padding: 10px 12px; border-radius: 8px; border: 1px solid #c0392b; }
+    .checks-title { margin: 0 0 4px; font-weight: 600; color: #c0392b; }
+    .checks ul { margin: 0; padding-left: 18px; font-size: 14px; }
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .actions button { padding: 10px 18px; border-radius: 8px; font: inherit; cursor: pointer; }
+    .actions .primary { border: 0; background: #5b3df5; color: #fff; }
+    .actions .secondary { border: 1px solid #5b3df5; background: transparent; color: inherit; }
+    .actions button[disabled] { opacity: 0.5; cursor: default; }
+    .actions button.chosen { opacity: 1; }
+    @media (prefers-color-scheme: dark) {
+      body { color: #eee; }
+      .row .label, table.lines th { color: #bbb; }
+      table.lines th, table.lines td, .totals { border-color: #555; }
+      .actions .secondary { border-color: #a394ff; }
+      .checks { border-color: #e57368; }
+      .checks-title { color: #e57368; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Each inlined bundle gets its own module scope; module scripts run in order. -->
+  <script type="module">/*__BUNDLE__*/</script>
+  <script type="module">/*__LOGIC__*/</script>
+  <script type="module">
+    const { App } = globalThis.__mcpApps;
+    const { renderPreview } = globalThis.__widget;
+    const app = new App({ name: "Fiken preview", version: "1.0.0" });
+    const root = document.getElementById("root");
+    const syncSize = () => app.sendSizeChanged({ height: document.body.scrollHeight }).catch(() => {});
+    // Once answered, a repeated tool result must not re-render and re-enable the buttons.
+    let answered = false;
+    app.ontoolresult = (params) => {
+      if (answered) return;
+      const sc = params.structuredContent;
+      if (!sc?.title || !Array.isArray(sc.summary)) return;
+      root.replaceChildren();
+      renderPreview(document, root, sc, (text) => {
+        answered = true;
+        app.sendMessage({ role: "user", content: [{ type: "text", text }] }).catch((e) => console.error("sendMessage failed", e));
+      });
+      syncSize();
+    };
+    await app.connect();
+  </script>
+</body>
+</html>

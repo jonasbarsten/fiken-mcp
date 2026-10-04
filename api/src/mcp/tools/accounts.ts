@@ -26,7 +26,7 @@ export const accountsOperations: Operation[] = [
     title: "List accounts",
     description:
       "Chart of accounts. Expense accounts (kostnadskonti) are 4000–7999; pass range like 4000-7999. Use the code as `account` on a purchase line. " +
-      "Balances per account: account_balances (via fiken_read).",
+      "Balances per account: account_balances (via fiken_read). When there are several to choose from, let the user pick with ask_user_choice.",
     input: z.object({
       companySlug,
       ...paging,

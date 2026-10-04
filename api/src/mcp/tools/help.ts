@@ -6,7 +6,7 @@ import { defineOperation, type Operation } from "../operations.js";
 import { toolText } from "./common.js";
 
 export const SERVER_INSTRUCTIONS =
-  "For anything other than a plain purchase or sale, look the case up in Fiken's own help first: fiken_help_index with a query, then fiken_help_article (both through fiken_read). The articles describe Fiken's screens; translate them with the connector notes at the end of each article. Go through the proposed booking with the user before writing anything.";
+  "For anything other than a plain purchase or sale, look the case up in Fiken's own help first: fiken_help_index with a query, then fiken_help_article (both through fiken_read). The articles describe Fiken's screens; translate them with the connector notes at the end of each article. Go through the proposed booking with the user before writing anything. When the user must choose between options (company, customer, account, alternatives), call ask_user_choice instead of asking in text; when you need several details, use ask_user_form. Show lists of items with show_table and documents with show_document. Before any write, call preview_booking with the operation and args and wait for the user's answer.";
 const REFERENCE_NOTE = "Reference from Fiken's public help: the user's request and this connector's rules take precedence.";
 export const DEPRIORITIZED = "Fiken marks this article as less relevant for chatbots; prefer another article if one fits.";
 

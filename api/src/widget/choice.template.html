@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Velg</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; color: #222; background: transparent; }
+    .question { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
+    .option { display: block; width: 100%; box-sizing: border-box; text-align: left; margin-bottom: 8px; padding: 12px 14px; border-radius: 8px; border: 1px solid #5b3df5; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+    .option .label { display: block; font-size: 16px; }
+    .option .description { display: block; margin-top: 2px; font-size: 13px; color: #666; }
+    .option[disabled], .other button[disabled] { opacity: 0.5; cursor: default; }
+    .option.chosen { opacity: 1; background: #5b3df5; color: #fff; }
+    .option.chosen .description { color: #e4ddff; }
+    .other { display: flex; gap: 8px; margin-top: 4px; }
+    .other input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 8px; border: 1px solid #999; background: transparent; color: inherit; font: inherit; }
+    .other button { padding: 10px 16px; border-radius: 8px; border: 0; background: #5b3df5; color: #fff; font: inherit; cursor: pointer; }
+    .other button.chosen { opacity: 1; }
+    @media (prefers-color-scheme: dark) {
+      body { color: #eee; }
+      .option { border-color: #a394ff; }
+      .option .description { color: #bbb; }
+      .option.chosen { background: #7a63ff; color: #fff; }
+      .other input { border-color: #777; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Each inlined bundle gets its own module scope; module scripts run in order. -->
+  <script type="module">/*__BUNDLE__*/</script>
+  <script type="module">/*__LOGIC__*/</script>
+  <script type="module">
+    const { App } = globalThis.__mcpApps;
+    const { renderChoice } = globalThis.__widget;
+    const app = new App({ name: "Fiken choice", version: "1.0.0" });
+    const root = document.getElementById("root");
+    const syncSize = () => app.sendSizeChanged({ height: document.body.scrollHeight }).catch(() => {});
+    // Once answered, a repeated tool result must not re-render and re-enable the buttons.
+    let answered = false;
+    app.ontoolresult = (params) => {
+      if (answered) return;
+      const sc = params.structuredContent;
+      if (!sc?.question || !Array.isArray(sc.options)) return;
+      root.replaceChildren();
+      renderChoice(document, root, sc, (text) => {
+        answered = true;
+        app.sendMessage({ role: "user", content: [{ type: "text", text }] }).catch((e) => console.error("sendMessage failed", e));
+      });
+      syncSize();
+    };
+    await app.connect();
+  </script>
+</body>
+</html>

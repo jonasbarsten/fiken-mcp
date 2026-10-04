@@ -98,7 +98,9 @@ Claude / ChatGPT ──MCP over HTTPS──▶ API Gateway ──▶ Lambda (Hon
         └──── OAuth: you log in with Fiken ◀────────────┘
 ```
 
-One stateless Lambda serves MCP, OAuth and file uploads. Fiken allows one
+One stateless Lambda serves MCP (`/mcp`), OAuth, receipt uploads
+(`POST /upload`) and the document viewer's downloads (`GET /document`),
+plus `/stats` and the connector icon. Fiken allows one
 concurrent request, so every call goes through one queue.
 
 Status: live at `https://api.fiken-mcp.byjoba.com` for a handful of
@@ -113,6 +115,47 @@ A short, fixed tool list instead of one tool per Fiken action:
   round trip: `list_companies`, `list_projects`, `list_accounts`,
   `list_bank_accounts`, `search_contacts`, `list_inbox`, `create_purchase`.
 - The upload tools: `upload_receipts` and `get_upload_url` (see below).
+- `ask_user_choice`: shows the user a question with 2-12 options as
+  buttons in clients that render widgets (others get a numbered list);
+  the answer comes back as the user's next chat message. Read-only, on
+  every connection.
+- `ask_user_form`: shows the user a short form (1-12 fields: text,
+  number, amount, date, select, checkbox) with suggested values in
+  clients that render widgets (others get a numbered list); the answers
+  come back as one chat message (number and amount answers as typed,
+  possibly with a decimal comma; an amount is kroner as typed, not øre).
+  A suggested value is at most 200
+  characters, the button label 1-40. Read-only, on every connection.
+- `show_table`: shows rows you fetched (invoices, inbox documents,
+  balances, ...) as a table in clients that render widgets (others get a
+  Markdown table), 1-8 columns and 1-50 rows, with up to 3 action buttons
+  per row; a text cell is at most 200 characters. A click sends the
+  action's message as the user's next chat message and disables that
+  row's buttons; other rows stay usable.
+  `amount` columns take øre and are shown as kroner; amounts in another
+  currency go in a text column. Read-only, on every connection.
+- `show_document`: shows the user an inbox document (`inboxDocumentId`)
+  or an attachment (`attachmentUuid` from `get_attachments`, with exactly
+  one of `purchaseId`, `saleId`, `invoiceId`, `journalEntryId`) as an
+  image or a PDF with «Forrige» / «Neste» page buttons, in clients that
+  render widgets (others get a line naming the file). The tool looks the
+  file up in Fiken and returns a view ticket: encrypted, bound to that
+  one Fiken file URL, valid 5 minutes and never longer than the session. The widget fetches the file from `GET /document`
+  with the ticket in an `x-ticket` header; the model does not see the
+  content (it reads an inbox document with `get_inbox_document`).
+  Read-only, on every connection.
+- `preview_booking`: takes a write operation's name and args, checks the
+  args against the write's schema (journal entries also get their balance
+  and VAT-code checks) and shows a summary, the lines in kroner and any
+  problems, with «Før dette» and «Endre» buttons in widget clients
+  (others get Markdown ending «Ingenting er ført ennå.»). Each preview
+  has a reference: the first 6 hex characters of SHA-256 over the
+  operation and its parsed args. «Før dette» sends
+  «Ja, før dette (ref <ref>).», and the model writes only when that ref
+  matches its latest preview of exactly those args, otherwise it
+  previews again. The write may still be refused. Never calls Fiken.
+  Only on connections that may write, and only for operations visible
+  there.
 - The gateway: `fiken_explore`, `fiken_read` and `fiken_write`. Every
   operation below, the hot-path ones included, is reachable through it.
   `fiken_explore` lists the concepts, then a concept's operations with
@@ -297,9 +340,14 @@ photo is converted to JPEG on your phone when the browser can decode it,
 and named as skipped when it cannot. Amounts everywhere are integers in
 øre.
 
-Only the widget's own sandbox origins (`*.claudemcpcontent.com`) may post
-to the upload endpoint, so ChatGPT's app sandbox cannot upload yet; its
-read and write tools work as usual.
+Only the widget's own sandbox origins (`*.claudemcpcontent.com`) may call
+the upload and document endpoints cross-origin, so ChatGPT's app sandbox
+cannot upload or show documents yet; its read and write tools work as
+usual. `GET /document` fetches only the file URL sealed in its ticket
+(never one from the request), only from Fiken's hosts, answers only PDF,
+PNG, JPEG and GIF (by magic bytes, at most 4 MB) with
+`Cache-Control: no-store`, and refuses a missing, expired or upload
+ticket with a bare 401.
 
 - Design: [docs/superpowers/specs/2026-09-22-fiken-mcp-design.md](docs/superpowers/specs/2026-09-22-fiken-mcp-design.md)
 - Decision record (what we ruled out and why): [docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md](docs/superpowers/specs/2026-09-22-fiken-mcp-decision-record.md)
@@ -310,7 +358,8 @@ read and write tools work as usual.
 
 We hold Fiken app credentials and a signing key. We never store your
 Fiken tokens, your files or your accounting data; files pass through our
-server's memory on the way to Fiken and are not written or logged. We
+server's memory on the way to Fiken (and from Fiken to the document
+viewer) and are not written or logged. We
 keep anonymous usage counters keyed by a salted hash of your email that
 we cannot reverse: pseudonymous monthly call counts per tool, and
 whether each call succeeded, against that pseudonym. Ask for your own
@@ -393,10 +442,12 @@ npm run typecheck
 ```
 
 `api/` is the Lambda and its CDK stack; `iac/` is the shared
-infrastructure stack. The upload widget (`api/src/assets/upload.html`,
-generated and gitignored) is built by `api/scripts/build-widget.mjs`,
-which inlines the MCP Apps and pdf.js bundles into
-`api/src/widget/upload.template.html`. `npm test` runs it first, and the
+infrastructure stack. The widgets (`api/src/assets/<name>.html`,
+generated and gitignored) are built by `api/scripts/build-widget.mjs`,
+which inlines the MCP Apps bundle (and pdf.js for the upload and document
+widgets, the render logic in `api/src/widget/<name>.mjs` for the choice,
+preview, form, table and document widgets) into
+`api/src/widget/<name>.template.html`. `npm test` runs it first, and the
 CDK bundling step runs it again before every synth or deploy, so the
 Lambda bundle always carries a fresh widget. Deployments run from GitHub
 Actions only; see `docs/setup.md` for the one-time setup.

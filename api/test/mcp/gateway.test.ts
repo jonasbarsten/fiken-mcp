@@ -15,8 +15,8 @@ describe("gateway", () => {
   it("lists only the hot path, the gateway and the upload tools", async () => {
     const c = await connected(fakeFiken([]).fetchImpl);
     expect((await c.listTools()).tools.map((t) => t.name).sort()).toEqual([
-      "create_purchase", "fiken_explore", "fiken_read", "fiken_write", "list_accounts", "list_bank_accounts",
-      "list_companies", "list_inbox", "list_projects", "search_contacts",
+      "ask_user_choice", "ask_user_form", "create_purchase", "fiken_explore", "fiken_read", "fiken_write", "list_accounts", "list_bank_accounts",
+      "list_companies", "list_inbox", "list_projects", "preview_booking", "search_contacts", "show_table",
     ]);
   });
 
@@ -41,7 +41,7 @@ describe("gateway", () => {
     expect(tool("fiken_explore")?.annotations).toEqual({ readOnlyHint: true });
     expect(tool("fiken_read")?.annotations).toEqual({ readOnlyHint: true });
     expect(tool("fiken_write")?.annotations).toEqual({ readOnlyHint: false, destructiveHint: true });
-    expect(tool("fiken_write")?.description?.endsWith(CONFIRM)).toBe(true);
+    expect(tool("fiken_write")?.description).toContain(CONFIRM);
   });
 
   it("returns compact explore text whose schemas refuse extra keys", async () => {

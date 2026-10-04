@@ -72,3 +72,30 @@ describe("Fiken's help over MCP", () => {
     expect(pointing.map((op) => op.name).sort()).toEqual(["create_accrual", "create_credit_note", "create_journal_entry", "create_purchase", "fiken_help_article", "write_off_sale"].sort());
   });
 });
+
+describe("pointers to the widget tools", () => {
+  it("names every widget tool in the server instructions", () => {
+    for (const tool of ["ask_user_choice", "ask_user_form", "show_table", "show_document", "preview_booking"]) {
+      expect(SERVER_INSTRUCTIONS).toContain(tool);
+    }
+  });
+
+  it.each([
+    ["list_companies", "When there are several to choose from, let the user pick with ask_user_choice."],
+    ["search_contacts", "When there are several to choose from, let the user pick with ask_user_choice."],
+    ["list_accounts", "When there are several to choose from, let the user pick with ask_user_choice."],
+    ["list_invoices", "To show the result to the user, use show_table."],
+    ["list_inbox", "To show the result to the user, use show_table."],
+    ["get_inbox_document", "To show the file itself to the user, use show_document."],
+  ])("%s points to the widget", (name, pointer) => {
+    const op = getOperation(name);
+    expect(op?.description).toContain(pointer);
+  });
+
+  it("points fiken_write to preview_booking", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const write = (await c.listTools()).tools.find((t) => t.name === "fiken_write");
+    expect(write?.description).toContain("Show the write with preview_booking first and wait for the user's answer.");
+    expect(write?.description).toContain("If the approval carries a ref, write only when it matches your latest preview of exactly these args; otherwise preview again.");
+  });
+});

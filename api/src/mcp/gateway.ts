@@ -12,7 +12,7 @@ const USAGE_READ_ONLY = `Pass an operation name and its args to fiken_read. ${di
 const ARGS_HINT = 'Put the operation\'s inputs under args, for example {"operation":"list_invoices","args":{"companySlug":"..."}}.';
 
 /** `args` as an object: missing is empty, a JSON string is parsed; undefined when it is neither an object nor a JSON object. */
-function argsObject(args: unknown): Record<string, unknown> | undefined {
+export function argsObject(args: unknown): Record<string, unknown> | undefined {
   let value: unknown = args ?? {};
   if (typeof value === "string") {
     try {
@@ -132,6 +132,8 @@ export function registerGateway(server: McpServer, ctx: ToolContext, visible: re
     "write",
     "Run a Fiken write",
     "Run a write operation found with fiken_explore, with its args. Writes change the company's accounting in Fiken; some are final (an issued invoice cannot be deleted, a sent invoice has reached the customer). " +
-      CONFIRM,
+      CONFIRM +
+      " Show the write with preview_booking first and wait for the user's answer." +
+      " If the approval carries a ref, write only when it matches your latest preview of exactly these args; otherwise preview again.",
   );
 }

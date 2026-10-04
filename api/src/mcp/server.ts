@@ -4,7 +4,12 @@ import type { ToolContext } from "./context.js";
 import { registerGateway } from "./gateway.js";
 import { type Operation, registerOperationTool } from "./operations.js";
 import { type ConnectorOptions, visibleOperations } from "./options.js";
+import { registerChoiceTool } from "./tools/choice.js";
+import { registerDocumentViewTool } from "./tools/document-view.js";
+import { registerFormTool } from "./tools/form.js";
 import { SERVER_INSTRUCTIONS } from "./tools/help.js";
+import { registerPreviewTool } from "./tools/preview.js";
+import { registerTableTool } from "./tools/table.js";
 import { registerUploadTools } from "./tools/upload.js";
 
 /** Operations that stay real tools: the receipts flow on a phone needs them without an explore round trip. */
@@ -33,9 +38,19 @@ export function createMcpServer(ctx: ToolContext, publicUrl?: string, cfg?: Conf
     },
     { instructions: SERVER_INSTRUCTIONS },
   );
-  registerAllTools(server, ctx, visibleOperations(options));
+  const visible = visibleOperations(options);
+  registerAllTools(server, ctx, visible);
+  // Writes nothing, so it is on every connection, read-only and concept-filtered ones included.
+  registerChoiceTool(server, ctx);
+  registerFormTool(server, ctx);
+  registerTableTool(server, ctx);
+  // Previews only writes, so it needs a connection that may make them.
+  if (visible.some((op) => op.kind === "write")) registerPreviewTool(server, ctx, visible);
   // The upload tools tell the model to book with create_purchase, so they need purchases and writes.
   const uploads = !options.readOnly && (!options.concepts || options.concepts.has("purchases"));
   if (publicUrl && cfg && uploads) registerUploadTools(server, ctx, publicUrl, cfg);
+  // Reads only, so on every connection; like the upload tools it needs the public URL (where the widget fetches)
+  // and the config (whose key ring seals the view ticket).
+  if (publicUrl && cfg) registerDocumentViewTool(server, ctx, publicUrl, cfg);
   return server;
 }

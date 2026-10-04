@@ -7,5 +7,10 @@ dist/
 .superpowers/
 .claude/worktrees/
 
-# Built by api/scripts/build-widget.mjs from src/widget/upload.template.html
+# Built by api/scripts/build-widget.mjs from src/widget/<name>.template.html
 api/src/assets/upload.html
+api/src/assets/choice.html
+api/src/assets/form.html
+api/src/assets/preview.html
+api/src/assets/table.html
+api/src/assets/document.html
