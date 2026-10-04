@@ -118,15 +118,82 @@ Widget (`ui://fiken-mcp/preview.html`):
 The model still performs the write with `fiken_write` after the user's
 message; the widget never writes.
 
+## 4a. More widgets (added 2026-10-05)
+
+Jonas asked for more widgets in the same round; three generic ones, so
+the model can use them beyond the cases named here.
+
+### `ask_user_form`
+
+A form defined by the model; the answers come back as one chat message.
+
+Input (strict): `title` (1–120), `fields` (1–12, unique `name`):
+`{ name: a-z0-9_ (1–40), label (1–80), type: "text" | "number" |
+"amount" | "date" | "select" | "checkbox", value? (suggested value),
+options? (select only: 1–20 `{ label, value }`), required? (default
+false), help? (≤ 160) }`, `submitLabel?` (default «Send»).
+
+- Widget: one input per field (date → date input, amount → text input
+  accepting «1 250,50», select → buttons or a select, checkbox → checkbox),
+  suggested values filled in, help text under the field. «Send» is
+  disabled until every required field has a value; one message per form.
+- Message: `<title>:` then one line per field `- <label>: <value>`
+  (select as `<label> (<value>)` when they differ; checkbox «Ja»/«Nei»;
+  empty optional fields left out).
+- Fallback text: `Spurte brukeren (skjema): <title>` and a numbered list
+  `1. <label> (<type>[, forslag: <value>][, valg: a / b])`, then
+  `Vent på svaret i chatten.`
+
+### `show_table`
+
+Rows the model fetched, with optional actions per row.
+
+Input (strict): `title` (1–120), `columns` (1–8 `{ key, label, kind?:
+"text" | "amount" | "date" }`, unique keys), `rows` (1–50
+`{ cells: Record<key, string | number>, actions?: 1–3 { label (1–40),
+message (1–200) } }`), `note?` (≤ 200).
+
+- Widget: a table; `amount` cells are øre shown as kroner; action buttons
+  per row. A click sends the action's `message` as the user's message and
+  disables that row's buttons (other rows stay usable).
+- Fallback text: title, a Markdown table, and per row with actions a line
+  `Handlinger rad <n>: <label> / <label>`.
+
+### `show_document`
+
+Shows an inbox document or an attachment (image or PDF) in the chat.
+
+- Input: `companySlug` and exactly one of `inboxDocumentId` or an
+  attachment reference (whatever Fiken's API returns as a download URL for
+  attachments; checked against the API types during implementation, and
+  left out if there is none).
+- The tool looks the document up in Fiken (for its `documentUrl`), then
+  returns a **viewing ticket**: encrypted like the upload ticket, bound to
+  the company and that one file URL, valid 5 minutes and never longer than
+  the session. `structuredContent: { documentUrl: "<publicUrl>/document",
+  ticket, filename, contentType }`.
+- New route `GET /document?ticket=…`: reads the ticket, downloads the file
+  through the Fiken client (the queue, `download()`'s host allowlist),
+  answers only `image/png`, `image/jpeg`, `image/gif`, `application/pdf`
+  (by magic bytes, as the upload route checks), with `Cache-Control:
+  no-store` and the right content type. In memory only, never logged.
+- Widget: fetches the URL (CSP `connectDomains: [publicUrl]`), shows
+  images and renders PDF pages with pdf.js (as the upload widget does),
+  with page navigation for PDFs.
+- Fallback text: the filename and type, and that the model can read the
+  content with `get_inbox_document`.
+
 ## 5. Instructions and descriptions
 
 The connect-time instructions (from the Fiken help plan) get two
 sentences:
 
 «When the user must choose between options (company, customer, account,
-alternatives), call ask_user_choice instead of asking in text. Before
-any write, call preview_booking with the operation and args and wait for
-the user's answer.»
+alternatives), call ask_user_choice instead of asking in text; when you
+need several details, use ask_user_form. Show lists of items with
+show_table and documents with show_document. Before any write, call
+preview_booking with the operation and args and wait for the user's
+answer.»
 
 `list_companies`, `search_contacts` and `list_accounts` descriptions
 mention ask_user_choice when there are several matches; `fiken_write`'s

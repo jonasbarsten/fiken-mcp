@@ -365,12 +365,62 @@ returning the same messages (every line needs an account; VAT code needs its acc
 
 ---
 
-### Task 3: Instructions, pointers, docs
+### Task 3: `ask_user_form`
 
-**Files:** Modify `api/src/mcp/tools/help.ts` (`SERVER_INSTRUCTIONS`), the descriptions of `list_companies`, `search_contacts`, `list_accounts` (pointer to ask_user_choice) and the `fiken_write` gateway description (pointer to preview_booking) in `api/src/mcp/gateway.ts`, tests that pin those texts, `README.md`, `docs/setup.md`, `CLAUDE.md`, `docs/superpowers/specs/2026-09-22-fiken-mcp-design.md` (section 14).
+Spec section 4a. Same pattern as Task 1 (logic module + template + tool + tests), registered on every connection.
 
-- [ ] **Step 1: Instructions.** Append to `SERVER_INSTRUCTIONS`: ` When the user must choose between options (company, customer, account, alternatives), call ask_user_choice instead of asking in text. Before any write, call preview_booking with the operation and args and wait for the user's answer.` Update the help spec's section 4 quote and the widgets spec section 5 if wording differs.
-- [ ] **Step 2: Pointers.** `list_companies`, `search_contacts`, `list_accounts`: append ` When there are several to choose from, let the user pick with ask_user_choice.` `fiken_write`: append ` Show the write with preview_booking first and wait for the user's answer.` Add a test asserting each pointer exists (`operationTexts` / tool descriptions).
+**Files:** Create `api/src/widget/form.mjs` (+ `.d.mts`), `api/src/widget/form.template.html`, `api/src/mcp/tools/form.ts`, `api/test/widget-form.test.ts`, `api/test/mcp/form.test.ts`. Modify `api/scripts/build-widget.mjs` (`form` in `WIDGETS`), `api/src/assets.ts` (`FORM_HTML`), `.gitignore`, `api/src/mcp/server.ts`, `api/test/mcp/gateway.test.ts`.
+
+**Interfaces:** `renderForm(doc, root, data, send)` and `formMessage(data, values)` in `form.mjs`; `FORM_RESOURCE_URI = "ui://fiken-mcp/form.html"`, `formFallback(input)`, `registerFormTool(server, ctx)` in `tools/form.ts`.
+
+- [ ] **Step 1: Failing tests.** Logic (fake DOM from Task 1): one input per field with the right `type` (`date` → `date`, `number` → `number`, `amount` and `text` → `text`, `checkbox` → `checkbox`, `select` → a `select` element with options, or buttons), suggested values filled, help text present, all text via `textContent`; «Send» (or `submitLabel`) disabled while a required field is empty and enabled when filled; one click sends exactly `formMessage` and disables the form; a second click sends nothing. `formMessage`: `"<title>:\n- <label>: <value>"` per filled field, select as `<label> (<value>)` when different, checkbox `Ja`/`Nei`, empty optional fields left out, amounts sent as typed. Tool: input limits from spec 4a (1–12 fields, unique names `^[a-z0-9_]{1,40}$`, options only on select and required there, strict), fallback text exactly `Spurte brukeren (skjema): <title>\n1. <label> (<type>, forslag: <value>, valg: a / b)\n…\nVent på svaret i chatten.` (parts in parentheses only when present), `structuredContent` = the input with defaults, read-only annotation, resource served, no Fiken call.
+- [ ] **Step 2: Implement** to pass, following Task 1's files as the template (widget script, `registerAppTool`/`registerAppResource`, `counted`). Description: «Show the user a short form (1–12 fields: text, number, amount in kroner, date, select, checkbox) with suggested values; the filled-in answers come back as the user's next chat message. Use it when you need several details at once, e.g. a new customer, hours to log, or invoice details.»
+- [ ] **Step 3: Run** `npm test --workspace api`, typecheck, synth. **Commit** `Form widget: ask_user_form`.
+
+---
+
+### Task 4: `show_table`
+
+Spec section 4a. Same pattern, registered on every connection.
+
+**Files:** Create `api/src/widget/table.mjs` (+ `.d.mts`), `api/src/widget/table.template.html`, `api/src/mcp/tools/table.ts`, `api/test/widget-table.test.ts`, `api/test/mcp/table.test.ts`. Modify build `WIDGETS`, `assets.ts` (`TABLE_HTML`), `.gitignore`, `server.ts`, `gateway.test.ts`. Reuse `formatKroner` from `api/src/mcp/preview.ts` (Task 2) for amount cells server-side in the fallback, and an equivalent formatter in `table.mjs` for the widget (no imports in widget modules; keep both in step with a test that compares their output for a few values).
+
+**Interfaces:** `renderTable(doc, root, data, send)`; `TABLE_RESOURCE_URI = "ui://fiken-mcp/table.html"`, `tableFallback(input)`, `registerTableTool(server, ctx)`.
+
+- [ ] **Step 1: Failing tests.** Logic: header from `columns[].label`; one row per item; `amount` cells shown as kroner (`125000` → `1 250,00 kr`); `date` and `text` as given; all via `textContent`; action buttons per row; a click sends that action's `message` once and disables that row's buttons only; another row's button still works. Tool: input limits (1–8 columns, unique keys, 1–50 rows, 0–3 actions per row, label 1–40, message 1–200, note ≤ 200, cells only for declared keys, strict); fallback = title, Markdown table with formatted amounts, then `Handlinger rad <n>: <label> / <label>` lines; read-only; resource; no Fiken call.
+- [ ] **Step 2: Implement.** Description: «Show rows you fetched (invoices, inbox documents, balances, …) as a table, optionally with up to 3 action buttons per row; a click sends the action's message as the user's next chat message (e.g. «Registrer betaling på faktura 10521»). amount columns take øre.»
+- [ ] **Step 3: Run** tests, typecheck, synth. **Commit** `Table widget: show_table with row actions`.
+
+---
+
+### Task 5: `show_document`
+
+Spec section 4a. The only widget with network access and a new route.
+
+**Files:** Create `api/src/document/ticket.ts`, `api/src/document/routes.ts`, `api/src/widget/document.mjs` (+ `.d.mts`), `api/src/widget/document.template.html`, `api/src/mcp/tools/document-view.ts`, tests `api/test/document/ticket.test.ts`, `api/test/document/routes.test.ts`, `api/test/widget-document.test.ts`, `api/test/mcp/document-view.test.ts`. Modify `api/src/app.ts` (mount route), build `WIDGETS` (document widget bundles: MCP Apps bundle, pdf.js and its worker as for upload, plus the logic module), `assets.ts` (`DOCUMENT_HTML`), `.gitignore`, `server.ts`, `gateway.test.ts`, `api/lib/api-stack.ts` only if a new route needs API Gateway changes (the proxy route `/{proxy+}` should already cover it; check).
+
+**Interfaces:**
+- `issueViewTicket(cfg, claims: { fikenAccessToken, anonId, exp }, companySlug, fileUrl, now?) → string` and `readViewTicket(cfg, ticket, now?) → { fikenAccessToken, anonId, companySlug, fileUrl, exp }` in `document/ticket.ts`: same `encryptBlob`/`decryptBlob` as `upload/ticket.ts`, wire kind `"v"` (an upload ticket must never be accepted as a view ticket and vice versa), lifetime `min(300 s, session left)`.
+- `documentRoutes(cfg)` serving `GET /document?ticket=…`.
+- `SHOW_DOCUMENT_RESOURCE_URI = "ui://fiken-mcp/document.html"`, `registerDocumentViewTool(server, ctx, publicUrl, cfg)` (registered like the upload tools: only with a public URL and config).
+
+- [ ] **Step 1: Check what can be shown.** Read `api/src/fiken/types.d.ts` for the inbox document (`documentUrl`) and for attachments (is there a download URL on `attachment`?). If attachments have none, the tool takes only `inboxDocumentId`; say so in the report and in the description.
+- [ ] **Step 2: Failing tests.**
+  - Ticket: round trip; expired refused; an upload ticket refused by `readViewTicket` and a view ticket refused by `readUploadTicket`; lifetime clipped to the session.
+  - Route (fake Fiken via the injectable fetch in `cfg`): missing/invalid/expired ticket → 401 with no body detail; valid ticket → downloads `fileUrl` through `createFikenClient(...).download` (host allowlist applies), detects the type by magic bytes (reuse `upload/detect.ts`), answers 200 with `content-type` and `cache-control: no-store` for png/jpeg/gif/pdf, 415 for anything else; a Fiken 404 → 404. No logging of file content or ticket.
+  - Tool: `{ companySlug, inboxDocumentId }` (strict) looks up the document (`GET /companies/{slug}/inbox/{id}`, as `get_inbox_document` does) and returns `structuredContent: { documentUrl: "<publicUrl>/document", ticket, filename, contentType? }` and the fallback text `Viser <filename> fra innboksen. Innholdet kan leses med get_inbox_document (via fiken_read).`; read-only; resource with `csp.connectDomains: [publicUrl]`.
+  - Widget logic: given a fake `fetch` returning a PNG blob, it shows an image element; for a PDF it calls an injected `renderPdf(bytes, canvasContainer)` (the template wires pdf.js; the logic module takes it as a parameter so tests need no pdf.js); fetch failure shows «Kunne ikke hente dokumentet.»; no `innerHTML`.
+- [ ] **Step 3: Implement** to pass. The template inlines `__mcpApps`, pdf.js and its worker exactly like `upload.template.html` and renders PDF pages to canvases with simple «Forrige» / «Neste» buttons; images via `URL.createObjectURL(blob)` on an `img` (if the host CSP blocks blob images, draw to a canvas with `createImageBitmap` instead; note which in the report).
+- [ ] **Step 4: Run** `npm test --workspace api`, typecheck, synth. **Commit** `Document widget: show_document with a short-lived view ticket`.
+
+---
+
+### Task 6: Instructions, pointers, docs
+
+**Files:** Modify `api/src/mcp/tools/help.ts` (`SERVER_INSTRUCTIONS`), the descriptions of `list_companies`, `search_contacts`, `list_accounts` (pointer to ask_user_choice), `list_invoices` and `list_inbox` (pointer to show_table), `get_inbox_document` (pointer to show_document) and the `fiken_write` gateway description (pointer to preview_booking) in `api/src/mcp/gateway.ts`, tests that pin those texts, `README.md`, `docs/setup.md`, `CLAUDE.md`, `docs/superpowers/specs/2026-09-22-fiken-mcp-design.md` (section 14).
+
+- [ ] **Step 1: Instructions.** Append to `SERVER_INSTRUCTIONS`: ` When the user must choose between options (company, customer, account, alternatives), call ask_user_choice instead of asking in text; when you need several details, use ask_user_form. Show lists of items with show_table and documents with show_document. Before any write, call preview_booking with the operation and args and wait for the user's answer.` Update the help spec's section 4 quote and the widgets spec section 5 if wording differs.
+- [ ] **Step 2: Pointers.** `list_companies`, `search_contacts`, `list_accounts`: append ` When there are several to choose from, let the user pick with ask_user_choice.` `list_invoices`, `list_inbox`: append ` To show the result to the user, use show_table.` `get_inbox_document`: append ` To show the file itself to the user, use show_document.` `fiken_write`: append ` Show the write with preview_booking first and wait for the user's answer.` Add a test asserting each pointer exists (`operationTexts` / tool descriptions).
 - [ ] **Step 3: Docs.** README: the two widget tools (what they show, the text fallback, that they never write), in the Tools section next to `upload_receipts`. `docs/setup.md`: «Verify after deploying the widgets plan» — in Claude (web and iOS): ask «Hvilket foretak?» → buttons, a click fills the chat; a journal entry preview with «Før dette»; in Claude Code: numbered list and Markdown table fallback. `CLAUDE.md` process line; design spec section 14 bullet.
 - [ ] **Step 4: Run** `npm test`; commit `git add api README.md docs CLAUDE.md && git commit -m "Instructions and docs: use the choice and preview widgets"`.
 
