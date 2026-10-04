@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { formatKroner } from "../src/mcp/preview.js";
+import { tableCellText } from "../src/mcp/tools/table.js";
 import { formatAmountCell, renderTable, type TableData } from "../src/widget/table.mjs";
 import { FakeEl } from "./fake-dom.js";
 import { runPageScript } from "./page-script.js";
@@ -92,6 +93,9 @@ describe("table widget logic", () => {
 
   it("formats amounts like the server does", () => {
     for (const ore of [0, 1, 125000, -5000, 123456789]) expect(formatAmountCell(ore)).toBe(formatKroner(ore));
+    for (const value of [0, 125000, "12500", " 12500 ", "", " ", "\t", "abc"]) {
+      expect(formatAmountCell(value)).toBe(tableCellText("amount", value));
+    }
   });
 });
 

@@ -11,7 +11,8 @@ export const TABLE_RESOURCE_URI = "ui://fiken-mcp/table.html";
 const TABLE_DESCRIPTION =
   "Show rows you fetched (invoices, inbox documents, balances, …) as a table, optionally with up to 3 action buttons " +
   "per row; a click sends the action's message as the user's next chat message (e.g. «Registrer betaling på faktura " +
-  "10521»). amount columns take øre.";
+  "10521»). amount columns take øre and show them as kroner; put amounts in another currency in a text column " +
+  "(e.g. «1 250,00 EUR»).";
 
 const column = z
   .object({
@@ -63,7 +64,8 @@ type TableInput = z.infer<typeof inputSchema>;
 /** A Markdown table cell on one line, with pipes escaped. */
 const mdCell = (text: string) => text.replace(/\r?\n/g, " ").replaceAll("|", "\\|");
 
-function cellText(kind: TableInput["columns"][number]["kind"], value: string | number | undefined): string {
+/** A cell as the fallback text shows it; formatAmountCell in src/widget/table.mjs must agree (a test compares them). */
+export function tableCellText(kind: TableInput["columns"][number]["kind"], value: string | number | undefined): string {
   if (value === undefined) return "";
   if (kind !== "amount") return String(value);
   const ore = typeof value === "number" ? value : value.trim() === "" ? Number.NaN : Number(value);
@@ -76,7 +78,7 @@ export function tableFallback({ title, columns, rows, note }: Pick<TableInput, "
   const table = [
     line(columns.map((c) => c.label)),
     line(columns.map(() => "---")),
-    ...rows.map((r) => line(columns.map((c) => cellText(c.kind, r.cells[c.key])))),
+    ...rows.map((r) => line(columns.map((c) => tableCellText(c.kind, r.cells[c.key])))),
   ];
   const actions = rows.flatMap((r, i) => (r.actions ? [`Handlinger rad ${i + 1}: ${r.actions.map((a) => a.label).join(" / ")}`] : []));
   return [title, "", ...table, ...(note ? ["", note] : []), ...(actions.length ? ["", ...actions] : [])].join("\n");

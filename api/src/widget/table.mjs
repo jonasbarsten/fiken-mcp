@@ -5,11 +5,11 @@
 const kroner = new Intl.NumberFormat("nb-NO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
- * An amount cell (øre) as `1 250,00 kr`, no-break spaces. Keep in step with formatKroner in
- * src/mcp/preview.ts (a test compares them); a value that is not a number is shown as given.
+ * An amount cell (øre) as `1 250,00 kr`, no-break spaces. Keep in step with tableCellText in
+ * src/mcp/tools/table.ts (a test compares them); a value that is not a number, or only whitespace, is shown as given.
  */
 function formatAmountCell(value) {
-  const ore = typeof value === "number" ? value : value === "" ? Number.NaN : Number(value);
+  const ore = typeof value === "number" ? value : String(value).trim() === "" ? Number.NaN : Number(value);
   return Number.isFinite(ore) ? `${kroner.format(ore / 100)} kr` : String(value);
 }
 

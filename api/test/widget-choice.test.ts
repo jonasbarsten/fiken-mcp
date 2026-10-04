@@ -16,7 +16,7 @@ class FakeEl {
   append(...els: FakeEl[]) { this.children.push(...els); }
   addEventListener(ev: string, fn: () => void) { (this.listeners[ev] ??= []).push(fn); }
   click() { for (const fn of this.listeners.click ?? []) fn(); }
-  key(key: string) { for (const fn of this.listeners.keydown ?? []) (fn as (e: { key: string }) => void)({ key }); }
+  key(key: string, isComposing = false) { for (const fn of this.listeners.keydown ?? []) (fn as (e: { key: string; isComposing: boolean }) => void)({ key, isComposing }); }
   all(): FakeEl[] { return [this, ...this.children.flatMap((c) => c.all())]; }
 }
 const doc = { createElement: (tag: string) => new FakeEl(tag) };
@@ -79,6 +79,32 @@ describe("choice widget logic", () => {
     input.key("Enter");
     input.key("Enter");
     expect(sent).toEqual(["Noe"]);
+  });
+
+  it("ignores Enter while an IME is composing", () => {
+    const root = new FakeEl("div");
+    const sent: string[] = [];
+    renderChoice(doc as never, root as never, { ...data, allowOther: true }, (t: string) => sent.push(t));
+    const input = root.all().find((e) => e.tag === "input")!;
+    input.value = "かな";
+    input.key("Enter", true);
+    expect(sent).toEqual([]);
+    input.key("Enter");
+    expect(sent).toEqual(["かな"]);
+  });
+
+  it("disables the free-text field after any answer", () => {
+    const viaOption = new FakeEl("div");
+    renderChoice(doc as never, viaOption as never, { ...data, allowOther: true }, () => {});
+    viaOption.all().filter((e) => e.tag === "button")[0]!.click();
+    expect(viaOption.all().find((e) => e.tag === "input")!.disabled).toBe(true);
+
+    const viaText = new FakeEl("div");
+    renderChoice(doc as never, viaText as never, { ...data, allowOther: true }, () => {});
+    const input = viaText.all().find((e) => e.tag === "input")!;
+    input.value = "Noe";
+    input.key("Enter");
+    expect(input.disabled).toBe(true);
   });
 });
 

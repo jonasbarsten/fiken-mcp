@@ -8,11 +8,12 @@ function choiceMessage(option) {
 
 function renderChoice(doc, root, data, send) {
   let done = false;
-  const buttons = [];
+  // Buttons and the «Annet» field: all of them are disabled once the user has answered.
+  const controls = [];
   const finish = (text, chosen) => {
     if (done) return;
     done = true;
-    for (const b of buttons) b.disabled = true;
+    for (const c of controls) c.disabled = true;
     if (chosen) chosen.className = `${chosen.className} chosen`.trim();
     send(text);
   };
@@ -37,7 +38,7 @@ function renderChoice(doc, root, data, send) {
       b.append(d);
     }
     b.addEventListener("click", () => finish(choiceMessage(option), b));
-    buttons.push(b);
+    controls.push(b);
     root.append(b);
   }
 
@@ -56,9 +57,9 @@ function renderChoice(doc, root, data, send) {
     };
     b.addEventListener("click", submit);
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") submit();
+      if (e.key === "Enter" && !e.isComposing) submit();
     });
-    buttons.push(b);
+    controls.push(input, b);
     row.append(input, b);
     root.append(row);
   }

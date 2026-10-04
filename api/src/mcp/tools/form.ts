@@ -11,7 +11,8 @@ const FORM_DESCRIPTION =
   "Show the user a short form (1–12 fields: text, number, amount in kroner, date, select, checkbox) with suggested " +
   "values; the filled-in answers come back as the user's next chat message. Use it when you need several details at " +
   "once, e.g. a new customer, hours to log, or invoice details. Number and amount answers come back as typed, " +
-  "possibly with a decimal comma (e.g. \"7,5\" or \"1 250,50\"), so convert them yourself.";
+  "possibly with a decimal comma (e.g. \"7,5\" or \"1 250,50\"), so convert them yourself: an amount field is kroner " +
+  "as the user typed it, not øre.";
 
 const option = z
   .object({

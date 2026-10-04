@@ -18,6 +18,12 @@ describe("ask_user_form", () => {
     expect(res.contents[0]!.mimeType).toContain("text/html");
   });
 
+  it("says an amount field is kroner as typed, not øre", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const tool = (await c.listTools()).tools.find((t) => t.name === "ask_user_form")!;
+    expect(tool.description).toContain("an amount field is kroner as the user typed it, not øre");
+  });
+
   it("returns structuredContent with defaults and the exact text fallback, without calling Fiken", async () => {
     const f = fakeFiken([]);
     const c = await connected(f.fetchImpl);

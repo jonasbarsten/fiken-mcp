@@ -24,6 +24,13 @@ describe("show_table", () => {
     expect(res.contents[0]!.mimeType).toContain("text/html");
   });
 
+  it("says amount cells are øre shown as kroner, and that other currencies go in a text column", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const tool = (await c.listTools()).tools.find((t) => t.name === "show_table")!;
+    expect(tool.description).toContain("amount columns take øre and show them as kroner");
+    expect(tool.description).toContain("text column");
+  });
+
   it("returns structuredContent and a Markdown fallback with formatted amounts and action lines, without calling Fiken", async () => {
     const f = fakeFiken([]);
     const c = await connected(f.fetchImpl);
