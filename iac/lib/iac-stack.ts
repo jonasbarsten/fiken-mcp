@@ -6,7 +6,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
 import type { Construct, IConstruct } from "constructs";
-import { DOMAIN, EXEC_POLICY_NAME, ZONE_ID, ZONE_NAME, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
+import { DOMAIN, EXEC_POLICY_NAME, SITE_BUCKET_PREFIX, SITE_STACK_NAME, ZONE_ID, ZONE_NAME, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
 
 /** Requested once by hand and DNS-validated; see docs/setup.md. Auto-renews while the validation CNAME exists. */
 export const CERTIFICATE_ARN = "arn:aws:acm:eu-west-1:209479295726:certificate/bd57a6d8-38c1-4876-bfa8-238d64d1c057";
@@ -81,6 +81,27 @@ export class IacStack extends Stack {
       new iam.PolicyStatement({
         actions: ["sts:AssumeRole"],
         resources: bootstrapRoleArns(this.account, this.region),
+      }),
+    );
+
+    // The only rights beyond sts:AssumeRole: the site's content deploy ships
+    // files directly (s3 sync, invalidation) instead of through CloudFormation,
+    // and reads the web stack's DistributionId output. The execution policy,
+    // which bounds this role, allows each of these.
+    const siteBucketArn = `arn:aws:s3:::${SITE_BUCKET_PREFIX}${this.account}`;
+    deployRole.addToPolicy(new iam.PolicyStatement({ actions: ["s3:ListBucket"], resources: [siteBucketArn] }));
+    deployRole.addToPolicy(new iam.PolicyStatement({ actions: ["s3:PutObject", "s3:DeleteObject"], resources: [`${siteBucketArn}/*`] }));
+    deployRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"],
+        // The follow-up narrows this to the distribution id imported from the web stack.
+        resources: [`arn:aws:cloudfront::${this.account}:distribution/*`],
+      }),
+    );
+    deployRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["cloudformation:DescribeStacks"],
+        resources: [`arn:aws:cloudformation:${this.region}:${this.account}:stack/${SITE_STACK_NAME}/*`],
       }),
     );
 

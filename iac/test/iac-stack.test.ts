@@ -58,7 +58,7 @@ describe("IacStack", () => {
     });
     t.hasResourceProperties("AWS::IAM::Policy", {
       PolicyDocument: {
-        Statement: [
+        Statement: Match.arrayWith([
           {
             Action: "sts:AssumeRole",
             Effect: "Allow",
@@ -67,7 +67,36 @@ describe("IacStack", () => {
               "arn:aws:iam::209479295726:role/cdk-fikenmcp-file-publishing-role-209479295726-eu-west-1",
             ],
           },
-        ],
+        ]),
+      },
+    });
+  });
+
+  it("lets the deploy role ship the site content directly: sync the bucket, invalidate CloudFront, read the web stack's outputs", () => {
+    const t = synth();
+    const [policy] = Object.values(t.findResources("AWS::IAM::Policy"));
+    const statements = policy!.Properties.PolicyDocument.Statement as Array<{ Effect: string; Action: string | string[]; Resource: string | string[] }>;
+    const others = statements.filter((s) => s.Action !== "sts:AssumeRole");
+    expect(others).toEqual([
+      { Effect: "Allow", Action: "s3:ListBucket", Resource: "arn:aws:s3:::fiken-mcp-web-209479295726" },
+      { Effect: "Allow", Action: ["s3:PutObject", "s3:DeleteObject"], Resource: "arn:aws:s3:::fiken-mcp-web-209479295726/*" },
+      { Effect: "Allow", Action: ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"], Resource: "arn:aws:cloudfront::209479295726:distribution/*" },
+      { Effect: "Allow", Action: "cloudformation:DescribeStacks", Resource: "arn:aws:cloudformation:eu-west-1:209479295726:stack/fiken-mcp-web/*" },
+    ]);
+  });
+
+  it("lets the execution policy, which bounds the deploy role, read stack outputs", () => {
+    synth().hasResourceProperties("AWS::IAM::ManagedPolicy", {
+      ManagedPolicyName: "fiken-mcp-cfn-exec",
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          {
+            Sid: "StackOutputsRead",
+            Effect: "Allow",
+            Action: "cloudformation:DescribeStacks",
+            Resource: "arn:aws:cloudformation:eu-west-1:209479295726:stack/fiken-mcp-*/*",
+          },
+        ]),
       },
     });
   });

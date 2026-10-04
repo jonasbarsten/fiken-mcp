@@ -10,7 +10,12 @@ export const ZONE_NAME = "byjoba.com";
 export const SITE_DOMAIN = "fiken-mcp.byjoba.com";
 /** The site bucket is named with this prefix plus the account id. */
 export const SITE_BUCKET_PREFIX = "fiken-mcp-web-";
-/** BucketDeployment's AWS CLI layer gets no name of its own; web-stack sets this one so the policy can pin it. */
+/** The CloudFormation stack that holds the site's bucket, distribution and headers. */
+export const SITE_STACK_NAME = "fiken-mcp-web";
+/**
+ * Name of the retired BucketDeployment AWS CLI layer. Kept in this PR only so
+ * CloudFormation may delete the layer; removed in the follow-up once it is gone.
+ */
 export const SITE_LAYER_NAME = "fiken-mcp-web-awscli";
 
 /**
@@ -204,16 +209,16 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       resources: bootstrapRoleArns(account, region),
     }),
     new iam.PolicyStatement({
-      // The website bucket, and (as the boundary on the BucketDeployment
-      // Lambda) the object writes that upload and prune the site.
+      // The website bucket, and (as the boundary on the GitHub deploy role)
+      // the object writes of the content step that syncs and prunes the site.
       sid: "SiteBucket",
       actions: ["s3:*"],
       resources: [`arn:aws:s3:::${SITE_BUCKET_PREFIX}*`, `arn:aws:s3:::${SITE_BUCKET_PREFIX}*/*`],
     }),
     new iam.PolicyStatement({
       // CloudFront ARNs carry generated ids, so these are pinned to the
-      // account and resource type. Also covers the deployment Lambda's
-      // CreateInvalidation and GetInvalidation on the distribution.
+      // account and resource type. Also bounds the deploy role's
+      // CreateInvalidation and GetInvalidation in the content step.
       sid: "CloudFront",
       actions: ["cloudfront:*"],
       resources: ["distribution", "origin-access-control", "cache-policy", "response-headers-policy"].map(
@@ -234,6 +239,17 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       resources: ["*"],
     }),
     new iam.PolicyStatement({
+      // The deploy role (fiken-mcp-github-deploy) carries this policy as its
+      // boundary, so the content deploy's DescribeStacks, which reads the web
+      // stack's DistributionId output, has to be allowed here too.
+      sid: "StackOutputsRead",
+      actions: ["cloudformation:DescribeStacks"],
+      resources: [`arn:aws:cloudformation:${region}:${account}:stack/fiken-mcp-*/*`],
+    }),
+    new iam.PolicyStatement({
+      // The layer no longer exists in the template, but CloudFormation needs
+      // DeleteLayerVersion to remove it in the deploy that drops the
+      // BucketDeployment. Removed in the follow-up once the layer is gone.
       sid: "SiteLayer",
       actions: ["lambda:PublishLayerVersion", "lambda:GetLayerVersion", "lambda:DeleteLayerVersion"],
       resources: [

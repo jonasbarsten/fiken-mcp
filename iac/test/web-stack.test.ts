@@ -109,45 +109,18 @@ describe("WebStack", () => {
     expect(dist.CacheBehaviors[0].ResponseHeadersPolicyId).toEqual({ Ref: policyId });
   }, STACK_TEST_TIMEOUT_MS);
 
-  it("points A and AAAA records on the apex at the distribution", () => {
+  it("holds no content deployment, layer, DNS records or roles: content ships from the workflow, the records live in the iac stack", () => {
     const t = synth();
-    const [distId] = Object.keys(t.findResources("AWS::CloudFront::Distribution"));
-    for (const type of ["A", "AAAA"]) {
-      // CloudFrontTarget supplies CloudFront's alias zone id through a
-      // partition mapping, so only the DNS name is pinned here.
-      t.hasResourceProperties("AWS::Route53::RecordSet", {
-        Name: "fiken-mcp.byjoba.com.",
-        Type: type,
-        HostedZoneId: "Z04810525CNVQNP7ALNV",
-        AliasTarget: Match.objectLike({ DNSName: { "Fn::GetAtt": [distId, "DomainName"] } }),
-      });
-    }
+    t.resourceCountIs("Custom::CDKBucketDeployment", 0);
+    t.resourceCountIs("AWS::Lambda::LayerVersion", 0);
+    t.resourceCountIs("AWS::Route53::RecordSet", 0);
+    t.resourceCountIs("AWS::IAM::Role", 0);
   }, STACK_TEST_TIMEOUT_MS);
 
-  it("deploys /web and the icon with pruning and a full invalidation, through a layer the execution policy can name", () => {
-    const t = synth();
-    t.hasResourceProperties("Custom::CDKBucketDeployment", {
-      Prune: true,
-      DistributionPaths: ["/*"],
-    });
-    const [deployment] = Object.values(t.findResources("Custom::CDKBucketDeployment"));
-    expect(deployment!.Properties.SourceObjectKeys).toHaveLength(2);
-    t.hasResourceProperties("AWS::Lambda::LayerVersion", { LayerName: "fiken-mcp-web-awscli" });
-  }, STACK_TEST_TIMEOUT_MS);
-
-  it("puts the fiken-mcp-cfn-exec boundary on every role", () => {
-    const t = synth();
-    const roles = t.findResources("AWS::IAM::Role");
-    expect(Object.keys(roles).length).toBeGreaterThan(0);
-    for (const role of Object.values(roles)) {
-      expect(JSON.stringify(role.Properties.PermissionsBoundary)).toContain(":iam::209479295726:policy/fiken-mcp-cfn-exec");
-    }
-  }, STACK_TEST_TIMEOUT_MS);
-
-  it("outputs the bucket, the distribution id and its domain", () => {
+  it("outputs the bucket and exports the distribution id and its domain for the iac stack", () => {
     const t = synth();
     t.hasOutput("SiteBucketName", {});
-    t.hasOutput("DistributionId", {});
-    t.hasOutput("DistributionDomainName", {});
+    t.hasOutput("DistributionId", { Export: { Name: "fiken-mcp-web-distribution-id" } });
+    t.hasOutput("DistributionDomainName", { Export: { Name: "fiken-mcp-web-distribution-domain-name" } });
   }, STACK_TEST_TIMEOUT_MS);
 });

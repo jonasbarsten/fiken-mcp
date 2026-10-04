@@ -379,8 +379,8 @@ unless noted, and any email recipient at jonasbj.com.
 - `https://fiken-mcp.byjoba.com/nope` shows the Norwegian 404 page with
   status 404.
 - The browser console shows no CSP violations.
-- A later merge touching only `web/` runs only the `fiken-mcp-web` step,
-  and a docs-only merge asks for no approval.
+- A later merge touching only `web/` runs only the content step (sync and
+  invalidation, no stack), and a docs-only merge asks for no approval.
 - If the first `fiken-mcp-web` create fails with AccessDenied on a
   CloudFront action such as `cloudfront:CreateConnectionGroup` or
   `cloudfront:GetVpcOrigin` (listed among CreateDistribution's related
@@ -406,6 +406,38 @@ Verified 2026-10-04 (after deploying #38):
   oktober), «Vis e-postadressen» revealed the mail link with the subject
   «Tilgang til Fiken MCP», «Kopier» is shown, and the console had no CSP
   violations.
-- Not yet observed: a web-only merge deploying only `fiken-mcp-web`, and
-  a docs-only merge asking for no approval. This PR is docs-only, so its
-  merge is the second check.
+- Then observed: the docs-only merge of #39 skipped the deploy job (no
+  approval asked), and #40 (web/ and README) set only the web flag, which
+  at the time meant the `fiken-mcp-web` stack. Since the site-sync change
+  a web-only merge runs only the content step.
+
+## Site content deploy (2026-10-04)
+
+The site's files no longer go through CloudFormation. The `BucketDeployment`
+in `fiken-mcp-web` (a custom resource Lambda plus an AWS CLI layer) is gone;
+the deploy workflow's `content` step runs `aws s3 sync web/ --delete
+--exclude icon.png`, copies `api/src/assets/icon.png` and invalidates
+CloudFront. The web stack holds only the bucket, the distribution and the
+response headers, and exports `fiken-mcp-web-distribution-id` and
+`fiken-mcp-web-distribution-domain-name`. The deploy role
+(`fiken-mcp-github-deploy`) got the rights for this: list, put and delete on
+the site bucket, `CreateInvalidation`/`GetInvalidation`, and
+`cloudformation:DescribeStacks` on the web stack (to read `DistributionId`).
+The execution policy has a matching `StackOutputsRead` statement because it
+bounds the deploy role.
+
+It ships in two PRs, because the workflow deploys iac before web and a Route
+53 record cannot be created while another stack still owns it:
+
+1. PR A removes the BucketDeployment and the apex A/AAAA records from the web
+   stack and adds the content step and the deploy role rights. The live
+   objects stay in the bucket (the custom resource's delete retains them).
+   `SiteLayer` stays in the execution policy so CloudFormation can delete the
+   layer.
+2. PR B moves the alias records to the iac stack (importing the exports),
+   narrows the invalidation right to the imported distribution and drops
+   `SiteLayer`.
+
+The site is unreachable from PR A's deploy until PR B's deploy (no DNS
+records in between). Jonas accepted that. The first content step also
+populates the bucket again from git.

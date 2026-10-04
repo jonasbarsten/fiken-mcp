@@ -335,20 +335,24 @@ URL. Needs Plus or higher.
 
 `https://fiken-mcp.byjoba.com` is a static Norwegian page in `web/`
 (`index.html`, `404.html`, `style.css`, `site.js`; no build step). The
-icon is the API's own `api/src/assets/icon.png`, shipped as a second
-deployment source and served at `/icon.png`. The `fiken-mcp-web` stack in
-`iac/lib/web-stack.ts` serves it:
-a private S3 bucket behind CloudFront (Origin Access Control), `/stats`
-forwarded to the API so the page reads the counters from its own domain,
-strict security headers (all CSS and JS in files, never inline), no
-access logs, and A/AAAA records on the apex. A `BucketDeployment`
-uploads `web/` and invalidates the cache on deploy. The early-access
-email address exists only as char codes in `site.js` and is assembled on
-click; a test fails if it appears in plain text.
+icon is the API's own `api/src/assets/icon.png`, copied to the bucket as
+`/icon.png`. The `fiken-mcp-web` stack in `iac/lib/web-stack.ts` holds
+only the infrastructure: a private S3 bucket behind CloudFront (Origin
+Access Control), `/stats` forwarded to the API so the page reads the
+counters from its own domain, and strict security headers (all CSS and JS
+in files, never inline). No access logs. The content never goes through
+CloudFormation: the deploy workflow runs `aws s3 sync web/ --delete`, copies
+the icon and invalidates CloudFront. The A/AAAA alias records on the apex
+live in the iac stack (after the follow-up change; until it deploys, the
+site has no DNS records). The early-access email address exists only as
+char codes in `site.js` and is assembled on click; a test fails if it
+appears in plain text.
 
 The deploy workflow deploys only what changed since the last successful
-deploy (`iac/lib/deploy-targets.ts`): `web/**` deploys only the web
-stack, `api/**` only the API, docs and tests nothing at all.
+deploy (`iac/lib/deploy-targets.ts`) and has four flags: `iac`, `web`,
+`content` and `api`. `web/**` sets only `content` (sync and invalidation,
+no stack), `iac/lib/web-stack.ts` only `web`, `api/**` only `api`, and
+docs and tests nothing at all.
 
 ## Development
 

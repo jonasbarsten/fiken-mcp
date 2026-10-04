@@ -3,14 +3,9 @@ import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as lambda from "aws-cdk-lib/aws-lambda";
-import * as route53 from "aws-cdk-lib/aws-route53";
-import * as targets from "aws-cdk-lib/aws-route53-targets";
 import * as s3 from "aws-cdk-lib/aws-s3";
-import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import type { Construct } from "constructs";
-import { fileURLToPath } from "node:url";
-import { DOMAIN, EXEC_POLICY_NAME, SITE_BUCKET_PREFIX, SITE_DOMAIN, SITE_LAYER_NAME, ZONE_ID, ZONE_NAME } from "./exec-policy.js";
+import { DOMAIN, EXEC_POLICY_NAME, SITE_BUCKET_PREFIX, SITE_DOMAIN } from "./exec-policy.js";
 
 /** Requested once by hand in us-east-1 (CloudFront requires that region) and DNS-validated; see docs/setup.md. */
 export const SITE_CERTIFICATE_ARN = "arn:aws:acm:us-east-1:209479295726:certificate/6814f406-e879-4458-9a45-739a1639ee30";
@@ -19,13 +14,12 @@ export const SITE_CERTIFICATE_ARN = "arn:aws:acm:us-east-1:209479295726:certific
 export const CONTENT_SECURITY_POLICY =
   "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
-const WEB_DIR = fileURLToPath(new URL("../../web", import.meta.url));
-const ICON_DIR = fileURLToPath(new URL("../../api/src/assets", import.meta.url));
-
 /**
- * The landing page at the apex: a private bucket behind CloudFront, /stats
- * forwarded to the API so the page reads it same-origin, and the /web
- * folder uploaded on every deploy. No access logs: the site collects nothing.
+ * The landing page at the apex: a private bucket behind CloudFront, with
+ * /stats forwarded to the API so the page reads it same-origin. The content
+ * ships from the deploy workflow (s3 sync plus invalidation), never through
+ * CloudFormation, and the alias records live in the iac stack. No access
+ * logs: the site collects nothing.
  */
 export class WebStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps) {
@@ -89,29 +83,12 @@ export class WebStack extends Stack {
       errorResponses: [403, 404].map((httpStatus) => ({ httpStatus, responseHttpStatus: 404, responsePagePath: "/404.html" })),
     });
 
-    const zone = route53.HostedZone.fromHostedZoneAttributes(this, "Zone", { hostedZoneId: ZONE_ID, zoneName: ZONE_NAME });
-    const recordName = SITE_DOMAIN.slice(0, -(ZONE_NAME.length + 1));
-    const target = route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(distribution));
-    new route53.ARecord(this, "AliasRecord", { zone, recordName, target });
-    new route53.AaaaRecord(this, "AliasRecordIpv6", { zone, recordName, target });
-
-    const content = new s3deploy.BucketDeployment(this, "Content", {
-      sources: [
-        s3deploy.Source.asset(WEB_DIR),
-        // The icon lives once, with the API that also serves it; only icon.png is shipped.
-        s3deploy.Source.asset(ICON_DIR, { exclude: ["*", "!icon.png"] }),
-      ],
-      destinationBucket: bucket,
-      distribution,
-      distributionPaths: ["/*"],
-    });
-    // BucketDeployment's AWS CLI layer gets a CloudFormation-generated name;
-    // pin it so the execution policy can name it (SiteLayer statement).
-    const layer = content.node.findChild("AwsCliLayer").node.defaultChild as lambda.CfnLayerVersion;
-    layer.layerName = SITE_LAYER_NAME;
-
     new CfnOutput(this, "SiteBucketName", { value: bucket.bucketName });
-    new CfnOutput(this, "DistributionId", { value: distribution.distributionId });
-    new CfnOutput(this, "DistributionDomainName", { value: distribution.distributionDomainName });
+    // Exported for the iac stack, which owns the alias records.
+    new CfnOutput(this, "DistributionId", { value: distribution.distributionId, exportName: "fiken-mcp-web-distribution-id" });
+    new CfnOutput(this, "DistributionDomainName", {
+      value: distribution.distributionDomainName,
+      exportName: "fiken-mcp-web-distribution-domain-name",
+    });
   }
 }
