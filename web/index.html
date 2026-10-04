@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fiken MCP: Fiken i Claude og ChatGPT</title>
+  <meta name="description" content="Koble Fiken til Claude eller ChatGPT. Bokfør kvitteringer, lag fakturaer og få svar om regnskapet rett fra chatten.">
+  <link rel="icon" href="/icon.png" type="image/png">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/site.js" defer></script>
+</head>
+<body>
+  <header class="hero">
+    <img class="logo" src="/icon.png" alt="" width="96" height="96">
+    <h1>Fiken MCP</h1>
+    <p class="lead">Koble Fiken til Claude eller ChatGPT, og be assistenten bokføre kvitteringer, lage fakturaer eller finne tall i regnskapet. Alt skjer direkte i ditt eget Fiken-foretak.</p>
+    <div class="actions">
+      <a class="button primary" href="#tilgang">Bli med fra starten</a>
+      <a class="button" href="https://github.com/jonasbarsten/fiken-mcp">
+        <svg class="mark" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg>
+        Åpen kildekode på GitHub
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section id="tilgang">
+      <h2>Bli med fra starten</h2>
+      <p>Fiken MCP er helt nytt. Foreløpig er appen registrert hos Fiken som en utviklingsapp, og da kan høyst fem personer bruke den. Når fem brukere er aktive, kan jeg søke Fiken om produksjonsstatus, og da kan alle ta den i bruk.</p>
+      <p>Vil du være en av de første? Send meg en e-post med adressen du logger inn i Fiken med, så legger jeg deg til. Det er bare noen få plasser.</p>
+      <p class="email"><button type="button" id="show-email" class="button primary">Vis e-postadressen</button></p>
+      <noscript><p class="note">Slå på JavaScript for å se e-postadressen.</p></noscript>
+    </section>
+
+    <section>
+      <h2>Dette kan du gjøre</h2>
+      <ul class="features">
+        <li><strong>Kvitteringer.</strong> Ta bilde av kvitteringen eller last opp PDF-en, så bokfører assistenten kjøpet med riktig konto og mva.</li>
+        <li><strong>Salg og fakturaer.</strong> Lag fakturautkast, opprett og send fakturaer, og lag kreditnotaer.</li>
+        <li><strong>Kunder, leverandører og produkter.</strong> Søk dem opp, opprett nye eller oppdater dem.</li>
+        <li><strong>Oversikt.</strong> Spør om saldoer, banken, ubetalte fakturaer eller hva som er bokført på en konto.</li>
+        <li><strong>Prosjekter og timer.</strong> Før timer på prosjekter og fakturer dem.</li>
+        <li><strong>Bare lesetilgang.</strong> Skal assistenten bare lese og ikke endre noe? Bruk adressen som slutter på <code>/mcp/readonly</code>.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Slik kommer du i gang</h2>
+      <p>Du trenger:</p>
+      <ul>
+        <li>et Fiken-foretak med tilleggstjenesten API (Foretak → Tilleggstjenester → API, 99 kr i måneden; den er alltid inkludert i testforetak)</li>
+        <li>tilgang til appen (se over)</li>
+        <li>Claude eller ChatGPT</li>
+      </ul>
+      <h3>Claude <span class="muted">(nettleser, Mac, PC og mobil)</span></h3>
+      <p>Gå til Customize → Connectors, trykk Add og velg Add custom connector. Gi koblingen et navn, for eksempel Fiken, og lim inn denne adressen:</p>
+      <p class="url"><code id="connector-url">https://api.fiken-mcp.byjoba.com/mcp</code> <button type="button" id="copy-url" class="button small" hidden>Kopier</button></p>
+      <p>Logg inn med Fiken når du blir bedt om det. Menyene i Claude er på engelsk.</p>
+      <h3>Claude Code</h3>
+      <pre><code>claude mcp add --transport http fiken https://api.fiken-mcp.byjoba.com/mcp</code></pre>
+      <h3>ChatGPT</h3>
+      <p>Ikke testet ennå.</p>
+    </section>
+
+    <section>
+      <h2>Personvern</h2>
+      <p>Tjenesten lagrer ingen av dataene dine. Filer og regnskapsdata går gjennom serveren på vei til og fra Fiken, men blir verken lagret eller logget. Det samme gjelder innloggingen din hos Fiken.</p>
+      <p>Det eneste som tas vare på, er anonym bruksstatistikk: hvor mange ganger hvert verktøy er brukt per måned, og om det gikk bra. Tellingen knyttes til en kode som lages fra e-postadressen din, og koden kan ikke regnes tilbake til adressen.</p>
+      <p>Kobler du fra i Claude eller ChatGPT, glemmer bare den appen innloggingen. For å stenge tilgangen helt går du i Fiken til Rediger konto → Sikkerhet → Apper du har gitt tilgang til og fjerner tilgangen for Fiken MCP. Gjør det også hvis du tror at en enhet eller konto er på avveie.</p>
+    </section>
+
+    <section>
+      <h2>Bruk så langt</h2>
+      <dl class="stats">
+        <div><dt>brukere totalt</dt><dd id="stat-total">–</dd></div>
+        <div><dt>aktive brukere i <span class="month">denne måneden</span></dt><dd id="stat-active">–</dd></div>
+        <div><dt>kall i <span class="month">denne måneden</span></dt><dd id="stat-calls">–</dd></div>
+      </dl>
+      <p class="muted">Tallene oppdateres hvert femte minutt.</p>
+    </section>
+
+    <section>
+      <h2>Ansvarsfraskrivelse</h2>
+      <p>Fiken MCP er et uavhengig prosjekt med åpen kildekode og har ingen tilknytning til Fiken AS. Tjenesten leveres som den er, uten noen form for garanti.</p>
+      <p>KI-assistenter kan ta feil. Du er selv ansvarlig for alt som bokføres, faktureres eller sendes fra foretaket ditt, også når assistenten gjør det for deg. Kontroller alltid resultatet i Fiken. Jeg er ikke ansvarlig for feil i regnskapet eller for tap som følger av at du bruker tjenesten.</p>
+    </section>
+  </main>
+
+  <footer>
+    <a href="https://github.com/jonasbarsten/fiken-mcp">Kildekoden ligger på GitHub</a>
+    <span aria-hidden="true">·</span>
+    <a href="https://github.com/jonasbarsten/fiken-mcp/blob/main/LICENSE">MIT-lisens</a>
+    <span aria-hidden="true">·</span>
+    <span>byJoBa <small>(Jonas Barsten)</small></span>
+  </footer>
+</body>
+</html>

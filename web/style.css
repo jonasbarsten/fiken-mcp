@@ -1,0 +1,118 @@
+:root {
+  --ink: #1d2433;
+  --muted: #5b6475;
+  --bg: #fbfbf8;
+  --card: #ffffff;
+  --line: #e3e5e8;
+  --accent: #0b6e4f;
+  --accent-ink: #ffffff;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8eaee;
+    --muted: #a3abb9;
+    --bg: #12151b;
+    --card: #1a1f27;
+    --line: #2b313b;
+    --accent: #3fbf8f;
+    --accent-ink: #0d1a14;
+  }
+}
+
+* { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a { color: var(--accent); }
+
+.hero, main, footer {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.hero { padding-top: 4rem; padding-bottom: 2rem; text-align: center; }
+.logo { border-radius: 22%; }
+h1 { font-size: 2.5rem; line-height: 1.15; margin: 1rem 0 0.5rem; }
+.lead { font-size: 1.2rem; color: var(--muted); margin: 0 auto 1.75rem; max-width: 36rem; }
+
+.actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.button:hover { border-color: var(--accent); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.button.small { padding: 0.3rem 0.7rem; font-size: 0.9rem; }
+.mark { flex: none; }
+
+section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1.5rem 1.5rem 1rem;
+  margin: 0 0 1.25rem;
+}
+h2 { margin: 0 0 0.75rem; font-size: 1.4rem; }
+h3 { margin: 1.25rem 0 0.25rem; font-size: 1.05rem; }
+
+.features { padding-left: 1.1rem; }
+.features li { margin-bottom: 0.5rem; }
+
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+pre, .url code {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+pre { overflow-x: auto; }
+.url { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.url code { overflow-wrap: anywhere; }
+
+.email-link { font-weight: 600; font-size: 1.1rem; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; margin: 0 0 0.5rem; }
+.stats div { display: flex; flex-direction: column; }
+.stats dd { order: -1; margin: 0; font-size: 2rem; font-weight: 700; color: var(--accent); }
+.stats dt { color: var(--muted); }
+
+.muted, .note { color: var(--muted); }
+
+footer {
+  padding-top: 1rem;
+  padding-bottom: 3rem;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+.notfound { text-align: center; padding-top: 6rem; }
+
+@media (max-width: 30rem) {
+  h1 { font-size: 2rem; }
+  .actions .button { width: 100%; justify-content: center; }
+  section { padding: 1.25rem 1rem 0.75rem; }
+}

@@ -1,20 +1,90 @@
-# fiken-mcp
+<p align="center">
+  <img src="api/src/assets/icon.png" alt="" width="112" height="112">
+</p>
 
-A remote MCP server that lets Fiken customers work with their own
-accounting from Claude and ChatGPT, on their own AI subscription, after
-logging into Fiken themselves. Read and write, including sending
-invoices, and booking receipts picked straight from a phone.
+<h1 align="center">Fiken MCP</h1>
+
+<p align="center">
+  <strong>Your Fiken accounting, from Claude and ChatGPT.</strong><br>
+  Book receipts from a photo, send invoices, and ask about your numbers in plain language.
+</p>
+
+<p align="center">
+  <a href="https://github.com/jonasbarsten/fiken-mcp/actions/workflows/ci.yml"><img src="https://github.com/jonasbarsten/fiken-mcp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT licence"></a>
+  <a href="https://fiken-mcp.byjoba.com"><img src="https://img.shields.io/badge/site-fiken--mcp.byjoba.com-0b6e4f.svg" alt="Website"></a>
+</p>
+
+---
+
+A remote [MCP](https://modelcontextprotocol.io) server for the
+[Fiken](https://fiken.no) accounting API. Fiken customers log in with
+Fiken themselves and use it from Claude (web, desktop, mobile, Claude
+Code) and ChatGPT, on their own AI subscription. Full read and write
+access, and nothing stored on our side.
+
+> **Early access.** Fiken's development status caps the app at five
+> users, and it needs five active users before it can apply for
+> production status. Want in? Use the email button on
+> [fiken-mcp.byjoba.com](https://fiken-mcp.byjoba.com) and you will be
+> added as an approved user.
+
+## What you can ask
+
+| You say | It does |
+|---|---|
+| "Book these three receipts" (with photos) | Reads each receipt, finds the supplier, books a purchase with account and VAT, and attaches the original |
+| "Invoice Acme for 10 hours of consulting at 1 200 kr" | Creates the invoice, and sends it when you confirm |
+| "Which invoices are still unpaid?" | Lists invoices that are not settled, with their due dates |
+| "What is the balance on 1920 today?" | Reads the account balance |
+| "Log 3 hours on project MCP-1 for today" | Creates the time entry |
+| "Credit invoice 10521" | Issues a full credit note |
+
+## Quick start
+
+1. Make sure the Fiken company has the API add-on (Foretak →
+   Tilleggstjenester → API; always on for test companies).
+2. In Claude: Customize → Connectors → Add → Add custom connector, URL
+   `https://api.fiken-mcp.byjoba.com/mcp`. Log in with Fiken.
+3. Ask away.
+
+Claude Code:
+
+```
+claude mcp add --transport http fiken https://api.fiken-mcp.byjoba.com/mcp
+```
+
+Details, read-only and narrower connections: [Adding the connector](#adding-the-connector).
+
+## Privacy and responsibility
+
+Nothing you send is stored: files and accounting data pass through the
+server's memory on their way to Fiken. Only anonymous usage counters are
+kept ([details](#privacy)).
+
+This is an independent open-source project, not affiliated with Fiken AS,
+provided as is under the [MIT licence](LICENSE). AI assistants make
+mistakes; you are responsible for what is booked, invoiced or sent from
+your company. Check the result in Fiken.
+
+## How it works
+
+```
+Claude / ChatGPT ──MCP over HTTPS──▶ API Gateway ──▶ Lambda (Hono) ──▶ Fiken API
+        ▲                                               │
+        └──── OAuth: you log in with Fiken ◀────────────┘
+```
+
+One stateless Lambda serves MCP, OAuth and file uploads. Fiken allows one
+concurrent request, so every call goes through one queue.
 
 Status: live at `https://api.fiken-mcp.byjoba.com` for a handful of
-test users. The receipts flow works end to end: pick receipts in the
-chat, they land in the Fiken inbox, the model reads them and books each
-one as a purchase with the original attached. Invoices, credit notes and
-payments are covered too.
+test users. The receipts flow works end to end, and invoices, credit
+notes and payments are covered too.
 
 ## What it can do
 
-The server offers a short, fixed tool list instead of one tool per Fiken
-action:
+A short, fixed tool list instead of one tool per Fiken action:
 
 - The hot-path tools, real tools the receipts flow needs without an extra
   round trip: `list_companies`, `list_projects`, `list_accounts`,
@@ -258,6 +328,25 @@ re-add it (`claude mcp remove fiken`, then the add command above).
 ChatGPT: Settings, Apps, Advanced settings, Developer mode, add the same
 URL. Needs Plus or higher.
 
+## Website
+
+`https://fiken-mcp.byjoba.com` is a static Norwegian page in `web/`
+(`index.html`, `404.html`, `style.css`, `site.js`; no build step). The
+icon is the API's own `api/src/assets/icon.png`, shipped as a second
+deployment source and served at `/icon.png`. The `fiken-mcp-web` stack in
+`iac/lib/web-stack.ts` serves it:
+a private S3 bucket behind CloudFront (Origin Access Control), `/stats`
+forwarded to the API so the page reads the counters from its own domain,
+strict security headers (all CSS and JS in files, never inline), no
+access logs, and A/AAAA records on the apex. A `BucketDeployment`
+uploads `web/` and invalidates the cache on deploy. The early-access
+email address exists only as char codes in `site.js` and is assembled on
+click; a test fails if it appears in plain text.
+
+The deploy workflow deploys only what changed since the last successful
+deploy (`iac/lib/deploy-targets.ts`): `web/**` deploys only the web
+stack, `api/**` only the API, docs and tests nothing at all.
+
 ## Development
 
 ```
@@ -274,3 +363,7 @@ which inlines the MCP Apps and pdf.js bundles into
 CDK bundling step runs it again before every synth or deploy, so the
 Lambda bundle always carries a fresh widget. Deployments run from GitHub
 Actions only; see `docs/setup.md` for the one-time setup.
+
+---
+
+<p align="center">MIT licence · byJoBa (Jonas Barsten)</p>

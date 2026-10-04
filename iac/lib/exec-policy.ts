@@ -5,6 +5,13 @@ export const EXEC_POLICY_NAME = "fiken-mcp-cfn-exec";
 export const ZONE_ID = "Z04810525CNVQNP7ALNV";
 /** The API's hostname. The apex fiken-mcp.byjoba.com is kept free for a CloudFront site. */
 export const DOMAIN = "api.fiken-mcp.byjoba.com";
+export const ZONE_NAME = "byjoba.com";
+/** The website on the apex, served by the fiken-mcp-web stack. */
+export const SITE_DOMAIN = "fiken-mcp.byjoba.com";
+/** The site bucket is named with this prefix plus the account id. */
+export const SITE_BUCKET_PREFIX = "fiken-mcp-web-";
+/** BucketDeployment's AWS CLI layer gets no name of its own; web-stack sets this one so the policy can pin it. */
+export const SITE_LAYER_NAME = "fiken-mcp-web-awscli";
 
 /**
  * The only bootstrap roles a deploy needs: deploy-role to run CloudFormation
@@ -195,6 +202,44 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       sid: "AssumeBootstrapRoles",
       actions: ["sts:AssumeRole"],
       resources: bootstrapRoleArns(account, region),
+    }),
+    new iam.PolicyStatement({
+      // The website bucket, and (as the boundary on the BucketDeployment
+      // Lambda) the object writes that upload and prune the site.
+      sid: "SiteBucket",
+      actions: ["s3:*"],
+      resources: [`arn:aws:s3:::${SITE_BUCKET_PREFIX}*`, `arn:aws:s3:::${SITE_BUCKET_PREFIX}*/*`],
+    }),
+    new iam.PolicyStatement({
+      // CloudFront ARNs carry generated ids, so these are pinned to the
+      // account and resource type. Also covers the deployment Lambda's
+      // CreateInvalidation and GetInvalidation on the distribution.
+      sid: "CloudFront",
+      actions: ["cloudfront:*"],
+      resources: ["distribution", "origin-access-control", "cache-policy", "response-headers-policy"].map(
+        (type) => `arn:aws:cloudfront::${account}:${type}/*`,
+      ),
+    }),
+    new iam.PolicyStatement({
+      // These four create actions support no resource-level permissions;
+      // update, delete, get, tag and invalidate stay pinned to ARNs in the
+      // CloudFront statement.
+      sid: "CloudFrontCreate",
+      actions: [
+        "cloudfront:CreateDistribution",
+        "cloudfront:CreateOriginAccessControl",
+        "cloudfront:CreateCachePolicy",
+        "cloudfront:CreateResponseHeadersPolicy",
+      ],
+      resources: ["*"],
+    }),
+    new iam.PolicyStatement({
+      sid: "SiteLayer",
+      actions: ["lambda:PublishLayerVersion", "lambda:GetLayerVersion", "lambda:DeleteLayerVersion"],
+      resources: [
+        `arn:aws:lambda:${region}:${account}:layer:${SITE_LAYER_NAME}`,
+        `arn:aws:lambda:${region}:${account}:layer:${SITE_LAYER_NAME}:*`,
+      ],
     }),
   ];
 }

@@ -6,9 +6,8 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
 import type { Construct, IConstruct } from "constructs";
-import { DOMAIN, EXEC_POLICY_NAME, ZONE_ID, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
+import { DOMAIN, EXEC_POLICY_NAME, ZONE_ID, ZONE_NAME, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
 
-const ZONE_NAME = "byjoba.com";
 /** Requested once by hand and DNS-validated; see docs/setup.md. Auto-renews while the validation CNAME exists. */
 export const CERTIFICATE_ARN = "arn:aws:acm:eu-west-1:209479295726:certificate/bd57a6d8-38c1-4876-bfa8-238d64d1c057";
 

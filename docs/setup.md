@@ -125,6 +125,15 @@ In the "Fiken MCP" app under Rediger konto, API: add redirect URI
 `https://api.fiken-mcp.byjoba.com/callback`. Add each tester's Fiken login
 under "Godkjente brukere" while the app is in development status.
 
+## Website certificate
+
+CloudFront needs its certificate in us-east-1. Requested by hand on
+2026-10-03 for `fiken-mcp.byjoba.com`, DNS-validated in the byjoba.com
+zone: `arn:aws:acm:us-east-1:209479295726:certificate/6814f406-e879-4458-9a45-739a1639ee30`
+(`SITE_CERTIFICATE_ARN` in `iac/lib/web-stack.ts`). It auto-renews while
+the validation CNAME exists. Before the first deploy, confirm in the ACM
+console (us-east-1) that it is Issued.
+
 ## Before the first production deploy
 
 - `spike/` was deleted in the foundation pull request. Its code and
@@ -355,3 +364,26 @@ unless noted, and any email recipient at jonasbj.com.
   `update_product` (stock unchanged).
 - Offers, order confirmations and sending: only in a real company; send to
   a jonasbj.com address with `method: ["email"]`.
+
+## Verify after deploying the website plan
+
+- `https://fiken-mcp.byjoba.com` loads over HTTPS; `http://` redirects.
+- The counters fill in and match `curl https://fiken-mcp.byjoba.com/stats`
+  (same JSON as `https://api.fiken-mcp.byjoba.com/stats`).
+- «Vis e-postadressen» shows the address as a mail link with the subject
+  «Tilgang til Fiken MCP».
+- «Kopier» copies the connector URL.
+- `curl -sI https://fiken-mcp.byjoba.com/` shows the CSP,
+  `strict-transport-security`, `x-content-type-options`,
+  `referrer-policy` and `x-frame-options` headers.
+- `https://fiken-mcp.byjoba.com/nope` shows the Norwegian 404 page with
+  status 404.
+- The browser console shows no CSP violations.
+- A later merge touching only `web/` runs only the `fiken-mcp-web` step,
+  and a docs-only merge asks for no approval.
+- If the first `fiken-mcp-web` create fails with AccessDenied on a
+  CloudFront action such as `cloudfront:CreateConnectionGroup` or
+  `cloudfront:GetVpcOrigin` (listed among CreateDistribution's related
+  actions in AWS's service authorization reference), add it to the
+  `CloudFrontCreate` statement in `iac/lib/exec-policy.ts`. The bucket is
+  not retained on a failed create, so the retry is clean.
