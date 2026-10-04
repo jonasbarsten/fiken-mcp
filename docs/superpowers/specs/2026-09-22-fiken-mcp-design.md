@@ -676,6 +676,14 @@ invoices, time tracking, the EHF inbox and accruals. New concepts:
 Jonas decides; activity writes, contact groups, contact attachments, the
 product sales report and creating bank accounts are not covered.
 
+Done by the accounting guides plan (2026-10-05): two read operations for
+Fiken's own help articles at https://hjelp.fiken.no (`fiken_help_index` to
+search titles, `fiken_help_article` to read full articles), fetched live and
+cached in memory for at most an hour; nothing stored per user. The model
+gets connect-time instructions to look unusual cases up there before
+proposing a booking. `create_journal_entry` accepts `debitVatCode` and
+`creditVatCode` to book VAT lines.
+
 Still to build after that: ChatGPT verification.
 
 - Confirm with Fiken whether the concurrency limit is per user.

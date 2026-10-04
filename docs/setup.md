@@ -414,6 +414,22 @@ unless noted, and any email recipient at jonasbj.com.
   `CloudFrontCreate` statement in `iac/lib/exec-policy.ts`. The bucket is
   not retained on a failed create, so the retry is clean.
 
+## Verify after deploying the Fiken help plan
+
+Do all of this against the demo company.
+
+- `fiken_help_index { query: "utlegg" }` returns titles and slugs of help
+  articles; the result should include "Hvordan registrere ansattutlegg".
+- `fiken_help_article { slug: "hvordan-registrere-ansattutlegg" }` returns
+  the article as Markdown with the connector notes appended.
+- Claude shows the instructions behaviour: when you describe something that
+  looks like an employee outlay, Claude asks to look it up in Fiken's help
+  first.
+- Create a live journal entry: call `create_journal_entry` with
+  `debitVatCode` pointing to an account such as 2911 (a VAT code account).
+  Record the VAT code used and Fiken's response. Verify in Fiken that the
+  entry shows the VAT line.
+
 Verified 2026-10-04 (after deploying #38):
 
 - The first deploy ran all three stacks, iac first (`deploy.yml` changed,

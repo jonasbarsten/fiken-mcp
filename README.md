@@ -281,6 +281,24 @@ These options limit what a connection offers the model. They are not a
 security boundary against whoever holds the token: the same login token
 works on `/mcp`. To stop a token, revoke access in Fiken.
 
+## Fiken's help
+
+When the model encounters something more complex than a routine purchase or
+sale, two read operations let it look up Fiken's own help first:
+
+- `fiken_help_index { query? }`: titles and slugs from https://hjelp.fiken.no,
+  filtered by words in the title if a query is given.
+- `fiken_help_article { slug }`: one article as Markdown, followed by
+  connector notes explaining how the article's steps map to this connector.
+
+Both operations fetch live from `hjelp.fiken.no` (its `llms.txt` and `.md`
+pages) and cache in memory for at most an hour. Nothing is stored. The server
+also sends connect-time instructions telling the model to look unusual cases
+up there before proposing a booking.
+
+`create_journal_entry` accepts `debitVatCode` and `creditVatCode` to book
+manual VAT lines directly on the journal entry.
+
 Receipts: `upload_receipts` opens a picker inside the chat (photos,
 camera, PDFs). Each file goes to the company's Fiken inbox and its
 content (images, or the text of each PDF page) goes straight into the
