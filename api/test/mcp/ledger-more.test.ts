@@ -41,6 +41,39 @@ describe("manual journal entries", () => {
     expect(body.journalEntries[0]!.lines).toEqual(lines);
   });
 
+  it("checks the balance with VAT when every code is a known rate, before any call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    // A taxi outlay of 336 kr incl. 12 % VAT on one two-sided line: the debit gets 300 + 36, the credit only 300.
+    const taxi = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "Taxi", date: "2026-10-04",
+      lines: [{ amount: 30000, debitAccount: "7140", debitVatCode: 13, creditAccount: "2911" }] });
+    expect(taxi).toMatchObject({
+      isError: true,
+      text:
+        "The entry does not balance with VAT: debit 33600 øre, credit 30000 øre. On a side with a VAT code the amount is net and Fiken adds the VAT; " +
+        "a side without a code takes the amount as given, so it must carry the gross amount (e.g. a separate credit line).",
+    });
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it("lets a balanced entry with VAT through, within rounding, and skips the check for an unknown code", async () => {
+    const f = fakeFiken([
+      { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/transactions/77" } },
+      { match: /\/transactions\/77$/, body: transaction },
+    ]);
+    const c = await connected(f.fetchImpl);
+    const hotel = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "Hotell", date: "2026-10-04",
+      lines: [{ amount: 100000, debitAccount: "7140", debitVatCode: 13 }, { amount: 112000, creditAccount: "2911" }] });
+    expect(hotel.isError).toBe(false);
+    // 499 kr incl. 25 %: net 399,20 + VAT 99,80; the model may round the net to 39921.
+    const phone = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "Mobil", date: "2026-10-04",
+      lines: [{ amount: 39921, debitAccount: "6901", debitVatCode: 1 }, { amount: 49900, creditAccount: "1920:10001" }] });
+    expect(phone.isError).toBe(false);
+    const unknown = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-10-04",
+      lines: [{ amount: 100, debitAccount: "6000", debitVatCode: 99 }, { amount: 100, creditAccount: "1200" }] });
+    expect(unknown.isError).toBe(false);
+  });
+
   it("still refuses an unbalanced entry without VAT codes, and a negative VAT code", async () => {
     const f = fakeFiken([]);
     const c = await connected(f.fetchImpl);

@@ -194,9 +194,13 @@ Operations by concept (`read` unless marked write):
   `create_journal_entry` (write; a manual fri postering, refused unless
   debits and credits balance; accepts `debitVatCode` and `creditVatCode`:
   the amount on a side with a code is net and Fiken adds the VAT, also on a
-  line with both accounts (verified 2026-10-05; code 1 is 25 % input VAT,
-  3 is 25 % output VAT), Fiken checks the balance, and a VAT code needs its
-  account on the same line; the
+  line with both accounts (verified 2026-10-05), and the side without a
+  code must carry the gross amount. The codes are the Tax Administration's
+  standard ones: input VAT 1 (25 %), 11 (15 %), 13 (12 %); output VAT 3
+  (25 %), 31 (15 %), 33 (12 %); 1 and 3 are verified on Fiken. With these
+  codes the balance is checked including VAT before writing (1 øre of
+  rounding per coded side); with any other code Fiken checks it. A VAT
+  code needs its account on the same line; the
   description is at most 166 characters, since Fiken's 200-character limit
   includes its 34-character prefix), `list_transactions`, `get_transaction`
   (journal entries carry the `transactionId` it takes),

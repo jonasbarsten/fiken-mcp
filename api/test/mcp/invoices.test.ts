@@ -100,6 +100,12 @@ describe("send, credit, pay", () => {
     expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ invoiceId: 77, method: ["auto"], includeDocumentAttachments: true });
   });
 
+  it("create_credit_note explains that a partial credit's line is the amount credited, not a discount", () => {
+    expect(getOperation("create_credit_note")!.description).toContain(
+      "A partial credit's lines are what is credited: to give 20 % off a 2 280 kr line, credit one line of 456 kr (unitPrice 45600, no discount); discount on a credit line lowers the credited amount.",
+    );
+  });
+
   it("create_credit_note full and partial, with validation before any call", async () => {
     const note = { creditNoteId: 5, creditNoteNumber: 3, issueDate: "2026-09-29", net: -100000, vat: -25000, gross: -125000, currency: "NOK", associatedInvoiceId: 77, customer: { contactId: 7, name: "Kunde AS", email: "k" } };
     const f = fakeFiken([
