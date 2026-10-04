@@ -62,11 +62,11 @@ function trimTransactionSummary(t: FikenTransaction) {
 
 const vatCode = z.number().int().nonnegative();
 const VAT_CODE_HELP =
-  "Fiken's numeric VAT code; read it from an existing booking at the same rate (get_journal_entries returns each line's vatCode, via fiken_read), and tell the user which code and VAT amount you will use before writing.";
+  "Fiken's numeric VAT code (seen in Fiken: 1 is 25 % input VAT on purchases, booked to 2711; 3 is 25 % output VAT on sales, booked to 2701). For other rates read the code from an existing booking at that rate (get_journal_entries returns each line's vatCode, via fiken_read). Tell the user which code and VAT amount you will use before writing.";
 
 const journalEntryLine = z
   .object({
-    amount: z.number().int().positive().describe("Amount in øre. Fiken's API documents it as net (excluding VAT) on the debit side and gross (including VAT) on the credit side when VAT codes are set; how it reads a line with both accounts and VAT is being verified live, so state the amounts and VAT to the user before writing."),
+    amount: z.number().int().positive().describe("Amount in øre. On a side that carries a VAT code the amount is net (excluding VAT) and Fiken adds the VAT, also when the line has both accounts; a side without a code takes the amount as given, so the other line(s) must carry the gross total. Verified on Fiken 2026-10-05. State the amounts and VAT to the user before writing."),
     debitAccount: z.string().min(1).optional().describe("Account code to debit, from list_accounts (via fiken_read); bank accounts look like 1920:10001"),
     creditAccount: z.string().min(1).optional().describe("Account code to credit, from list_accounts (via fiken_read)"),
     debitVatCode: vatCode.optional().describe(`${VAT_CODE_HELP} For the debit side, e.g. an expense with deductible input VAT.`),
@@ -189,7 +189,7 @@ export const ledgerOperations: Operation[] = [
       "Book a manual journal entry (fri postering): corrections, depreciation, salary, transfers between accounts. " +
       "Each line moves amount (øre) to debitAccount and/or from creditAccount; debits and credits must balance. " +
       "Returns the created journal entry, or { transactionId, journalEntries } when Fiken split it into several. " +
-      `Fiken prefixes the description with 'Fri postering registrert via API: '. This is «Fri postering» in Fiken's help. Lines may carry debitVatCode/creditVatCode; then debit amounts are net and credit amounts gross, and Fiken checks the balance. For outlays or anything unusual, look it up first with fiken_help_index (via fiken_read). ${ORE} ${CONFIRM}`,
+      `Fiken prefixes the description with 'Fri postering registrert via API: '. This is «Fri postering» in Fiken's help. Lines may carry debitVatCode/creditVatCode; the amount on a side with a code is net and Fiken adds the VAT, and Fiken checks the balance. For outlays or anything unusual, look it up first with fiken_help_index (via fiken_read). ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,
       description: z.string().min(1).max(166).describe("At most 166 characters: Fiken's 200-character limit includes its 34-character prefix"),

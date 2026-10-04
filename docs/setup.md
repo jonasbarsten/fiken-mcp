@@ -443,6 +443,31 @@ Do all of this against the demo company.
   expectation, the connector note and the field descriptions must be
   corrected before anyone books outlays.
 
+Verified 2026-10-05 (after deploying #44, from Claude Code, demo company):
+
+- The connect-time instructions reached Claude Code. `fiken_help_index
+  { query: "utlegg" }` returned four articles; `fiken_help_article
+  hvordan-registrere-ansattutlegg` returned the article with source, last
+  updated, the reference line and the connector notes. (Cosmetic: the
+  title appears twice, from our header and the article's own heading.)
+- Existing bookings show VAT code 1 on 25 % purchases (VAT on 2711) and
+  code 3 on 25 % sales (VAT on 2701).
+- One-sided lines, debit 6540 100 000 øre with `debitVatCode` 1 and credit
+  2911 125 000 øre: 6540 1 000,00, 2711 250,00, 2911 −1 250,00 (journal
+  entry 61). 2911 needs no sub-account.
+- The same with credit 120 000 øre: Fiken refused it with «Summen av
+  posteringslinjene er ikke null: 50,00».
+- Two-sided line, 125 000 øre, debit 6540 with code 1, credit 1920:10001:
+  6540 1 250,00, 2711 312,50, bank −1 562,50 (journal entry 62). The amount
+  is net on the side with the code.
+- Two-sided line, 100 000 øre, debit 6540 code 1, credit 3020 code 3: 6540
+  1 000,00 + 2711 250,00, 3020 −1 000,00 + 2701 −250,00 (journal entry 63).
+  Net on both sides, each with its own VAT.
+- Rule now in the field descriptions, the connector note and README: on a
+  side with a VAT code the amount is net and Fiken adds the VAT; a side
+  without a code takes the amount as given. The three test entries remain
+  in the demo company (the connector cannot delete).
+
 Verified 2026-10-04 (after deploying #38):
 
 - The first deploy ran all three stacks, iac first (`deploy.yml` changed,
