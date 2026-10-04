@@ -166,23 +166,33 @@ characters, and a cell for a key no column declares is refused.
 
 Shows an inbox document or an attachment (image or PDF) in the chat.
 
-- Input: `companySlug` and exactly one of `inboxDocumentId` or an
-  attachment reference (whatever Fiken's API returns as a download URL for
-  attachments; checked against the API types during implementation, and
-  left out if there is none).
-- The tool looks the document up in Fiken (for its `documentUrl`), then
+- Input: `companySlug` and either `inboxDocumentId`, or `attachmentUuid`
+  (from `get_attachments`) with exactly one owner id (`purchaseId`,
+  `saleId`, `invoiceId` or `journalEntryId`). Fiken's attachments carry a
+  `downloadUrl`, so attachments are supported.
+- The tool looks the document up in Fiken (for its `documentUrl` or the
+  attachment's `downloadUrl`), then
   returns a **viewing ticket**: encrypted like the upload ticket, bound to
   the company and that one file URL, valid 5 minutes and never longer than
   the session. `structuredContent: { documentUrl: "<publicUrl>/document",
   ticket, filename, contentType }`.
-- New route `GET /document?ticket=…`: reads the ticket, downloads the file
-  through the Fiken client (the queue, `download()`'s host allowlist),
+- New route `GET /document`, with the ticket in an `x-ticket` header (not
+  in the URL): reads the ticket, downloads the file
+  through the Fiken client (the queue, `download()`'s host allowlist; a
+  20 s download timeout),
   answers only `image/png`, `image/jpeg`, `image/gif`, `application/pdf`
   (by magic bytes, as the upload route checks), with `Cache-Control:
-  no-store` and the right content type. In memory only, never logged.
+  no-store` and the right content type. Files are capped at 4 MiB. CORS is
+  limited to the Claude widget origin, as `/upload` is. In memory only,
+  never logged.
 - Widget: fetches the URL (CSP `connectDomains: [publicUrl]`), shows
   images and renders PDF pages with pdf.js (as the upload widget does),
   with page navigation for PDFs.
+
+Updated 2026-10-05 to the built state (Task 5): the ticket header,
+CORS, attachment support, the 4 MiB cap and the 20 s timeout above
+replace the first draft's `?ticket=` URL and the open question about
+attachments.
 - Fallback text: the filename and type, and that the model can read the
   content with `get_inbox_document`.
 
@@ -199,8 +209,14 @@ preview_booking with the operation and args and wait for the user's
 answer.»
 
 `list_companies`, `search_contacts` and `list_accounts` descriptions
-mention ask_user_choice when there are several matches; `fiken_write`'s
-description mentions preview_booking.
+mention ask_user_choice when there are several matches («When there are
+several to choose from, let the user pick with ask_user_choice.»);
+`list_invoices` and `list_inbox` mention show_table («To show the result
+to the user, use show_table.»); `get_inbox_document` mentions
+show_document («To show the file itself to the user, use
+show_document.»); `fiken_write`'s description mentions preview_booking
+(«Show the write with preview_booking first and wait for the user's
+answer.»). A test pins every pointer.
 
 ## 6. Build
 

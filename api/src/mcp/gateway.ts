@@ -132,6 +132,7 @@ export function registerGateway(server: McpServer, ctx: ToolContext, visible: re
     "write",
     "Run a Fiken write",
     "Run a write operation found with fiken_explore, with its args. Writes change the company's accounting in Fiken; some are final (an issued invoice cannot be deleted, a sent invoice has reached the customer). " +
-      CONFIRM,
+      CONFIRM +
+      " Show the write with preview_booking first and wait for the user's answer.",
   );
 }

@@ -144,11 +144,12 @@ A short, fixed tool list instead of one tool per Fiken action:
   with the ticket in an `x-ticket` header; the model does not see the
   content (it reads an inbox document with `get_inbox_document`).
   Read-only, on every connection.
-- `preview_booking`: takes a write operation's name and args, validates
-  them as the write would (journal entries also get their balance
-  checks) and shows a summary, the lines in kroner and any problems, with
-  «Før dette» and «Endre» buttons in widget clients (others get Markdown
-  ending «Ingenting er ført ennå.»). Never calls Fiken. Only on
+- `preview_booking`: takes a write operation's name and args, checks the
+  args against the write's schema (journal entries also get their balance
+  and VAT-code checks) and shows a summary, the lines in kroner and any
+  problems, with «Før dette» and «Endre» buttons in widget clients
+  (others get Markdown ending «Ingenting er ført ennå.»). Fiken may still
+  refuse the write. Never calls Fiken. Only on
   connections that may write, and only for operations visible there.
 - The gateway: `fiken_explore`, `fiken_read` and `fiken_write`. Every
   operation below, the hot-path ones included, is reachable through it.

@@ -111,7 +111,14 @@ it):
 Fiken's own help first: fiken_help_index with a query, then
 fiken_help_article (both through fiken_read). The articles describe Fiken's
 screens; translate them with the connector notes at the end of each article. Go through the
-proposed booking with the user before writing anything.»
+proposed booking with the user before writing anything. When the user must
+choose between options (company, customer, account, alternatives), call
+ask_user_choice instead of asking in text; when you need several details,
+use ask_user_form. Show lists of items with show_table and documents with
+show_document. Before any write, call preview_booking with the operation
+and args and wait for the user's answer.»
+
+(The last four sentences were added by the widgets plan, 2026-10-05.)
 
 Relevant operation descriptions point to the help: `create_purchase`
 (outlays), `create_journal_entry` (fri postering), `create_accrual`,

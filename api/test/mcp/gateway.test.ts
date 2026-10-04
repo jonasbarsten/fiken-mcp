@@ -41,7 +41,7 @@ describe("gateway", () => {
     expect(tool("fiken_explore")?.annotations).toEqual({ readOnlyHint: true });
     expect(tool("fiken_read")?.annotations).toEqual({ readOnlyHint: true });
     expect(tool("fiken_write")?.annotations).toEqual({ readOnlyHint: false, destructiveHint: true });
-    expect(tool("fiken_write")?.description?.endsWith(CONFIRM)).toBe(true);
+    expect(tool("fiken_write")?.description).toContain(CONFIRM);
   });
 
   it("returns compact explore text whose schemas refuse extra keys", async () => {

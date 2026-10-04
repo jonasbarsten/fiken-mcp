@@ -91,7 +91,7 @@ export const invoicesOperations: Operation[] = [
     kind: "read",
     destructive: false,
     title: "List invoices",
-    description: `Issued invoices (faktura). Filter by issue date range, customer, settled status or invoice number. ${ORE}`,
+    description: `Issued invoices (faktura). Filter by issue date range, customer, settled status or invoice number. ${ORE} To show the result to the user, use show_table.`,
     input: z.object({
       companySlug,
       ...paging,

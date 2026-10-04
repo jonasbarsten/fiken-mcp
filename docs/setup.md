@@ -491,6 +491,29 @@ Verified 2026-10-04 (after deploying #38):
   at the time meant the `fiken-mcp-web` stack. Since the site-sync change
   a web-only merge runs only the content step.
 
+## Verify after deploying the widgets plan
+
+Do all of this against the demo company, in Claude (web and iOS) and then
+in Claude Code.
+
+- Ask «Hvilket foretak?» (with more than one company): Claude shows
+  buttons (`ask_user_choice`), and a click fills the chat with the answer.
+- Ask Claude to book a journal entry: it shows the preview
+  (`preview_booking`) with «Før dette» and «Endre»; «Før dette» makes the
+  write, «Endre» goes back to the conversation. Nothing is written before.
+- Ask for a short form («Jeg trenger dato, beløp og beskrivelse»): the form
+  (`ask_user_form`) fills in the suggested values, and «Send» puts the
+  answers in the chat as one message.
+- Ask for the latest invoices or the inbox: a table (`show_table`) with the
+  row buttons; a click sends its message and disables only that row.
+- Ask to see an inbox document (and an attachment from `get_attachments`):
+  the image or the PDF with «Forrige» / «Neste» (`show_document`). A file
+  over 4 MiB is refused with a short message.
+- In Claude Code: each widget tool answers with a numbered list or a
+  Markdown table instead, and the model waits for the answer in the chat.
+- Check the instructions behaviour: Claude uses the widget tools instead
+  of asking the same question in text.
+
 ## Site content deploy (2026-10-04)
 
 The site's files no longer go through CloudFormation. The `BucketDeployment`

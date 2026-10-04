@@ -53,4 +53,5 @@ executed 2026-09-29 (the remaining Fiken areas as operations; see
 `docs/superpowers/plans/2026-09-29-fiken-mcp-coverage.md`). Website plan executed 2026-10-03 (`web/`, stack `fiken-mcp-web`,
 per-stack deploys; see `docs/superpowers/plans/2026-10-03-fiken-mcp-website.md`).
 Fiken help plan executed 2026-10-05 (`fiken_help_index`, `fiken_help_article`, VAT codes on journal entries; see `docs/superpowers/plans/2026-10-05-fiken-mcp-accounting-guides.md`).
+Widgets plan executed 2026-10-05 (`ask_user_choice`, `ask_user_form`, `show_table`, `show_document`, `preview_booking`, instructions and description pointers; see `docs/superpowers/plans/2026-10-05-fiken-mcp-widgets.md`).
 Next: the eval set, deletes decision, ChatGPT verification.

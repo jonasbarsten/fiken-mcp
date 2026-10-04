@@ -684,6 +684,14 @@ gets connect-time instructions to look unusual cases up there before
 proposing a booking. `create_journal_entry` accepts `debitVatCode` and
 `creditVatCode` to book VAT lines.
 
+Done by the widgets plan (2026-10-05,
+`docs/superpowers/plans/2026-10-05-fiken-mcp-widgets.md`; design in
+`2026-10-05-fiken-mcp-widgets-design.md`): five widget tools,
+`ask_user_choice`, `ask_user_form`, `show_table`, `show_document` (with
+`GET /document` and a view ticket) and `preview_booking`, plus connect-time
+instructions and description pointers that tell the model when to use
+them. None of them writes or stores anything.
+
 Still to build after that: ChatGPT verification.
 
 - Confirm with Fiken whether the concurrency limit is per user.
