@@ -55,6 +55,13 @@ const LABELS: Record<string, string> = {
   hourlyRate: "Timepris",
 };
 
+/** Summary order: the labelled keys in LABELS order, then the rest; the sort is stable, so the rest keep the args' order. */
+const LABEL_ORDER = Object.keys(LABELS);
+const summaryRank = (key: string): number => {
+  const i = LABEL_ORDER.indexOf(key);
+  return i === -1 ? LABEL_ORDER.length : i;
+};
+
 /**
  * Keys, on the args or on their lines, that hold øre (or the document currency's smallest unit) in the write
  * operations' inputs. A test walks every write's schema and fails when an øre field is missing here.
@@ -107,9 +114,9 @@ function journalTotals(lines: Array<Record<string, unknown>>): Preview["totals"]
     if (l.creditAccount !== undefined) credit += amount;
   }
   return [
-    { label: hasVat ? "Debet (eks. mva)" : "Debet", value: formatAmount(debit) },
-    { label: "Kredit", value: formatAmount(credit) },
-    ...(hasVat ? [{ label: "Mva", value: "Fiken legger til mva på sider med mva-kode" }] : []),
+    { label: hasVat ? "Debet (før mva)" : "Debet", value: formatAmount(debit) },
+    { label: hasVat ? "Kredit (før mva)" : "Kredit", value: formatAmount(credit) },
+    ...(hasVat ? [{ label: "Mva", value: "Fiken legger mva til beløpet på sider med mva-kode; summene over er før det" }] : []),
   ];
 }
 
@@ -123,6 +130,7 @@ export function buildPreview(op: Operation, args: Record<string, unknown>): Prev
   const currency = typeof data.currency === "string" ? data.currency : UNIT_WITHOUT_CURRENCY[op.name];
   const summary = Object.entries(data)
     .filter(([key, value]) => key !== "lines" && value !== undefined && value !== null)
+    .sort(([a], [b]) => summaryRank(a) - summaryRank(b))
     .map(([key, value]) => ({ label: LABELS[key] ?? key, value: cell(key, value, currency) }));
 
   const preview: Preview = { operation: op.name, title: op.title, summary, checks: "ok", ref: previewRef(op.name, data) };

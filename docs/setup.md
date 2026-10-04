@@ -514,6 +514,25 @@ in Claude Code.
 - Check the instructions behaviour: Claude uses the widget tools instead
   of asking the same question in text.
 
+Verified 2026-10-04 (after deploying #45 and #46, from Claude Code, demo
+company; nothing written):
+
+- All five widget tools answer. Claude Code hands the model the tools'
+  `structuredContent` (JSON), not the text fallback, so the Norwegian frame
+  lines («Vent på svaret i chatten», «Ingenting er ført ennå») do not reach
+  the model there; the data is the same. The `show_document` ticket thereby
+  reaches the model too (one file, 5 minutes).
+- `show_document` on inbox document 14381218225: `GET /document` with the
+  ticket in `x-ticket` gave 200 `application/pdf`; without it 401; a
+  preflight from a `*.claudemcpcontent.com` origin allowed `x-ticket`.
+- `preview_booking` on a journal entry: a VAT code passed as text came
+  back as a check («expected number»), as a number «ok» with a ref. Found
+  and fixed after: the totals now read «Debet/Kredit (før mva)» (the
+  credit side was easy to read as the bank amount), and the summary has a
+  fixed order.
+- Still to do by hand: the widgets themselves in Claude web and iOS, and
+  an attachment through `show_document` (its `downloadUrl` host).
+
 ## Site content deploy (2026-10-04)
 
 The site's files no longer go through CloudFormation. The `BucketDeployment`
