@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { MONEY } from "../../src/mcp/preview.js";
+import { OPERATIONS } from "../../src/mcp/registry.js";
 import { connected, fakeFiken } from "./helpers.js";
 
 type Block = { type: string; text?: string };
@@ -9,6 +12,7 @@ type Preview = {
   lines?: { columns: string[]; rows: string[][] };
   totals?: Array<{ label: string; value: string }>;
   checks: "ok" | string[];
+  ref: string;
 };
 
 const NBSP = " ";
@@ -142,7 +146,48 @@ describe("preview_booking", () => {
     const c = await connected(fakeFiken([]).fetchImpl);
     const tool = (await c.listTools()).tools.find((t) => t.name === "preview_booking")!;
     expect(tool.description).not.toContain("as the write would");
-    expect(tool.description).toContain("Fiken may still refuse");
+    expect(tool.description).toContain("the write may still be refused");
+    expect(tool.description).not.toContain("Fiken may still refuse");
+  });
+
+  it("ties the preview to a reference over the operation and the parsed args", async () => {
+    const args = { companySlug: "demo", description: "Utlegg", date: "2026-10-01", lines: outlay };
+    const a = await preview("create_journal_entry", args);
+    expect(a.p!.ref).toMatch(/^[0-9a-f]{6}$/);
+    expect(a.text).toContain(`Referanse: ${a.p!.ref}`);
+    // The same args in another key order give the same reference.
+    const reordered = await preview("create_journal_entry", { lines: outlay, date: "2026-10-01", description: "Utlegg", companySlug: "demo" });
+    expect(reordered.p!.ref).toBe(a.p!.ref);
+    // A changed amount gives another reference.
+    const changed = await preview("create_journal_entry", { ...args, lines: [{ ...outlay[0], amount: 100001 }, outlay[1]] });
+    expect(changed.p!.ref).not.toBe(a.p!.ref);
+    // Defaults count: leaving out the default currency is the same booking as giving it.
+    const purchase = { companySlug: "demo", date: "2026-10-01", kind: "cash_purchase", paymentAccount: "1920:10001", paymentDate: "2026-10-01", lines: [{ description: "Kaffe", netPrice: 10000, vat: 2500, account: "6860", vatType: "HIGH" }] };
+    expect((await preview("create_purchase", purchase)).p!.ref).toBe((await preview("create_purchase", { ...purchase, currency: "NOK" })).p!.ref);
+  });
+
+  it("tells the model to match the approval's reference before writing", async () => {
+    const c = await connected(fakeFiken([]).fetchImpl);
+    const tools = (await c.listTools()).tools;
+    const description = tools.find((t) => t.name === "preview_booking")!.description!;
+    expect(description).toContain("Ja, før dette (ref");
+    expect(description).toContain("preview again");
+  });
+
+  it("does not label line amounts kr on an update that keeps the draft's currency", async () => {
+    const { p } = await preview("update_invoice_draft", {
+      companySlug: "demo", draftId: 4,
+      lines: [{ description: "Arbeid", quantity: 1, unitPrice: 10000, vatType: "HIGH", incomeAccount: "3000" }],
+    });
+    expect(p!.checks).toBe("ok");
+    expect(p!.lines!.rows[0]).toContain(`100,00${NBSP}(utkastets valuta)`);
+  });
+
+  it("labels top-level fees and rates as amounts", async () => {
+    const payment = await preview("register_payment", { companySlug: "demo", saleId: 1, date: "2026-10-01", account: "1920:10001", amount: 125000, fee: 2500 });
+    expect(payment.p!.summary).toContainEqual({ label: "Gebyr", value: `25,00${NBSP}kr` });
+    const activity = await preview("create_activity", { companySlug: "demo", name: "Konsulent", hourlyRate: 125000 });
+    expect(activity.p!.summary).toContainEqual({ label: "Timepris", value: `1${NBSP}250,00${NBSP}kr` });
   });
 
   it("accepts args as a JSON string", async () => {
@@ -175,5 +220,35 @@ describe("preview_booking", () => {
       lines: [{ description: "Kaffe\nog te | mer", netPrice: 100, vat: 0, account: "6860", vatType: "NONE" }],
     });
     expect(t2).toContain("Kaffe og te \\| mer");
+  });
+});
+
+/** Every key of a number field, also inside nested objects and arrays, whose own description says it is in øre. */
+function oreKeys(schema: z.ZodType, key: string | undefined, out: Set<string>): void {
+  let s: z.ZodType = schema;
+  let description = s.description ?? "";
+  for (;;) {
+    if (s instanceof z.ZodOptional || s instanceof z.ZodNullable) s = s.unwrap() as z.ZodType;
+    else if (s instanceof z.ZodDefault) s = s.unwrap() as z.ZodType;
+    else break;
+    description += ` ${s.description ?? ""}`;
+  }
+  if (s instanceof z.ZodNumber) {
+    if (key !== undefined && description.includes("øre")) out.add(key);
+  } else if (s instanceof z.ZodObject) {
+    for (const [k, v] of Object.entries(s.shape)) oreKeys(v as z.ZodType, k, out);
+  } else if (s instanceof z.ZodArray) {
+    oreKeys(s.element as z.ZodType, key, out);
+  } else if (s instanceof z.ZodUnion) {
+    for (const o of s.options) oreKeys(o as z.ZodType, key, out);
+  }
+}
+
+describe("preview money keys", () => {
+  it("formats every øre field of every write operation as an amount", () => {
+    const keys = new Set<string>();
+    for (const op of OPERATIONS.filter((o) => o.kind === "write")) oreKeys(op.input, undefined, keys);
+    expect([...keys].sort()).toEqual(expect.arrayContaining(["amount", "fee", "gross", "hourlyRate", "net", "netPrice", "paymentFee", "unitPrice", "vat"]));
+    for (const key of keys) expect(MONEY.has(key), key).toBe(true);
   });
 });

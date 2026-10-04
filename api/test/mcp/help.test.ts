@@ -96,5 +96,6 @@ describe("pointers to the widget tools", () => {
     const c = await connected(fakeFiken([]).fetchImpl);
     const write = (await c.listTools()).tools.find((t) => t.name === "fiken_write");
     expect(write?.description).toContain("Show the write with preview_booking first and wait for the user's answer.");
+    expect(write?.description).toContain("If the approval carries a ref, write only when it matches your latest preview of exactly these args; otherwise preview again.");
   });
 });

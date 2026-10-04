@@ -15,8 +15,10 @@ const PREVIEW_DESCRIPTION =
   "Show the user a proposed booking before anything is written: pass the write operation's name and the args you would send " +
   "(create_purchase, create_journal_entry, ...). Checks the args against the write's schema (journal entries also get their balance and " +
   "VAT-code checks) and shows a summary, the lines with amounts and any problems, with buttons «Før dette» and «Endre» (in clients that " +
-  "render widgets; others get the same as text). Fiken may still refuse the write. Nothing is written. " +
-  "If the user answers «Ja, før dette.», make the real write with exactly these args.";
+  "render widgets; others get the same as text). Nothing is written, and the write may still be refused. " +
+  "Each preview has a reference (ref) over the operation and its args; «Før dette» sends «Ja, før dette (ref <ref>).». " +
+  "When the user's approval carries a ref, make the real write with exactly the args of your latest preview, and only if " +
+  "that ref matches it; otherwise (an older ref, or args changed since) preview again and ask again.";
 
 const inputSchema = z
   .object({
@@ -44,7 +46,7 @@ export function previewMarkdown(p: Preview): string {
     out.push("", "Kan ikke føres slik:");
     for (const message of p.checks) out.push(`- ${cellText(message)}`);
   }
-  out.push("", "Ingenting er ført ennå.");
+  out.push("", `Referanse: ${p.ref}`, "", "Ingenting er ført ennå.");
   return out.join("\n");
 }
 

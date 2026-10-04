@@ -2,7 +2,8 @@
 // send(text) callback so tests can run it with a fake DOM.
 // Text only: every string goes into textContent, never into HTML.
 
-const CONFIRM_TEXT = "Ja, før dette.";
+/** The approval names the preview it approves, so the model can tell it from an older one. */
+const confirmText = (ref) => `Ja, før dette (ref ${ref}).`;
 const CHANGE_TEXT = "Jeg vil endre noe før det føres.";
 
 function el(doc, tag, className, text) {
@@ -74,7 +75,7 @@ function renderPreview(doc, root, preview, send) {
   }
 
   const actions = el(doc, "div", "actions");
-  if (problems.length === 0) actions.append(button("Før dette", "primary", CONFIRM_TEXT));
+  if (problems.length === 0) actions.append(button("Før dette", "primary", confirmText(preview.ref)));
   actions.append(button("Endre", "secondary", CHANGE_TEXT));
   root.append(actions);
 }

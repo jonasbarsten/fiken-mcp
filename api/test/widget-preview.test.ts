@@ -25,6 +25,7 @@ const preview = {
   lines: { columns: ["amount", "debitAccount"], rows: [["1 000,00 kr", "6540"], ["1 250,00 kr", ""]] },
   totals: [{ label: "Mva", value: "Fiken beregner mva" }],
   checks: "ok" as "ok" | string[],
+  ref: "a1b2c3",
 };
 
 const texts = (root: FakeEl) => root.all().map((e) => e.textContent);
@@ -42,7 +43,7 @@ describe("preview widget logic", () => {
     expect(root.all().filter((e) => e.tag === "tr")).toHaveLength(3);
   });
 
-  it("sends «Før dette» once and disables both buttons", () => {
+  it("sends «Før dette» with the preview's reference once and disables both buttons", () => {
     const root = new FakeEl("div");
     const sent: string[] = [];
     renderPreview(doc as never, root as never, preview, (t: string) => sent.push(t));
@@ -51,7 +52,7 @@ describe("preview widget logic", () => {
     go.click();
     go.click();
     buttons(root)[1]!.click();
-    expect(sent).toEqual(["Ja, før dette."]);
+    expect(sent).toEqual(["Ja, før dette (ref a1b2c3)."]);
     expect(buttons(root).every((b) => b.disabled)).toBe(true);
   });
 
@@ -76,7 +77,7 @@ describe("preview widget logic", () => {
 
   it("renders a preview without lines or totals", () => {
     const root = new FakeEl("div");
-    renderPreview(doc as never, root as never, { operation: "x", title: "T", summary: [], checks: "ok" }, () => {});
+    renderPreview(doc as never, root as never, { operation: "x", title: "T", summary: [], checks: "ok", ref: "000000" }, () => {});
     expect(root.all().some((e) => e.tag === "table")).toBe(false);
   });
 });
@@ -96,7 +97,7 @@ describe("built preview widget", () => {
     page.fire(preview);
     const go = page.root.all().filter((e) => e.tag === "button")[0]!;
     go.click();
-    expect(page.sent).toEqual(["Ja, før dette."]);
+    expect(page.sent).toEqual(["Ja, før dette (ref a1b2c3)."]);
     page.fire(preview);
     expect(page.root.all().filter((e) => e.tag === "button")[0]).toBe(go);
     expect(go.disabled).toBe(true);

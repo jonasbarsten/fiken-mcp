@@ -6,6 +6,7 @@ export interface PreviewData {
   lines?: { columns: string[]; rows: string[][] };
   totals?: Array<{ label: string; value: string }>;
   checks: "ok" | string[];
+  ref: string;
 }
 
 /** Loosely typed on purpose: `doc` and `root` are DOM objects, or fakes of them in tests. */

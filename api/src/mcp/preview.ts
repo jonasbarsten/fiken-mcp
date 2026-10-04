@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Operation } from "./operations.js";
 import { checkJournalLines } from "./tools/ledger.js";
@@ -10,6 +11,8 @@ export interface Preview {
   lines?: { columns: string[]; rows: string[][] };
   totals?: Array<{ label: string; value: string }>;
   checks: "ok" | string[];
+  /** Ties an approval to this preview: the widget's «Før dette» sends it back. See previewRef. */
+  ref: string;
 }
 
 const kroner = new Intl.NumberFormat("nb-NO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -24,8 +27,14 @@ export function formatKroner(ore: number): string {
   return formatAmount(ore);
 }
 
-/** A credit note has no currency of its own: it follows the invoice it credits. */
-const FOLLOWS_INVOICE = "(fakturaens valuta)";
+/**
+ * Writes whose amounts may be in another currency than NOK without a `currency` arg: a credit note follows the
+ * invoice it credits, and an update keeps the draft's currency. Their amounts get a neutral unit instead of «kr».
+ */
+const UNIT_WITHOUT_CURRENCY: Record<string, string> = {
+  create_credit_note: "(fakturaens valuta)",
+  update_invoice_draft: "(utkastets valuta)",
+};
 
 const LABELS: Record<string, string> = {
   companySlug: "Foretak",
@@ -41,10 +50,34 @@ const LABELS: Record<string, string> = {
   inboxDocumentId: "Vedlegg (innboks-id)",
   projectId: "Prosjekt (id)",
   currency: "Valuta",
+  fee: "Gebyr",
+  paymentFee: "Betalingsgebyr",
+  hourlyRate: "Timepris",
 };
 
-/** Line keys that hold øre in the write operations' inputs (checked against api/src/mcp/tools). */
-const MONEY = new Set(["amount", "net", "vat", "gross", "netPrice", "unitPrice"]);
+/**
+ * Keys, on the args or on their lines, that hold øre (or the document currency's smallest unit) in the write
+ * operations' inputs. A test walks every write's schema and fails when an øre field is missing here.
+ */
+export const MONEY: ReadonlySet<string> = new Set(["amount", "net", "vat", "gross", "netPrice", "unitPrice", "fee", "paymentFee", "hourlyRate"]);
+
+/** The same args as JSON whatever their key order. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map((v) => (v === undefined ? "null" : stableJson(v))).join(",")}]`;
+  if (isRecord(value)) {
+    const entries = Object.keys(value)
+      .filter((k) => value[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableJson(value[k])}`);
+    return `{${entries.join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** A short reference for one preview: the first 6 hex of SHA-256 over the operation and its (parsed) args. */
+export function previewRef(operation: string, args: Record<string, unknown>): string {
+  return createHash("sha256").update(`${operation}\n${stableJson(args)}`).digest("hex").slice(0, 6);
+}
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -87,12 +120,12 @@ function journalTotals(lines: Array<Record<string, unknown>>): Preview["totals"]
 export function buildPreview(op: Operation, args: Record<string, unknown>): Preview {
   const parsed = op.input.strict().safeParse(args);
   const data: Record<string, unknown> = parsed.success ? (parsed.data as Record<string, unknown>) : args;
-  const currency = typeof data.currency === "string" ? data.currency : op.name === "create_credit_note" ? FOLLOWS_INVOICE : undefined;
+  const currency = typeof data.currency === "string" ? data.currency : UNIT_WITHOUT_CURRENCY[op.name];
   const summary = Object.entries(data)
     .filter(([key, value]) => key !== "lines" && value !== undefined && value !== null)
     .map(([key, value]) => ({ label: LABELS[key] ?? key, value: cell(key, value, currency) }));
 
-  const preview: Preview = { operation: op.name, title: op.title, summary, checks: "ok" };
+  const preview: Preview = { operation: op.name, title: op.title, summary, checks: "ok", ref: previewRef(op.name, data) };
   if (typeof data.companySlug === "string") preview.companySlug = data.companySlug;
   const lines = linesTable(data.lines, currency);
   if (lines) preview.lines = lines;
