@@ -1,207 +1,168 @@
-# Accounting guides design
+# Fiken's help for the model: design
 
-Date: 2026-10-05.
+Date: 2026-10-05. Replaces the first version of this spec (our own guides
+in `guides/`, kept in git history), after Jonas asked whether the model
+could use Fiken's own help instead of guides we write and keep fresh.
 
 ## 1. Purpose
 
 Claude and ChatGPT should book correctly in Fiken when a case is more than
 a plain purchase or sale. The receipts example on the website showed the
 problem: the model booked an employee's outlay as an unpaid purchase with
-the employee as supplier, but Fiken books it as «Betalt av ansatt» on 2911
-Gjeld til ansatte. The Fiken API also cannot mark a purchase that way, so
-the right answer through this connector is a journal entry. A generic skill
-cannot know that; the server can.
+the employee as supplier, where Fiken books it as «Betalt av ansatt» on
+2911 Gjeld til ansatte.
 
-The guides are short Norwegian bookkeeping recipes. They live in the repo,
-are served to the model through `fiken_read`, and are published on
-`fiken-mcp.byjoba.com` so anyone can see what the model is told and
-suggest corrections through GitHub.
+Fiken already publishes its help for language models:
+`https://hjelp.fiken.no/llms.txt` lists every help article (278 on
+2026-10-05), and every article exists as Markdown at
+`https://hjelp.fiken.no/<slug>.md`, with frontmatter (`title`,
+`last_updated`, `chatbot_deprioritize`, `source_url`). Fiken keeps it
+current. The connector lets the model read it, and adds only what Fiken's
+help cannot know: how the steps in Fiken's screens map to this connector's
+operations, and where the API cannot do what the screens can.
 
 Agreed with Jonas:
 
-- First round covers four areas: outlays and private payments, VAT special
-  cases, periods and assets, sales corrections (section 3).
-- Norwegian only, for both the model and the website. Jonas reads the
-  first two or three guides closely before the rest are written.
-- Guides ship unreviewed by an accountant, with sources and a visible
-  note. Review can come later per guide.
-- The website pages are generated in the deploy (no JavaScript).
-- Pages invite corrections as pull requests on GitHub.
-- The eval set (realistic messages → expected booking, run against a
-  model) is a separate, later plan.
+- No guides of our own, no copies of Fiken's help: articles are fetched
+  live from `hjelp.fiken.no` when the model asks.
+- A short list of translations from Fiken's screens to the connector's
+  operations, maintained in the code.
+- VAT codes on manual journal entries (section 5), which Fiken's own
+  answers need («Fri postering» with VAT, outlays).
+- The eval set (realistic messages → expected booking) is a separate,
+  later plan.
 
-Out of scope: tax advice beyond bookkeeping, payroll, year-end
-(årsoppgjør), a Claude skill package (can be generated from the same files
-later), the eval.
+Out of scope: our own guide pages on the website, a Claude skill, the
+account help at `kontohjelp.fiken.no` (no Markdown version; a JavaScript
+app), searching inside article text.
 
-## 2. Format
+## 2. Operations (concept `help`)
 
-`guides/` at the repo root, one file per guide, `guides/<id>.md`.
+Both are reads through `fiken_read`, visible on every connection
+(including `/mcp/readonly`), and make no Fiken API call (no token, not
+queued). They are counted in the usage statistics like other operations.
 
-```markdown
----
-id: ansattutlegg
-tittel: Ansatt har lagt ut for firmaet
-når: En ansatt har betalt en utgift for firmaet privat og skal ha pengene tilbake.
-operasjoner: [create_journal_entry, attach_inbox_document]
-kilder:
-  - https://hjelp.fiken.no/hvordan-registrere-ansattutlegg
-  - https://kontohjelp.fiken.no/enk/medMoms/2911
-gjennomgått: false
-oppdatert: 2026-10-05
----
-
-## Situasjon
-## Spør brukeren først
-## Slik føres det
-## Dokumentasjon
-## Vanlige feil
-```
+- `fiken_help_index { query? }`: parses `llms.txt` lines of the form
+  `- [Title](https://hjelp.fiken.no/<slug>.md)` and returns
+  `[{ slug, title }]`. With `query`, only titles containing every word of
+  the query (case-insensitive, Norwegian letters as-is) are returned;
+  without, all. The full index is about 27 KB, so the description tells
+  the model to pass a query.
+- `fiken_help_article { slug }`: fetches
+  `https://hjelp.fiken.no/<slug>.md` and returns, in this order:
+  - a header: title, `last_updated`, the canonical URL;
+  - when `chatbot_deprioritize` is true, the line «Fiken marks this
+    article as less relevant for chatbots; prefer another article if one
+    fits.»;
+  - the article body (frontmatter removed, Markdown image lines
+    `![…](…)` removed to save tokens);
+  - the connector notes (section 3).
 
 Rules:
 
-- `id` is lowercase `a-z0-9-` and equals the file name.
-- `når` is one sentence; the model chooses a guide from it.
-- `operasjoner` names operations that exist in the server's registry.
-- `kilder` has at least one `https` URL, each from `fiken.no`,
-  `skatteetaten.no` or `lovdata.no`. Every claim about accounts, VAT codes
-  or rules is backed by a listed source. A URL is only listed after it was
-  opened and read.
-- `gjennomgått` is `false` until an accountant has reviewed the guide.
-- The five headings appear in that order. «Slik føres det» names accounts,
-  VAT codes and the operation(s) with example inputs in this server's
-  format. Where the Fiken API cannot do what Fiken's web interface does,
-  the guide says so and gives the alternative.
+- `slug` must match `^[a-z0-9-]+$`; anything else is a tool error before
+  any fetch.
+- Only `https://hjelp.fiken.no` is fetched. A redirect that leaves that
+  host is a tool error.
+- Timeout 5 s, at most 500 KB read; otherwise a tool error.
+- 404 is a tool error that tells the model to use `fiken_help_index`.
+- Responses (the index and each article) are kept in the Lambda's memory
+  for at most one hour, only to avoid refetching; nothing is written
+  anywhere. A failed fetch is not cached.
 
-## 3. First round (13 guides)
+The fetching lives in one small client (`api/src/help/client.ts`) with an
+injectable `fetch`, added to the tool context next to the Fiken client.
 
-| id | Title | Area |
-|---|---|---|
-| ansattutlegg | Ansatt har lagt ut for firmaet | Outlays |
-| eierutlegg | Eieren har betalt for firmaet privat (ENK og AS) | Outlays |
-| privat-kjop | Firmaet har betalt noe privat | Outlays |
-| representasjon | Representasjon (bevertning, kundemøter) | VAT |
-| gaver | Gaver til kunder og ansatte | VAT |
-| snudd-avregning | Tjenester kjøpt fra utlandet | VAT |
-| delvis-fradrag | Utgifter som brukes både i og utenfor mva-pliktig virksomhet | VAT |
-| forskuddsbetalt | Forskuddsbetalte kostnader over flere perioder | Periods |
-| periodisering | Periodisering av kostnader og inntekter | Periods |
-| driftsmidler | Kjøp som skal aktiveres og avskrives | Periods |
-| kreditere-og-fakturere-pa-nytt | Kreditere en faktura og lage en ny | Sales |
-| delvis-kreditering | Kreditere deler av en faktura | Sales |
-| tap-pa-fordringer | Kunden betaler ikke (tap på fordringer) | Sales |
+## 3. Connector notes
 
-Payment with fees or in cash is covered inside the relevant guides
-(`settle_sale`, `register_payment`, `paymentFee`) rather than as its own
-guide. The exact content of each guide comes from its sources during
-implementation.
+A fixed, short list in `api/src/help/notes.ts`, appended to every article
+and summarised in the instructions. Each note names only operations that
+exist (a test checks it). Initial content, confirmed against the code
+during implementation:
 
-## 4. In the MCP server
+- «Fri postering» (Annet → Fri postering) is `create_journal_entry`
+  (fiken_write). Amounts in øre. With a VAT code, a debit line's amount is
+  net and a credit line's gross.
+- «Nytt kjøp» (Kjøp → Nytt kjøp) is `create_purchase`: `cash_purchase`
+  with a bank `paymentAccount`, or `supplier` with `supplierId` and
+  `dueDate`. Receipts come in through `upload_receipts`/`get_upload_url`
+  or the inbox, and are attached with `inboxDocumentId`.
+- «Betalt av ansatt» or «betalt privat» under Betaling on a purchase is
+  not available in the API. Book it as one `create_journal_entry`: each
+  expense on its account with its VAT code, the gross total credited to
+  the account the article names (2911 for an employee), and attach the
+  receipts with `attach_inbox_document`.
+- Accounts written like `2930:1000X` are an account with a person or
+  contact sub-account; find the exact code with `list_accounts`.
+- «Ny faktura» is `create_invoice_draft` then
+  `create_invoice_from_draft`; sending is `send_invoice`. A credit note
+  is `create_credit_note`. Accruals («periodisering») are
+  `create_accrual`. Writing off a sale is `write_off_sale`.
+- The connector cannot delete, reverse or cancel anything, run payroll
+  («Lønn»), use the «Reiser og utlegg» add-on, or do year-end. When an
+  article needs that, tell the user to do it in Fiken.
 
-- **Instructions at connect time.** `createMcpServer` passes `instructions`
-  to `McpServer` (supported by the SDK):
-  «Før du fører noe annet enn et vanlig kjøp eller salg: hent
-  accounting_guides med fiken_read og les guiden som passer. Gå gjennom
-  forslaget med brukeren før du skriver noe.»
-- **Concept `guides`** with two read operations through `fiken_read`:
-  - `accounting_guides` (no input): `[{ id, tittel, når, gjennomgått }]`.
-  - `accounting_guide { id }`: the guide's Markdown body with its
-    frontmatter fields as a header block. If `gjennomgått` is false the
-    first line is «Ikke gjennomgått av regnskapsfører. Be brukeren
-    kontrollere føringen i Fiken.» An unknown id answers a tool error that
-    lists the valid ids.
-- Visible on every connection, including `/mcp/readonly` and concept
-  filters (they are reads, and filters only limit writes).
-- No Fiken call, so they are not queued; they are counted in the usage
-  statistics like other operations.
-- Relevant operation descriptions point to guides by id, e.g.
-  `create_purchase`: «Har en ansatt betalt privat, se guiden
-  ansattutlegg.» Only where a guide exists.
+## 4. Instructions at connect time
 
-## 4a. VAT on journal entries (added 2026-10-05)
+`createMcpServer` passes `instructions` to `McpServer` (the SDK supports
+it):
 
-The outlay guides need one journal entry with VAT from the receipts and
-the debt on 2911 (or the owner's account). `create_journal_entry` refuses
-VAT codes today (decision record, coverage plan: "No VAT codes: VAT is
-booked through create_purchase or create_sale, where Fiken checks it").
-Fiken's API accepts `debitVatCode` and `creditVatCode` on journal entry
-lines; with a VAT code, a debit line's amount is net and a credit line's
-amount is gross, and Fiken books the VAT.
+«For anything other than a plain purchase or sale, look the case up in
+Fiken's own help first: fiken_help_index with a query, then
+fiken_help_article. The articles describe Fiken's screens; translate them
+with the connector notes at the end of each article. Go through the
+proposed booking with the user before writing anything.»
 
-Jonas decided to add them:
+Relevant operation descriptions point to the help: `create_purchase`
+(outlays), `create_journal_entry` (fri postering), `create_accrual`,
+`create_credit_note`, `write_off_sale`.
 
-- Lines accept optional `debitVatCode` and `creditVatCode` (integers,
-  Fiken's VAT codes).
+## 5. VAT on journal entries
+
+The outlay case needs one journal entry with VAT from the receipts and
+the debt on 2911. `create_journal_entry` refuses VAT codes today
+(decision record, coverage plan: "No VAT codes: VAT is booked through
+create_purchase or create_sale, where Fiken checks it"). Fiken's API
+accepts `debitVatCode` and `creditVatCode` on journal entry lines; with a
+VAT code, a debit line's amount is net and a credit line's amount is
+gross, and Fiken books the VAT.
+
+- Lines accept optional `debitVatCode` and `creditVatCode` (non-negative
+  integers, Fiken's VAT codes).
 - When any line has a VAT code, the server skips its own balance check
   (net and gross amounts do not sum) and lets Fiken validate; without
-  VAT codes the check stays as it is.
-- The description explains net/gross and points to the guides.
+  VAT codes the check stays.
 - The decision record gets a dated reversal of the old ruling.
-- Verified live on the demo company after deploy (an outlay with 25 %
-  VAT booked against 2911, read back with the VAT line).
+- Verified live on the demo company after deploy.
 
-## 5. One parser, two builds
+## 6. Website and docs
 
-- `guides/parse.mjs` (plain ESM JavaScript, so both the CDK bundling step
-  and the site build can run it with `node`): reads `guides/*.md`, parses
-  the frontmatter, validates section 2's rules and returns the guides
-  sorted by id. It throws with the file name and the broken rule.
-- **API:** `api/scripts/build-guides.mjs` runs in the API's
-  `beforeBundling` hook (like `build-widget.mjs`) and writes
-  `api/src/assets/guides.json` (gitignored), which the guide operations
-  import. A test parses `guides/` directly so it never depends on the
-  generated file.
-- **Website:** `scripts/build-guides.mjs` writes `web/guider/index.html`
-  and `web/guider/<id>.html` (gitignored) with the site's layout and
-  `style.css`, using a Markdown library at build time only (version taken
-  from npm when added). Pages contain no JavaScript and keep the site's
-  CSP. Files are `.html` because CloudFront resolves `index.html` only at
-  the root.
-- The deploy workflow's content step runs the site build before the sync.
-  Locally: `npm run build:guides`.
+- The landing page's «Hva den kan» gets one sentence: Claude and ChatGPT
+  look up Fiken's own help articles when a case is more than a plain
+  purchase or sale, with a link to `https://hjelp.fiken.no`.
+- README: a «Fiken's help» section (the two operations, live fetch, the
+  connector notes, nothing stored).
+- `docs/setup.md`: a verify list after deploy.
 
-## 6. The website
+## 7. Privacy
 
-- `/guider/index.html`: intro, the list (title, «når», a «Ikke
-  gjennomgått av regnskapsfører» tag), and the contribution note.
-- `/guider/<id>.html`: the guide, its sources as links, «Sist oppdatert»,
-  the unreviewed note when it applies, and a «Rediger på GitHub» link to
-  `https://github.com/jonasbarsten/fiken-mcp/edit/main/guides/<id>.md`
-  (GitHub forks and opens a pull request for the visitor).
-- Contribution note on both: «Ser du en feil, eller vil du bidra? Guidene
-  ligger på GitHub. Lag en pull request, eller åpne en sak om du ikke vil
-  skrive selv.» linking to the `guides/` folder and to new issues.
-- Home page, in «Hva den kan»: a link «Se guidene Claude og ChatGPT får om
-  føring i Fiken» to `/guider/index.html`.
-- Disclaimer on the guide pages: the guides are not accounting advice;
-  check with an accountant.
-
-## 7. Deploy
-
-`iac/lib/deploy-targets.ts`:
-
-- `guides/**` → api, content
-- `scripts/build-guides.mjs` → content
-- `api/scripts/build-guides.mjs` → api (already covered by `api/**`)
+The Lambda fetches public pages from `hjelp.fiken.no` with no user data
+in the request (no token, no query beyond the slug). The «we store
+nothing» promise holds: the in-memory cache holds only Fiken's public
+help text, for at most an hour.
 
 ## 8. Testing
 
-- Every guide: valid frontmatter, `id` equals file name and is unique,
-  every operation exists in the registry, the five headings in order, at
-  least one `https` source on an allowed host, `gjennomgått` boolean,
-  `oppdatert` a date.
-- Operations: the index lists every guide; a guide returns its body; the
-  unreviewed line appears exactly when `gjennomgått` is false; an unknown
-  id is a tool error naming the valid ids; both are visible on
-  `/mcp/readonly`.
+- Help client: index parsing (well-formed lines, ignores others), query
+  filtering (all words, case-insensitive), slug validation, host check on
+  redirects, timeout and size limit, 404, caching (second call within the
+  hour does not refetch; a failure is not cached), frontmatter and image
+  stripping, the deprioritise line.
+- Operations through `fiken_read`: index with and without query, article
+  with notes appended, errors as tool errors, no Fiken API call, visible
+  on `/mcp/readonly`.
+- Notes and pointers: every operation named in `notes.ts` and in
+  description pointers exists in the registry.
 - Server: `initialize` returns the instructions.
-- Site build: one page per guide plus the index, each with the edit link
-  and sources, no inline script or style, valid local links.
-- `deploy-targets`: the new rows.
-
-## 9. Docs
-
-README: a «Guides» section (format, how the model gets them, how to
-contribute). `CONTRIBUTING.md` at the root: how to add or correct a
-guide, the rules from section 2, and that every claim needs a source.
-`docs/setup.md`: the build step.
+- Journal entries: VAT codes pass through; without VAT the balance check
+  stays; negative codes refused.
