@@ -27,9 +27,10 @@ const inputSchema = z
 
 type Input = z.infer<typeof inputSchema>;
 
+/** Both optional in Fiken's schema. */
 interface FikenInboxDocument {
-  filename: string;
-  documentUrl: string;
+  filename?: string;
+  documentUrl?: string;
 }
 
 interface FikenAttachment {
@@ -68,7 +69,9 @@ export function registerDocumentViewTool(server: McpServer, ctx: ToolContext, pu
         if (attachmentUuid !== undefined || Object.values(ids).some((v) => v !== undefined)) return NEED_ONE;
         return withCompany(ctx, slug, async () => {
           const doc = await ctx.fiken.json<FikenInboxDocument>(`/companies/${slug}/inbox/${inboxDocumentId}`);
-          return shown(slug, doc.documentUrl, doc.filename, `Viser ${doc.filename} fra innboksen. Innholdet kan leses med get_inbox_document (via fiken_read).`);
+          const filename = doc.filename ?? "dokument";
+          if (!doc.documentUrl) return toolText(`Fiken gives no download URL for inbox document ${inboxDocumentId} (${filename}); ask the user to open it in Fiken.`);
+          return shown(slug, doc.documentUrl, filename, `Viser ${filename} fra innboksen. Innholdet kan leses med get_inbox_document (via fiken_read).`);
         });
       }
       const target = pickTarget(ids);
@@ -78,7 +81,7 @@ export function registerDocumentViewTool(server: McpServer, ctx: ToolContext, pu
         const att = items.find((a) => a.uuid === attachmentUuid);
         if (!att) return toolText(`No attachment ${attachmentUuid} on ${target.key} ${target.id}; list them with get_attachments (via fiken_read).`);
         if (!att.downloadUrl) return toolText(`Fiken gives no download URL for attachment ${attachmentUuid}; ask the user to open it in Fiken.`);
-        const filename = att.filename ?? "vedlegg";
+        const filename = att.filename ?? "dokument";
         return shown(slug, att.downloadUrl, filename, `Viser vedlegget ${filename}.`);
       });
     }),

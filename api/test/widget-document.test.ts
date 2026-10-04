@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi, type Mock } from "vitest";
-import { renderPager, showDocument, type DocumentDeps } from "../src/widget/document.mjs";
+import { canvasScale, MAX_CANVAS_PIXELS, renderPager, showDocument, type DocumentDeps } from "../src/widget/document.mjs";
 import { FakeEl } from "./fake-dom.js";
 import { runPageScript } from "./page-script.js";
 
@@ -76,6 +76,36 @@ describe("document widget logic", () => {
   });
 });
 
+describe("canvas scale", () => {
+  it("renders at the target width times the device pixel ratio, at most 2x", () => {
+    expect(canvasScale(600, 600, 800, 1)).toBe(1);
+    expect(canvasScale(600, 300, 400, 2)).toBe(4);
+    expect(canvasScale(600, 600, 800, 3)).toBe(2);
+    expect(canvasScale(600, 600, 800, 0)).toBe(1);
+    expect(canvasScale(600, 600, 800, Number.NaN)).toBe(1);
+  });
+
+  it("keeps the canvas at or under 16 million pixels", () => {
+    for (const [w, h] of [[600, 60000], [10000, 10000], [5000, 4000], [612, 792 * 40]]) {
+      const s = canvasScale(1200, w!, h!, 2);
+      expect(w! * s * h! * s).toBeLessThanOrEqual(MAX_CANVAS_PIXELS);
+      expect(s).toBeGreaterThan(0);
+    }
+    expect(MAX_CANVAS_PIXELS).toBe(16_000_000);
+    // An image at its own size (dpr 1) that is too large is scaled down; a small one is left as is.
+    expect(canvasScale(8000, 8000, 6000, 1)).toBeCloseTo(Math.sqrt(16_000_000 / 48_000_000));
+    expect(canvasScale(800, 800, 600, 1)).toBe(1);
+  });
+});
+
+describe("built page", () => {
+  const html = readFileSync(new URL("../src/assets/document.html", import.meta.url), "utf8");
+  it("destroys the previous pdf.js document before showing another, and sizes every canvas with canvasScale", () => {
+    expect(html).toContain("currentPdf?.destroy()");
+    expect(html.match(/canvasScale\(/g)!.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe("PDF pager", () => {
   it("renders page 1, then moves with Forrige and Neste within the document", async () => {
     const root = new FakeEl("div");
@@ -131,7 +161,7 @@ describe("built document widget", () => {
   it("fetches once per tool result, so a replayed result does not fetch again", async () => {
     const fetch = vi.fn(answer(PNG));
     const createImageBitmap = vi.fn(async () => ({ width: 2, height: 1 }));
-    const page = await runPageScript(html, { showDocument, renderPager }, { fetch, createImageBitmap });
+    const page = await runPageScript(html, { showDocument, renderPager, canvasScale }, { fetch, createImageBitmap });
     page.fire(data);
     page.fire(data);
     await vi.waitFor(() => expect(createImageBitmap).toHaveBeenCalledTimes(1));

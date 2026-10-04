@@ -32,7 +32,7 @@
   <script type="module">/*__LOGIC__*/</script>
   <script type="module">
     const { App } = globalThis.__mcpApps;
-    const { showDocument, renderPager } = globalThis.__widget;
+    const { showDocument, renderPager, canvasScale } = globalThis.__widget;
     const app = new App({ name: "Fiken document", version: "1.0.0" });
     const root = document.getElementById("root");
     const syncSize = () => app.sendSizeChanged({ height: document.body.scrollHeight }).catch(() => {});
@@ -41,22 +41,40 @@
     // and may not list blob:. Drawing a decoded bitmap needs no image source at all.
     async function drawImage(blob) {
       const bitmap = await globalThis.createImageBitmap(blob);
+      // At its own size unless that exceeds the canvas pixel budget (a huge phone photo or a hostile GIF).
+      const scale = canvasScale(bitmap.width, bitmap.width, bitmap.height, 1);
       const canvas = document.createElement("canvas");
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
-      canvas.getContext("2d").drawImage(bitmap, 0, 0);
+      canvas.width = Math.max(1, Math.floor(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.floor(bitmap.height * scale));
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
       bitmap.close?.();
       return canvas;
     }
 
+    // The pdf.js document on screen. Destroyed before another document or an image replaces it, so its worker
+    // state and page caches do not pile up in the iframe.
+    let currentPdf = null;
+    function dropPdf() {
+      currentPdf?.destroy()?.catch?.(() => {});
+      currentPdf = null;
+    }
+
     async function renderPdf(bytes, container) {
+      dropPdf();
+      const ticket = shown;
       const pdf = await globalThis.__pdfjs.getDocument({ data: bytes, isEvalSupported: false, useSystemFonts: true }).promise;
+      // Another tool result arrived while this one loaded: drop it rather than take over currentPdf.
+      if (ticket !== shown) {
+        pdf.destroy().catch(() => {});
+        return;
+      }
+      currentPdf = pdf;
       await renderPager(document, container, pdf.numPages, async (n) => {
         const page = await pdf.getPage(n);
         const base = page.getViewport({ scale: 1 });
-        // Sharp on a retina screen at the widget's width; CSS scales the canvas down to fit.
+        // Sharp on a retina screen at the widget's width (at most 2x, within the pixel budget); CSS scales it to fit.
         const cssWidth = Math.max(320, root.clientWidth || 640);
-        const viewport = page.getViewport({ scale: (cssWidth * (globalThis.devicePixelRatio || 1)) / base.width });
+        const viewport = page.getViewport({ scale: canvasScale(cssWidth, base.width, base.height, globalThis.devicePixelRatio) });
         const canvas = document.createElement("canvas");
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
@@ -75,6 +93,7 @@
       const sc = params.structuredContent;
       if (!sc?.documentUrl || !sc?.ticket || sc.ticket === shown) return;
       shown = sc.ticket;
+      dropPdf();
       root.replaceChildren();
       showDocument(document, root, sc, { fetch: (url, init) => globalThis.fetch(url, init), drawImage, renderPdf })
         .catch((e) => console.error("showing the document failed", e))

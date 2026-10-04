@@ -35,6 +35,8 @@ const fiken = () =>
   fakeFiken([
     { match: /\/companies\/demo\/inbox\/7$/, body: { documentId: 7, name: "Taxi", filename: "taxi.pdf", documentUrl: DOC_URL } },
     { match: /\/companies\/demo\/inbox\/8$/, status: 404, body: { message: "not found" } },
+    { match: /\/companies\/demo\/inbox\/9$/, body: { documentId: 9, filename: "nourl.pdf" } },
+    { match: /\/companies\/demo\/inbox\/10$/, body: { documentId: 10, documentUrl: DOC_URL } },
     { match: /\/companies$/, body: [{ slug: "demo" }] },
     {
       match: /\/companies\/demo\/purchases\/55\/attachments$/,
@@ -83,6 +85,23 @@ describe("show_document", () => {
     // Only the lookup: the file itself is fetched by the widget through /document.
     expect(f.calls.map((x) => x.url)).toEqual([`${cfg.fikenBaseUrl}/companies/demo/inbox/7`]);
     expect(JSON.stringify(r)).not.toContain(DOC_URL);
+  });
+
+  it("refuses an inbox document without a documentUrl, without a ticket", async () => {
+    const c = await connectedWithUrl(fiken().fetchImpl);
+    const r = await c.callTool({ name: "show_document", arguments: { companySlug: "demo", inboxDocumentId: 9 } });
+    expect(r.isError).toBe(true);
+    expect(r.structuredContent).toBeUndefined();
+    expect(textOf(r)).toContain("nourl.pdf");
+  });
+
+  it("names an inbox document without a filename «dokument»", async () => {
+    const c = await connectedWithUrl(fiken().fetchImpl);
+    const r = await c.callTool({ name: "show_document", arguments: { companySlug: "demo", inboxDocumentId: 10 } });
+    expect(r.isError).toBeFalsy();
+    expect((r.structuredContent as { filename: string }).filename).toBe("dokument");
+    expect(textOf(r)).toBe("Viser dokument fra innboksen. Innholdet kan leses med get_inbox_document (via fiken_read).");
+    expect(textOf(r)).not.toContain("undefined");
   });
 
   it("looks up an attachment by uuid on its purchase and seals Fiken's download URL", async () => {

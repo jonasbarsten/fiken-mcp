@@ -20,6 +20,12 @@ export function showDocument(
   deps: DocumentDeps,
 ): Promise<void>;
 
+/** The canvas pixel budget: 16 million. */
+export const MAX_CANVAS_PIXELS: number;
+
+/** Scale for `targetWidth` CSS pixels at min(dpr, 2), clamped so width × height × scale² ≤ MAX_CANVAS_PIXELS. */
+export function canvasScale(targetWidth: number, width: number, height: number, dpr: number): number;
+
 /** Shows page 1 of `numPages`, with «Forrige» / «Neste» when there is more than one. */
 export function renderPager(
   doc: { createElement(tag: string): any },

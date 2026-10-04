@@ -112,4 +112,19 @@ async function renderPager(doc, root, numPages, renderPage, onChange = () => {})
   await show(1);
 }
 
-export { showDocument, renderPager };
+/** Above this many pixels a canvas fails or blanks out on iOS Safari, and the memory is wasted anyway. */
+const MAX_CANVAS_PIXELS = 16_000_000;
+
+/**
+ * The scale to draw something `width` × `height` at so it is `targetWidth` CSS pixels wide on this screen: the
+ * device pixel ratio counts, but at most 2x, and the canvas never exceeds MAX_CANVAS_PIXELS. An image at its own
+ * size is `canvasScale(w, w, h, 1)`: 1, unless it is too large.
+ */
+function canvasScale(targetWidth, width, height, dpr) {
+  const ratio = Number.isFinite(dpr) && dpr > 0 ? Math.min(dpr, 2) : 1;
+  const scale = (targetWidth * ratio) / width;
+  const limit = Math.sqrt(MAX_CANVAS_PIXELS / (width * height));
+  return Math.min(scale, limit);
+}
+
+export { showDocument, renderPager, canvasScale, MAX_CANVAS_PIXELS };

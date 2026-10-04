@@ -312,4 +312,40 @@ describe("createFikenClient", () => {
     await expect(noFileHost.download("https://files.test/v2/files/abc")).rejects.toMatchObject({ status: 400 });
     expect(seen).toHaveLength(1);
   });
+
+  it("download gives up on a file host that never answers, with a FikenError, and frees the queue", async () => {
+    vi.useRealTimers();
+    let calls = 0;
+    // Like real fetch: hangs until its signal aborts, then rejects with the signal's reason.
+    const hanging: typeof fetch = (_input, init) => {
+      calls++;
+      if (calls > 1) return Promise.resolve(new Response("[]"));
+      return new Promise((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) return;
+        signal.addEventListener("abort", () => reject(signal.reason));
+      });
+    };
+    const client = createFikenClient({ baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0), fetch: hanging, downloadTimeoutMs: 20 });
+    const err = await client.download("https://api.test/v2/files/abc").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(FikenError);
+    expect(err).toMatchObject({ status: 504 });
+    // The next call is not stuck behind the dead one.
+    expect(await client.json("/companies")).toEqual([]);
+  });
+
+  it("download always sends a timeout signal, not yet fired for a prompt answer", async () => {
+    vi.useRealTimers();
+    const signals: AbortSignal[] = [];
+    const client = createFikenClient({
+      baseUrl: "https://api.test/v2", accessToken: "tok", queue: new FikenQueue(0),
+      fetch: async (_input, init) => {
+        signals.push(init!.signal!);
+        return new Response(new Uint8Array([1]));
+      },
+    });
+    await client.download("/files/abc");
+    expect(signals[0]).toBeInstanceOf(AbortSignal);
+    expect(signals[0]!.aborted).toBe(false);
+  });
 });
