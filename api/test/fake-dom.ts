@@ -7,11 +7,15 @@ export class FakeEl {
   type = "";
   value = "";
   placeholder = "";
-  listeners: Record<string, Array<() => void>> = {};
+  checked = false;
+  listeners: Record<string, Array<(e?: { key: string }) => void>> = {};
   replaceChildren?: () => void;
   constructor(public tag: string) {}
   append(...els: FakeEl[]) { this.children.push(...els); }
-  addEventListener(ev: string, fn: () => void) { (this.listeners[ev] ??= []).push(fn); }
+  addEventListener(ev: string, fn: (e?: { key: string }) => void) { (this.listeners[ev] ??= []).push(fn); }
   click() { for (const fn of this.listeners.click ?? []) fn(); }
+  /** Fires an input or change event, as the browser does after the user edits the control. */
+  fire(ev: string) { for (const fn of this.listeners[ev] ?? []) fn(); }
+  key(key: string) { for (const fn of this.listeners.keydown ?? []) fn({ key }); }
   all(): FakeEl[] { return [this, ...this.children.flatMap((c) => c.all())]; }
 }

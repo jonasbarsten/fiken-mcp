@@ -117,6 +117,10 @@ A short, fixed tool list instead of one tool per Fiken action:
   buttons in clients that render widgets (others get a numbered list);
   the answer comes back as the user's next chat message. Read-only, on
   every connection.
+- `ask_user_form`: shows the user a short form (1-12 fields: text,
+  number, amount, date, select, checkbox) with suggested values in
+  clients that render widgets (others get a numbered list); the answers
+  come back as one chat message. Read-only, on every connection.
 - `preview_booking`: takes a write operation's name and args, validates
   them as the write would (journal entries also get their balance
   checks) and shows a summary, the lines in kroner and any problems, with
@@ -406,7 +410,7 @@ npm run typecheck
 infrastructure stack. The widgets (`api/src/assets/<name>.html`,
 generated and gitignored) are built by `api/scripts/build-widget.mjs`,
 which inlines the MCP Apps bundle (and pdf.js for the upload widget, the
-render logic in `api/src/widget/choice.mjs` for the choice widget) into
+render logic in `api/src/widget/<name>.mjs` for the choice, preview and form widgets) into
 `api/src/widget/<name>.template.html`. `npm test` runs it first, and the
 CDK bundling step runs it again before every synth or deploy, so the
 Lambda bundle always carries a fresh widget. Deployments run from GitHub

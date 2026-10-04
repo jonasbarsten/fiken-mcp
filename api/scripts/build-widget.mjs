@@ -33,6 +33,13 @@ const WIDGETS = [
     ],
   },
   {
+    name: "form",
+    bundles: [
+      ["/*__BUNDLE__*/", "@modelcontextprotocol/ext-apps/app-with-deps", "__mcpApps"],
+      ["/*__LOGIC__*/", new URL("../src/widget/form.mjs", import.meta.url), "__widget"],
+    ],
+  },
+  {
     name: "preview",
     bundles: [
       ["/*__BUNDLE__*/", "@modelcontextprotocol/ext-apps/app-with-deps", "__mcpApps"],

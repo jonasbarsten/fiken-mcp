@@ -10,4 +10,5 @@ dist/
 # Built by api/scripts/build-widget.mjs from src/widget/<name>.template.html
 api/src/assets/upload.html
 api/src/assets/choice.html
+api/src/assets/form.html
 api/src/assets/preview.html

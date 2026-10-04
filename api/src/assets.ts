@@ -19,6 +19,9 @@ export const WIDGET_HTML = readFileSync(new URL("./assets/upload.html", import.m
 /** The built choice widget. Produced by scripts/build-widget.mjs; gitignored. */
 export const CHOICE_HTML = readFileSync(new URL("./assets/choice.html", import.meta.url), "utf8");
 
+/** The built form widget. Produced by scripts/build-widget.mjs; gitignored. */
+export const FORM_HTML = readFileSync(new URL("./assets/form.html", import.meta.url), "utf8");
+
 /** The built booking preview widget. Produced by scripts/build-widget.mjs; gitignored. */
 export const PREVIEW_HTML = readFileSync(new URL("./assets/preview.html", import.meta.url), "utf8");
 

@@ -5,6 +5,7 @@ import { registerGateway } from "./gateway.js";
 import { type Operation, registerOperationTool } from "./operations.js";
 import { type ConnectorOptions, visibleOperations } from "./options.js";
 import { registerChoiceTool } from "./tools/choice.js";
+import { registerFormTool } from "./tools/form.js";
 import { SERVER_INSTRUCTIONS } from "./tools/help.js";
 import { registerPreviewTool } from "./tools/preview.js";
 import { registerUploadTools } from "./tools/upload.js";
@@ -39,6 +40,7 @@ export function createMcpServer(ctx: ToolContext, publicUrl?: string, cfg?: Conf
   registerAllTools(server, ctx, visible);
   // Writes nothing, so it is on every connection, read-only and concept-filtered ones included.
   registerChoiceTool(server, ctx);
+  registerFormTool(server, ctx);
   // Previews only writes, so it needs a connection that may make them.
   if (visible.some((op) => op.kind === "write")) registerPreviewTool(server, ctx, visible);
   // The upload tools tell the model to book with create_purchase, so they need purchases and writes.
