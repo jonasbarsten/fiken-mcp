@@ -11,6 +11,9 @@
     .label { display: block; margin-bottom: 4px; font-size: 14px; }
     .required { color: #b3261e; }
     .field input[type="text"], .field input[type="number"], .field input[type="date"], .field select { display: block; width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid #999; background: transparent; color: inherit; font: inherit; }
+    /* iOS Safari gives date inputs an intrinsic min-width that ignores width: 100%. */
+    .field input[type="date"] { -webkit-appearance: none; appearance: none; min-width: 0; max-width: 100%; min-height: 44px; text-align: left; }
+    .field input[type="date"]::-webkit-date-and-time-value { text-align: left; }
     .field input[type="checkbox"] { width: 20px; height: 20px; }
     .help { margin: 4px 0 0; font-size: 13px; color: #666; }
     .send { padding: 10px 20px; border-radius: 8px; border: 0; background: #5b3df5; color: #fff; font: inherit; cursor: pointer; }

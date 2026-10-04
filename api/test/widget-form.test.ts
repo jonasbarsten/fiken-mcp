@@ -182,6 +182,10 @@ describe("built form widget", () => {
     expect(html).not.toContain("innerHTML");
   });
 
+  it("lets the date input shrink to the widget's width on iOS", () => {
+    expect(html).toMatch(/input\[type="date"\] \{[^}]*appearance: none;[^}]*min-width: 0;/);
+  });
+
   it("ignores a repeated tool result once the user has answered", async () => {
     const page = await runPageScript(html, { renderForm });
     page.fire(data);
