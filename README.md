@@ -123,6 +123,14 @@ A short, fixed tool list instead of one tool per Fiken action:
   come back as one chat message (number and amount answers as typed,
   possibly with a decimal comma). A suggested value is at most 200
   characters, the button label 1-40. Read-only, on every connection.
+- `show_table`: shows rows you fetched (invoices, inbox documents,
+  balances, ...) as a table in clients that render widgets (others get a
+  Markdown table), 1-8 columns and 1-50 rows, with up to 3 action buttons
+  per row; a text cell is at most 200 characters. A click sends the
+  action's message as the user's next chat message and disables that
+  row's buttons; other rows stay usable.
+  `amount` columns take øre and are shown as kroner. Read-only, on every
+  connection.
 - `preview_booking`: takes a write operation's name and args, validates
   them as the write would (journal entries also get their balance
   checks) and shows a summary, the lines in kroner and any problems, with
@@ -412,7 +420,7 @@ npm run typecheck
 infrastructure stack. The widgets (`api/src/assets/<name>.html`,
 generated and gitignored) are built by `api/scripts/build-widget.mjs`,
 which inlines the MCP Apps bundle (and pdf.js for the upload widget, the
-render logic in `api/src/widget/<name>.mjs` for the choice, preview and form widgets) into
+render logic in `api/src/widget/<name>.mjs` for the choice, preview, form and table widgets) into
 `api/src/widget/<name>.template.html`. `npm test` runs it first, and the
 CDK bundling step runs it again before every synth or deploy, so the
 Lambda bundle always carries a fresh widget. Deployments run from GitHub

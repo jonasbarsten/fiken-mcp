@@ -40,6 +40,13 @@ const WIDGETS = [
     ],
   },
   {
+    name: "table",
+    bundles: [
+      ["/*__BUNDLE__*/", "@modelcontextprotocol/ext-apps/app-with-deps", "__mcpApps"],
+      ["/*__LOGIC__*/", new URL("../src/widget/table.mjs", import.meta.url), "__widget"],
+    ],
+  },
+  {
     name: "preview",
     bundles: [
       ["/*__BUNDLE__*/", "@modelcontextprotocol/ext-apps/app-with-deps", "__mcpApps"],

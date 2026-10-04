@@ -153,7 +153,8 @@ Rows the model fetched, with optional actions per row.
 Input (strict): `title` (1–120), `columns` (1–8 `{ key, label, kind?:
 "text" | "amount" | "date" }`, unique keys), `rows` (1–50
 `{ cells: Record<key, string | number>, actions?: 1–3 { label (1–40),
-message (1–200) } }`), `note?` (≤ 200).
+message (1–200) } }`), `note?` (≤ 200). A text cell is at most 200
+characters, and a cell for a key no column declares is refused.
 
 - Widget: a table; `amount` cells are øre shown as kroner; action buttons
   per row. A click sends the action's `message` as the user's message and
