@@ -38,8 +38,10 @@ describe("form widget logic", () => {
     expect(input(0).type).toBe("text");
     expect(input(1).type).toBe("text");
     expect(input(1).value).toBe("1 250,50");
-    expect(input(2).type).toBe("number");
-    expect(input(2).value).toBe("7.5");
+    expect(input(2).type).toBe("text");
+    expect(input(2).inputMode).toBe("decimal");
+    expect(input(1).inputMode).toBe("decimal");
+    expect(input(2).value).toBe("7,5");
     expect(input(3).type).toBe("date");
     expect(input(3).value).toBe("2026-10-05");
     expect(input(4).tag).toBe("select");
@@ -104,7 +106,7 @@ describe("form widget logic", () => {
     submit.click();
     submit.click();
     expect(sent).toEqual([
-      "Ny kunde:\n- Navn: Acme AS\n- Beløp: 1 250,50\n- Timer: 7.5\n- Dato: 2026-10-05\n- Land: Norge (NO)\n- Send faktura: Ja",
+      "Ny kunde:\n- Navn: Acme AS\n- Beløp: 1 250,50\n- Timer: 7,5\n- Dato: 2026-10-05\n- Land: Norge (NO)\n- Send faktura: Ja",
     ]);
     expect(all.filter((e) => ["input", "select", "button"].includes(e.tag)).every((e) => e.disabled)).toBe(true);
   });
@@ -120,6 +122,27 @@ describe("form widget logic", () => {
     input(0).key("Enter");
     input(0).key("Enter");
     expect(sent).toHaveLength(1);
+  });
+
+  it("does not submit on Enter during IME composition", () => {
+    const { sent, input } = render();
+    input(0).value = "Acme AS";
+    input(0).fire("input");
+    input(0).key("Enter", true);
+    expect(sent).toEqual([]);
+    input(0).key("Enter");
+    expect(sent).toHaveLength(1);
+  });
+
+  it("accepts a decimal comma in a required number field and sends it as typed", () => {
+    const d = { title: "Timer", fields: [{ name: "timer", label: "Timer", type: "number" as const, required: true }] };
+    const { sent, input, submit } = render(d as never);
+    expect(submit.disabled).toBe(true);
+    input(0).value = "7,5";
+    input(0).fire("input");
+    expect(submit.disabled).toBe(false);
+    submit.click();
+    expect(sent).toEqual(["Timer:\n- Timer: 7,5"]);
   });
 
   it("ignores events on a form that is already sent", () => {

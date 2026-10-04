@@ -120,7 +120,9 @@ A short, fixed tool list instead of one tool per Fiken action:
 - `ask_user_form`: shows the user a short form (1-12 fields: text,
   number, amount, date, select, checkbox) with suggested values in
   clients that render widgets (others get a numbered list); the answers
-  come back as one chat message. Read-only, on every connection.
+  come back as one chat message (number and amount answers as typed,
+  possibly with a decimal comma). A suggested value is at most 200
+  characters, the button label 1-40. Read-only, on every connection.
 - `preview_booking`: takes a write operation's name and args, validates
   them as the write would (journal entries also get their balance
   checks) and shows a summary, the lines in kroner and any problems, with

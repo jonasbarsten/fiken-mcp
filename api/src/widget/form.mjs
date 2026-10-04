@@ -89,16 +89,13 @@ function renderForm(doc, root, data, send) {
       readers[field.name] = () => control.checked === true;
     } else {
       control = doc.createElement("input");
-      // Amounts are typed as «1 250,50», which a number input would refuse; the model converts them.
-      control.type = field.type === "number" ? "number" : field.type === "date" ? "date" : "text";
-      if (field.type === "number") control.step = "any";
+      // Numbers and amounts are typed as «7,5» or «1 250,50», which a number input would refuse; the model converts them.
+      control.type = field.type === "date" ? "date" : "text";
       if (field.type === "amount" || field.type === "number") control.inputMode = "decimal";
-      // A number input only holds a decimal point, so a suggested «7,5» is shown as 7.5.
-      const suggested = field.value ?? "";
-      control.value = field.type === "number" ? suggested.replace(",", ".") : suggested;
+      control.value = field.value ?? "";
       readers[field.name] = () => control.value;
       control.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") finish();
+        if (e.key === "Enter" && !e.isComposing) finish();
       });
     }
     control.id = `f${i}`;

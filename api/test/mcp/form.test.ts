@@ -58,6 +58,7 @@ describe("ask_user_form", () => {
     ["121-character title", { title: "t".repeat(121), fields: [f({})] }],
     ["81-character label", { title: "t", fields: [f({ label: "l".repeat(81) })] }],
     ["161-character help", { title: "t", fields: [f({ help: "h".repeat(161) })] }],
+    ["a required checkbox", { title: "t", fields: [f({ type: "checkbox", required: true })] }],
     ["unknown field key", { title: "t", fields: [f({ extra: 1 })] }],
     ["unknown key", { title: "t", fields: [f({})], extra: 1 }],
   ])("refuses %s", async (_name, args) => {

@@ -10,7 +10,8 @@ export const FORM_RESOURCE_URI = "ui://fiken-mcp/form.html";
 const FORM_DESCRIPTION =
   "Show the user a short form (1–12 fields: text, number, amount in kroner, date, select, checkbox) with suggested " +
   "values; the filled-in answers come back as the user's next chat message. Use it when you need several details at " +
-  "once, e.g. a new customer, hours to log, or invoice details.";
+  "once, e.g. a new customer, hours to log, or invoice details. Number and amount answers come back as typed, " +
+  "possibly with a decimal comma (e.g. \"7,5\" or \"1 250,50\"), so convert them yourself.";
 
 const option = z
   .object({
@@ -32,6 +33,7 @@ const field = z
   .strict()
   .superRefine((f, ctx) => {
     if (f.type === "select" && !f.options) ctx.addIssue({ code: "custom", message: "A select field needs options." });
+    if (f.type === "checkbox" && f.required) ctx.addIssue({ code: "custom", message: "A checkbox always has a value, so it cannot be required." });
     if (f.type !== "select" && f.options) ctx.addIssue({ code: "custom", message: "Only a select field takes options." });
     if (f.options && new Set(f.options.map((o) => o.value)).size !== f.options.length) {
       ctx.addIssue({ code: "custom", message: "Option values must be unique." });

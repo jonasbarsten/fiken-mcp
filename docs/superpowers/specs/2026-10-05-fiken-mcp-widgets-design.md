@@ -131,7 +131,9 @@ Input (strict): `title` (1–120), `fields` (1–12, unique `name`):
 `{ name: a-z0-9_ (1–40), label (1–80), type: "text" | "number" |
 "amount" | "date" | "select" | "checkbox", value? (suggested value),
 options? (select only: 1–20 `{ label, value }`), required? (default
-false), help? (≤ 160) }`, `submitLabel?` (default «Send»).
+false; refused on a checkbox, which always has a value), help? (≤ 160),
+value ≤ 200 }`, `submitLabel?` (1–40, default «Send»). Number and amount
+fields are text inputs and the answer is sent as typed (e.g. «7,5»).
 
 - Widget: one input per field (date → date input, amount → text input
   accepting «1 250,50», select → buttons or a select, checkbox → checkbox),
