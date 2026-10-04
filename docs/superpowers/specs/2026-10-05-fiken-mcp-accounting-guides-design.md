@@ -118,6 +118,28 @@ implementation.
   `create_purchase`: «Har en ansatt betalt privat, se guiden
   ansattutlegg.» Only where a guide exists.
 
+## 4a. VAT on journal entries (added 2026-10-05)
+
+The outlay guides need one journal entry with VAT from the receipts and
+the debt on 2911 (or the owner's account). `create_journal_entry` refuses
+VAT codes today (decision record, coverage plan: "No VAT codes: VAT is
+booked through create_purchase or create_sale, where Fiken checks it").
+Fiken's API accepts `debitVatCode` and `creditVatCode` on journal entry
+lines; with a VAT code, a debit line's amount is net and a credit line's
+amount is gross, and Fiken books the VAT.
+
+Jonas decided to add them:
+
+- Lines accept optional `debitVatCode` and `creditVatCode` (integers,
+  Fiken's VAT codes).
+- When any line has a VAT code, the server skips its own balance check
+  (net and gross amounts do not sum) and lets Fiken validate; without
+  VAT codes the check stays as it is.
+- The description explains net/gross and points to the guides.
+- The decision record gets a dated reversal of the old ruling.
+- Verified live on the demo company after deploy (an outlay with 25 %
+  VAT booked against 2911, read back with the VAT line).
+
 ## 5. One parser, two builds
 
 - `guides/parse.mjs` (plain ESM JavaScript, so both the CDK bundling step
