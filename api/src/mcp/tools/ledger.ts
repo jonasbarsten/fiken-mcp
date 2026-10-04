@@ -60,11 +60,15 @@ function trimTransactionSummary(t: FikenTransaction) {
   };
 }
 
+const vatCode = z.number().int().nonnegative();
+
 const journalEntryLine = z
   .object({
-    amount: z.number().int().positive().describe(`Amount moved. ${ORE}`),
+    amount: z.number().int().positive().describe(`Amount moved. ${ORE} With a VAT code, a debit line's amount is net (excluding VAT) and a credit line's amount is gross (including VAT); Fiken books the VAT.`),
     debitAccount: z.string().min(1).optional().describe("Account code to debit, from list_accounts (via fiken_read); bank accounts look like 1920:10001"),
     creditAccount: z.string().min(1).optional().describe("Account code to credit, from list_accounts (via fiken_read)"),
+    debitVatCode: vatCode.optional().describe("Fiken VAT code for the debit side, e.g. an expense with deductible input VAT"),
+    creditVatCode: vatCode.optional().describe("Fiken VAT code for the credit side"),
   })
   .strict();
 
@@ -183,7 +187,7 @@ export const ledgerOperations: Operation[] = [
       "Book a manual journal entry (fri postering): corrections, depreciation, salary, transfers between accounts. " +
       "Each line moves amount (øre) to debitAccount and/or from creditAccount; debits and credits must balance. " +
       "Returns the created journal entry, or { transactionId, journalEntries } when Fiken split it into several. " +
-      `Fiken prefixes the description with 'Fri postering registrert via API: '. No VAT: book VAT through create_purchase or create_sale (via fiken_write). ${ORE} ${CONFIRM}`,
+      `Fiken prefixes the description with 'Fri postering registrert via API: '. This is «Fri postering» in Fiken's help. Lines may carry debitVatCode/creditVatCode; then debit amounts are net and credit amounts gross, and Fiken checks the balance. ${ORE} ${CONFIRM}`,
     input: z.object({
       companySlug,
       description: z.string().min(1).max(166).describe("At most 166 characters: Fiken's 200-character limit includes its 34-character prefix"),
@@ -194,12 +198,13 @@ export const ledgerOperations: Operation[] = [
     async run(ctx, { companySlug: slug, description, date, lines, open }) {
       let debit = 0;
       let credit = 0;
+      const hasVat = lines.some((l) => l.debitVatCode !== undefined || l.creditVatCode !== undefined);
       for (const l of lines) {
         if (l.debitAccount === undefined && l.creditAccount === undefined) return toolText("Every line needs a debitAccount or a creditAccount.");
         if (l.creditAccount === undefined) debit += l.amount;
         else if (l.debitAccount === undefined) credit += l.amount;
       }
-      if (debit !== credit) return toolText(`The entry does not balance: debit ${debit} øre, credit ${credit} øre.`);
+      if (!hasVat && debit !== credit) return toolText(`The entry does not balance: debit ${debit} øre, credit ${credit} øre.`);
       return withCompany(ctx, slug, async () => {
         // The Location header of POST /generalJournalEntries carries the transaction id, not a journal entry id.
         const { id: transactionId } = await ctx.fiken.create(`/companies/${slug}/generalJournalEntries`, defined({ description, open, journalEntries: [{ description, date, lines }] }));

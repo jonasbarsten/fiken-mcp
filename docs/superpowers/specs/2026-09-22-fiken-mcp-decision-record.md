@@ -412,6 +412,14 @@ changed, and what it left open:
   it. The description is capped at 166 characters because Fiken's
   200-character limit includes its 34-character prefix
   `Fri postering registrert via API: `.
+- **Reversed 2026-10-05: VAT codes on manual journal entries.** Fiken's
+  help answers outlays and private use with «Fri postering», and an
+  employee's outlay needs one journal entry with the receipt's VAT and the
+  debt on 2911 (the API cannot mark a purchase "Betalt av ansatt"). Lines
+  now accept `debitVatCode`/`creditVatCode`. With a VAT code Fiken treats
+  debit amounts as net and credit amounts as gross, so the server skips its
+  own balance check and lets Fiken validate; without VAT codes the check
+  stays. Jonas decided this in the Fiken help spec.
 - **Write-off is a booking, not a delete.** `write_off_sale` books the
   loss; nothing is removed. Deletes, reversals and cancelling stay out
   until Jonas decides.
