@@ -533,6 +533,13 @@ company; nothing written):
 - Still to do by hand: the widgets themselves in Claude web and iOS, and
   an attachment through `show_document` (its `downloadUrl` host).
 
+Verified 2026-10-04 (after deploying #47, by Jonas in the Claude iOS app,
+demo company): the step-by-step widget prompt (company buttons, tables
+with row buttons, inbox document and purchase attachment, the expense
+form, the preview with «Endre») worked. One fault: the form's date field
+was wider than the screen (the date picker itself worked); fixed in the
+widget's CSS by letting the date input shrink.
+
 ## Site content deploy (2026-10-04)
 
 The site's files no longer go through CloudFormation. The `BucketDeployment`
