@@ -198,7 +198,7 @@ Shows an inbox document or an attachment (image or PDF) in the chat.
   returns a **viewing ticket**: encrypted like the upload ticket, bound to
   that one file URL (which came from Fiken, never from the model), valid
   5 minutes and never longer than the session. `structuredContent: { documentUrl: "<publicUrl>/document",
-  ticket, filename, contentType }`.
+  ticket, filename }` (the type is known only once the file is fetched).
 - New route `GET /document`, with the ticket in an `x-ticket` header (not
   in the URL): reads the ticket, downloads the file
   through the Fiken client (the queue, `download()`'s host allowlist; a
@@ -221,7 +221,7 @@ attachments.
 
 ## 5. Instructions and descriptions
 
-The connect-time instructions (from the Fiken help plan) get four
+The connect-time instructions (from the Fiken help plan) get three
 sentences:
 
 «When the user must choose between options (company, customer, account,
