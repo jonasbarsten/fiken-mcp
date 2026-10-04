@@ -18,46 +18,66 @@
 ---
 
 A remote [MCP](https://modelcontextprotocol.io) server for the
-[Fiken](https://fiken.no) accounting API, built for my own companies and
-open for anyone who wants to use it. You log in with Fiken yourself and
-use it from Claude (web, desktop, mobile, Claude Code) and ChatGPT, on
-your own AI subscription. It reads and writes nearly everything Fiken's
-API offers, but never deletes, reverses or cancels anything; that stays
-in Fiken. Nothing is stored on the server.
+[Fiken](https://fiken.no) accounting API. I built it to use Fiken from
+Claude and ChatGPT in my own companies, and figured I might as well make
+it available to others. You log in with Fiken yourself and use it on your
+own AI subscription. Nothing is stored on the server. The Norwegian
+landing page is [fiken-mcp.byjoba.com](https://fiken-mcp.byjoba.com).
 
-> **Trying it.** While Fiken treats the app as a development app, at
-> most five people (me included) can use it, and I add each one by hand.
-> With five active users I can ask Fiken to open it for everyone. If you
-> want to try it, use the email button on
-> [fiken-mcp.byjoba.com](https://fiken-mcp.byjoba.com) and I will add
-> you.
+## Trying it
 
-## What you can ask
+The app is still in development status with Fiken, so there is room for
+five users, and I add each one by hand. If you want to try it, send me
+the email address you use in Fiken; the address is behind the «Vis
+e-postadressen» button on [the landing page](https://fiken-mcp.byjoba.com).
 
-| You say | It does |
-|---|---|
-| "Book these three receipts" (with photos) | Reads each receipt, finds the supplier, books a purchase with account and VAT, and attaches the original |
-| "Invoice Acme for 10 hours of consulting at 1 200 kr" | Creates the invoice, and sends it when you confirm |
-| "Which invoices are still unpaid?" | Lists invoices that are not settled, with their due dates |
-| "What is the balance on 1920 today?" | Reads the account balance |
-| "Log 3 hours on project MCP-1 for today" | Creates the time entry |
-| "Credit invoice 10521" | Issues a full credit note |
+## Getting started
 
-## Quick start
+You need:
 
-1. Make sure the Fiken company has the API add-on (Foretak →
-   Tilleggstjenester → API; always on for test companies).
-2. In Claude: Customize → Connectors → Add → Add custom connector, URL
-   `https://api.fiken-mcp.byjoba.com/mcp`. Log in with Fiken.
-3. Ask away.
+- Fiken's add-on «API» – 99 kr/month (Fiken MCP itself is free):
+  **Foretak › Tilleggstjenester › API**
+- access to the app (see above)
+- Claude or ChatGPT
 
-Claude Code:
+**Claude** (mobile, web and desktop):
+
+1. Go to **Customize › Connectors**.
+2. Press **Add** and choose **Add custom connector**.
+3. Give it a name, for example Fiken, and paste
+   `https://api.fiken-mcp.byjoba.com/mcp`.
+4. Log in with Fiken when asked.
+
+**Claude Code:**
 
 ```
 claude mcp add --transport http fiken https://api.fiken-mcp.byjoba.com/mcp
 ```
 
-Details, read-only and narrower connections: [Adding the connector](#adding-the-connector).
+**ChatGPT:** not tested yet.
+
+More options (read-only and narrower connections): [Adding the connector](#adding-the-connector).
+
+## What it can do
+
+Nearly everything in Fiken. Nothing can be deleted, reversed or
+cancelled; you do that yourself in Fiken, so a mistake by Claude or
+ChatGPT can always be corrected in Fiken. If Claude or ChatGPT should
+only read, use this address instead:
+`https://api.fiken-mcp.byjoba.com/mcp/readonly`.
+
+## Examples
+
+The same conversations as on the landing page (names and numbers made up):
+
+| You write | Claude or ChatGPT answers |
+|---|---|
+| "An employee paid for some equipment for the company. Here are the receipts, can you sort it out?" | Reads the three receipts (4 138 kr incl. VAT) and offers to book one journal entry with the expenses and VAT, the total as a debt to the employee on 2911 Gjeld til ansatte, with the receipts attached |
+| "Invoice Hansen AS for ten hours of consulting in September. I want to see it before it's sent." | Shows the draft (10 × 1 200 kr + VAT = 15 000 kr, due in 14 days), saved as a draft in Fiken, and waits before issuing and sending |
+| "Which customers have overdue invoices? Name, email, phone, how much they owe and for how long." | Lists each customer with contact details, amount and days overdue |
+| "How much is on the operating account now?" | The balance on 1920 today |
+| "Log three hours on project MCP-1 today." | Logs 3 hours on MCP-1, activity Utvikling |
+| "Credit invoice 10521, the customer got the wrong price." | Issues a full credit note and offers a new invoice with the right price |
 
 ## Privacy and responsibility
 
@@ -65,10 +85,10 @@ Nothing you send is stored: files and accounting data pass through the
 server's memory on their way to Fiken. Only anonymous usage counters are
 kept ([details](#privacy)).
 
-This is an independent open-source project, not affiliated with Fiken AS,
-provided as is under the [MIT licence](LICENSE). AI assistants make
-mistakes; you are responsible for what is booked, invoiced or sent from
-your company. Check the result in Fiken.
+This is something I made in my spare time, not affiliated with Fiken AS,
+provided as is under the [MIT licence](LICENSE). Claude and ChatGPT can
+make mistakes; you are responsible for what is booked, invoiced or sent
+from your company. Check the result in Fiken.
 
 ## How it works
 
@@ -85,7 +105,7 @@ Status: live at `https://api.fiken-mcp.byjoba.com` for a handful of
 test users. The receipts flow works end to end, and invoices, credit
 notes and payments are covered too.
 
-## What it can do
+## Tools
 
 A short, fixed tool list instead of one tool per Fiken action:
 
