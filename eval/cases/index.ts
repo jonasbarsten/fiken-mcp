@@ -1,6 +1,10 @@
+import { JOURNAL } from "./journal.js";
+import { OUTLAYS } from "./outlays.js";
+import { PURCHASES } from "./purchases.js";
+import { SALES } from "./sales.js";
 import type { Case } from "./types.js";
 
-export const ALL_CASES: Case[] = [];
+export const ALL_CASES: Case[] = [...PURCHASES, ...OUTLAYS, ...SALES, ...JOURNAL];
 
 /** All cases, the one with this id, or those in this area. */
 export function selectCases(cases: Case[], filter?: string): Case[] {

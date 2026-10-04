@@ -452,6 +452,28 @@ CDK bundling step runs it again before every synth or deploy, so the
 Lambda bundle always carries a fresh widget. Deployments run from GitHub
 Actions only; see `docs/setup.md` for the one-time setup.
 
+## Evaluation
+
+`eval/` plays fixed accounting cases through the live connector with
+Claude and checks the booking the model proposes against what an
+accountant would book. Nothing is written to Fiken: the runner forwards
+only tools marked read-only (reads, Fiken's help, the widgets,
+`preview_booking`) and stops at the first write attempt, grading its args.
+
+```
+export ANTHROPIC_API_KEY=…
+npm run eval -- [--case <id|area>] [--model sonnet|opus] [--runs 3] [--compare eval/results/<earlier>.md]
+```
+
+The first run opens the browser to log in with Fiken; the token stays in
+memory. The 25 cases (`eval/cases/`) cover purchases, employee outlays,
+sales and journal entries in the demo company, each pointing to the Fiken
+help article it follows; they are not yet reviewed by an accountant. The
+report lands in `eval/results/` (not in git): passes per case and model,
+behaviour (preview first, choice buttons, help articles), tokens, and a
+transcript of every failure. A full run is 150 conversations, one at a
+time; the report shows the token use.
+
 ---
 
 <p align="center">MIT licence · byJoBa (Jonas Barsten)</p>

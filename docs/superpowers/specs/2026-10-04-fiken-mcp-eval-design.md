@@ -121,6 +121,7 @@ type Case = {
   expect: {
     operations: string[];           // allowed write operations
     postings: Expected[];           // see section 7
+    args?: Record<string, unknown>; // args that must equal these values (payments, credit notes)
     exact?: boolean;                // default true: no unexpected postings
     behaviour?: { previewFirst?: boolean; askChoice?: boolean; readHelp?: boolean };
   };
@@ -162,6 +163,7 @@ Operations without a converter are graded on `operations` only.
 **Comparison.** A run passes when:
 
 - the proposal's operation is in `operations`;
+- every key in `args` equals the proposal's arg (compared as JSON);
 - every expected posting is matched by a different actual posting (same
   side, account in the list, `net` or `amount` exact when given, `vat` equal
   when given);

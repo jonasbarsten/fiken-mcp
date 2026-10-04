@@ -1,4 +1,4 @@
 {
   "extends": "../tsconfig.base.json",
-  "include": ["src", "cases", "test"]
+  "include": ["src", "cases", "test", "../api/src/inbox/pdfjs-worker.d.ts"]
 }
