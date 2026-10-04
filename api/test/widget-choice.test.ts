@@ -15,6 +15,7 @@ class FakeEl {
   append(...els: FakeEl[]) { this.children.push(...els); }
   addEventListener(ev: string, fn: () => void) { (this.listeners[ev] ??= []).push(fn); }
   click() { for (const fn of this.listeners.click ?? []) fn(); }
+  key(key: string) { for (const fn of this.listeners.keydown ?? []) (fn as (e: { key: string }) => void)({ key }); }
   all(): FakeEl[] { return [this, ...this.children.flatMap((c) => c.all())]; }
 }
 const doc = { createElement: (tag: string) => new FakeEl(tag) };
@@ -62,6 +63,21 @@ describe("choice widget logic", () => {
     input.value = "  Et annet foretak  ";
     send.click();
     expect(sent).toEqual(["Et annet foretak"]);
+  });
+
+  it("submits the free-text field on Enter, once, and ignores empty text and other keys", () => {
+    const root = new FakeEl("div");
+    const sent: string[] = [];
+    renderChoice(doc as never, root as never, { ...data, allowOther: true }, (t: string) => sent.push(t));
+    const input = root.all().find((e) => e.tag === "input")!;
+    input.value = "   ";
+    input.key("Enter");
+    input.value = "Noe";
+    input.key("a");
+    expect(sent).toEqual([]);
+    input.key("Enter");
+    input.key("Enter");
+    expect(sent).toEqual(["Noe"]);
   });
 });
 

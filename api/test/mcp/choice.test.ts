@@ -33,6 +33,8 @@ describe("ask_user_choice", () => {
     ["duplicate values", { question: "q", options: [options[0], { ...options[1], value: "fiken-demo-as" }] }],
     ["long label", { question: "q", options: [{ label: "x".repeat(81), value: "a" }, options[1]] }],
     ["empty question", { question: "", options }],
+    ["201-character question", { question: "q".repeat(201), options }],
+    ["161-character description", { question: "q", options: [{ ...options[0], description: "d".repeat(161) }, options[1]] }],
     ["unknown key", { question: "q", options, extra: 1 }],
   ])("refuses %s", async (_name, args) => {
     const c = await connected(fakeFiken([]).fetchImpl);

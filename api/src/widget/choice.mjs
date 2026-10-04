@@ -50,9 +50,13 @@ function renderChoice(doc, root, data, send) {
     const b = doc.createElement("button");
     b.type = "button";
     b.textContent = "Send";
-    b.addEventListener("click", () => {
+    const submit = () => {
       const text = String(input.value ?? "").trim();
       if (text !== "") finish(text, b);
+    };
+    b.addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submit();
     });
     buttons.push(b);
     row.append(input, b);

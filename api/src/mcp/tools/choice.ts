@@ -17,13 +17,13 @@ const option = z
   .object({
     label: z.string().min(1).max(80).describe("What the button shows."),
     value: z.string().min(1).max(200).describe("The identifier that comes back with the answer, e.g. a companySlug."),
-    description: z.string().max(200).optional().describe("A short second line under the label."),
+    description: z.string().max(160).optional().describe("A short second line under the label."),
   })
   .strict();
 
 const inputSchema = z
   .object({
-    question: z.string().min(1).max(300),
+    question: z.string().min(1).max(200),
     options: z
       .array(option)
       .min(2)
