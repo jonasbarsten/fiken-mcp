@@ -21,6 +21,15 @@ describe("list_companies", () => {
     ]);
   });
 
+  it("tells the model where to share a missing company with the app", async () => {
+    const client = await connected(async () => Response.json([]));
+    const tool = (await client.listTools()).tools.find((t) => t.name === "list_companies");
+    expect(tool?.description).toContain(
+      "Fiken shares only the companies the user has chosen with this app: a company that is missing (not even with hasApiAccess false) is added in Fiken under " +
+        "Brukerinnstillinger → Sikkerhet → Apper du har gitt tilgang til → Endre next to Fiken MCP. Ordering the API add-on does not share it.",
+    );
+  });
+
   it("reports Fiken errors as tool errors without leaking the token", async () => {
     const client = await connected(async () => new Response("denied tok", { status: 403 }));
     const result = await client.callTool({ name: "list_companies", arguments: {} });

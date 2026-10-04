@@ -377,6 +377,13 @@ month; always on for test companies). `list_companies` shows
 add-ons on the same page; without them Fiken answers 402 and the tool
 error says where to order them.
 
+Fiken also gives each app access only to the companies you choose. A
+company missing from `list_companies` (not even with `hasApiAccess`
+false) has not been shared with Fiken MCP: in Fiken, go to
+Brukerinnstillinger → Sikkerhet → Apper du har gitt tilgang til, click
+«Endre» next to Fiken MCP, tick the companies and «Lagre endringer». The
+API add-on alone does not share a company with the app.
+
 If Fiken rejects a login during a tool call (for example because you
 revoked access), the server answers with an HTTP 401 so the client asks
 you to log in again automatically. The server first asks Fiken whether
