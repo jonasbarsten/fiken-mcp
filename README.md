@@ -123,7 +123,8 @@ A short, fixed tool list instead of one tool per Fiken action:
   number, amount, date, select, checkbox) with suggested values in
   clients that render widgets (others get a numbered list); the answers
   come back as one chat message (number and amount answers as typed,
-  possibly with a decimal comma). A suggested value is at most 200
+  possibly with a decimal comma; an amount is kroner as typed, not øre).
+  A suggested value is at most 200
   characters, the button label 1-40. Read-only, on every connection.
 - `show_table`: shows rows you fetched (invoices, inbox documents,
   balances, ...) as a table in clients that render widgets (others get a
@@ -131,16 +132,15 @@ A short, fixed tool list instead of one tool per Fiken action:
   per row; a text cell is at most 200 characters. A click sends the
   action's message as the user's next chat message and disables that
   row's buttons; other rows stay usable.
-  `amount` columns take øre and are shown as kroner. Read-only, on every
-  connection.
+  `amount` columns take øre and are shown as kroner; amounts in another
+  currency go in a text column. Read-only, on every connection.
 - `show_document`: shows the user an inbox document (`inboxDocumentId`)
   or an attachment (`attachmentUuid` from `get_attachments`, with exactly
   one of `purchaseId`, `saleId`, `invoiceId`, `journalEntryId`) as an
   image or a PDF with «Forrige» / «Neste» page buttons, in clients that
   render widgets (others get a line naming the file). The tool looks the
-  file up in Fiken and returns a view ticket: encrypted, bound to the
-  company and that one Fiken file URL, valid 5 minutes and never longer
-  than the session. The widget fetches the file from `GET /document`
+  file up in Fiken and returns a view ticket: encrypted, bound to that
+  one Fiken file URL, valid 5 minutes and never longer than the session. The widget fetches the file from `GET /document`
   with the ticket in an `x-ticket` header; the model does not see the
   content (it reads an inbox document with `get_inbox_document`).
   Read-only, on every connection.
@@ -148,9 +148,14 @@ A short, fixed tool list instead of one tool per Fiken action:
   args against the write's schema (journal entries also get their balance
   and VAT-code checks) and shows a summary, the lines in kroner and any
   problems, with «Før dette» and «Endre» buttons in widget clients
-  (others get Markdown ending «Ingenting er ført ennå.»). Fiken may still
-  refuse the write. Never calls Fiken. Only on
-  connections that may write, and only for operations visible there.
+  (others get Markdown ending «Ingenting er ført ennå.»). Each preview
+  has a reference: the first 6 hex characters of SHA-256 over the
+  operation and its parsed args. «Før dette» sends
+  «Ja, før dette (ref <ref>).», and the model writes only when that ref
+  matches its latest preview of exactly those args, otherwise it
+  previews again. The write may still be refused. Never calls Fiken.
+  Only on connections that may write, and only for operations visible
+  there.
 - The gateway: `fiken_explore`, `fiken_read` and `fiken_write`. Every
   operation below, the hot-path ones included, is reachable through it.
   `fiken_explore` lists the concepts, then a concept's operations with

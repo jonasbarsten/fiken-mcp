@@ -31,11 +31,15 @@ only; ChatGPT verification is its own item).
 ## 2. Clients without widgets
 
 The server is stateless: only the initialize request carries the
-client's capabilities, so it cannot register tools per client. Both
-widget tools are therefore always registered, with `_meta.ui` pointing
-at their resource, and always return a complete text result too.
-Clients that render the widget show it; others show the text, and the
-conversation works the same.
+client's capabilities, so it cannot register tools per client. The
+widget tools are therefore registered regardless of the client, with
+`_meta.ui` pointing at their resource, and always return a complete text
+result too: `ask_user_choice`, `ask_user_form` and `show_table` on every
+connection; `preview_booking` only where the connection can see a write
+operation (not on read-only connections); `show_document` only when the
+server knows its public URL (the widget fetches the file from
+`<publicUrl>/document`). Clients that render the widget show it; others
+show the text, and the conversation works the same.
 
 ## 3. `ask_user_choice`
 
@@ -69,8 +73,9 @@ Widget (`ui://fiken-mcp/choice.html`):
   ` (<value>)` when value differs from label, e.g.
   «Fiken-demo – Amerikansk hytte AS (fiken-demo-amerikansk-hytte-as3)».
   The model gets both what the user saw and the machine value.
-- After a click all buttons are disabled and the chosen one is marked,
-  so a double click cannot send twice.
+- After a click all buttons (and the «Annet» field) are disabled and the
+  chosen one is marked, so a double click cannot send twice. Enter in the
+  «Annet» field sends it, except while an input method is composing.
 - No network access (empty `connectDomains`), no `innerHTML` (DOM built
   with `textContent`), so option text from the model cannot inject
   markup.
@@ -95,28 +100,42 @@ Behaviour:
   Other operations get schema validation only.
 - On success, `structuredContent: { operation, title, companySlug,
   summary: [{ label, value }], lines?: [{ … }], totals?: … , checks:
-  "ok" | [messages] }`:
+  "ok" | [messages], ref }`:
   - `summary`: the operation's top-level scalar args with readable
-    labels (date, description, kind, supplier/customer ids, due date …).
+    labels (date, description, kind, supplier/customer ids, due date,
+    «Gebyr», «Betalingsgebyr», «Timepris» …).
   - `lines`: when args has a `lines` array, one row per line with its
-    fields; amounts in øre shown as kroner (`1 234,56 kr`).
+    fields; amounts in øre shown as kroner (`1 234,56 kr`), or with the
+    args' `currency`. Where the amounts can be in another currency and
+    the args carry none, the unit is neutral: «(fakturaens valuta)» on a
+    credit note, «(utkastets valuta)» on `update_invoice_draft`. A test
+    walks every write's schema and checks that each number field
+    described as øre is formatted as an amount.
   - `totals` for journal entries: debit and credit sums, and «Fiken
     beregner mva» when VAT codes are present.
-- Text content: the same, as a compact Markdown table, ending with
-  `Ingenting er ført ennå.`
+  - `ref`: the first 6 hex characters of SHA-256 over the operation name
+    and a stable (key-sorted) JSON of the parsed args, defaults included.
+    It ties an approval to this exact preview.
+- Text content: the same, as a compact Markdown table, then
+  `Referanse: <ref>`, ending with `Ingenting er ført ennå.`
 
 Widget (`ui://fiken-mcp/preview.html`):
 
 - Shows title, company, the summary, the lines table, totals, and the
   checks result.
 - Buttons «Før dette» and «Endre»: «Før dette» sends the user message
-  `Ja, før dette.`; «Endre» focuses nothing and sends `Jeg vil endre
-  noe før det føres.` Disabled after a click.
+  `Ja, før dette (ref <ref>).`; «Endre» focuses nothing and sends `Jeg
+  vil endre noe før det føres.` Disabled after a click.
 - When checks failed, only «Endre» is shown.
 - Same safety rules as the choice widget.
 
 The model still performs the write with `fiken_write` after the user's
-message; the widget never writes.
+message; the widget never writes. The tool's description tells the model
+to write only when the ref in the approval matches its latest preview of
+exactly those args, and otherwise to preview again (an approval clicked
+on an older preview cannot approve changed args). The write may still be
+refused: the preview checks the schema and the journal checks, not
+everything Fiken checks.
 
 ## 4a. More widgets (added 2026-10-05)
 
@@ -133,7 +152,9 @@ Input (strict): `title` (1–120), `fields` (1–12, unique `name`):
 options? (select only: 1–20 `{ label, value }`), required? (default
 false; refused on a checkbox, which always has a value), help? (≤ 160),
 value ≤ 200 }`, `submitLabel?` (1–40, default «Send»). Number and amount
-fields are text inputs and the answer is sent as typed (e.g. «7,5»).
+fields are text inputs and the answer is sent as typed (e.g. «7,5»); an
+amount field is kroner as the user typed it, not øre, and the
+description says so.
 
 - Widget: one input per field (date → date input, amount → text input
   accepting «1 250,50», select → buttons or a select, checkbox → checkbox),
@@ -156,8 +177,10 @@ Input (strict): `title` (1–120), `columns` (1–8 `{ key, label, kind?:
 message (1–200) } }`), `note?` (≤ 200). A text cell is at most 200
 characters, and a cell for a key no column declares is refused.
 
-- Widget: a table; `amount` cells are øre shown as kroner; action buttons
-  per row. A click sends the action's `message` as the user's message and
+- Widget: a table; `amount` cells are øre shown as kroner (a blank or
+  non-numeric cell is shown as given, the same in widget and fallback);
+  amounts in another currency go in a text column, as the description
+  says; action buttons per row. A click sends the action's `message` as the user's message and
   disables that row's buttons (other rows stay usable).
 - Fallback text: title, a Markdown table, and per row with actions a line
   `Handlinger rad <n>: <label> / <label>`.
@@ -173,8 +196,8 @@ Shows an inbox document or an attachment (image or PDF) in the chat.
 - The tool looks the document up in Fiken (for its `documentUrl` or the
   attachment's `downloadUrl`), then
   returns a **viewing ticket**: encrypted like the upload ticket, bound to
-  the company and that one file URL, valid 5 minutes and never longer than
-  the session. `structuredContent: { documentUrl: "<publicUrl>/document",
+  that one file URL (which came from Fiken, never from the model), valid
+  5 minutes and never longer than the session. `structuredContent: { documentUrl: "<publicUrl>/document",
   ticket, filename, contentType }`.
 - New route `GET /document`, with the ticket in an `x-ticket` header (not
   in the URL): reads the ticket, downloads the file
@@ -188,17 +211,17 @@ Shows an inbox document or an attachment (image or PDF) in the chat.
 - Widget: fetches the URL (CSP `connectDomains: [publicUrl]`), shows
   images and renders PDF pages with pdf.js (as the upload widget does),
   with page navigation for PDFs.
+- Fallback text: the filename and type, and that the model can read the
+  content with `get_inbox_document`.
 
 Updated 2026-10-05 to the built state (Task 5): the ticket header,
 CORS, attachment support, the 4 MiB cap and the 20 s timeout above
 replace the first draft's `?ticket=` URL and the open question about
 attachments.
-- Fallback text: the filename and type, and that the model can read the
-  content with `get_inbox_document`.
 
 ## 5. Instructions and descriptions
 
-The connect-time instructions (from the Fiken help plan) get two
+The connect-time instructions (from the Fiken help plan) get four
 sentences:
 
 «When the user must choose between options (company, customer, account,
@@ -216,17 +239,22 @@ to the user, use show_table.»); `get_inbox_document` mentions
 show_document («To show the file itself to the user, use
 show_document.»); `fiken_write`'s description mentions preview_booking
 («Show the write with preview_booking first and wait for the user's
-answer.»). A test pins every pointer.
+answer. If the approval carries a ref, write only when it matches your
+latest preview of exactly these args; otherwise preview again.»). A test
+pins every pointer.
 
 ## 6. Build
 
 `api/scripts/build-widget.mjs` builds every widget from its template
 (`src/widget/*.template.html`) into `src/assets/<name>.html`, with a per
-widget bundle list (the choice and preview widgets need only
-`@modelcontextprotocol/ext-apps/app-with-deps`, not pdf.js). The CDK
+widget bundle list (the choice, form, table and preview widgets need
+only `@modelcontextprotocol/ext-apps/app-with-deps`; the document widget
+also bundles pdf.js and its worker, as the upload widget does). The CDK
 `beforeBundling` hook already runs it. `src/assets.ts` exports
-`CHOICE_HTML` and `PREVIEW_HTML`. Resource URIs are stable
-(`ui://fiken-mcp/choice.html`, `ui://fiken-mcp/preview.html`), per the
+`CHOICE_HTML`, `FORM_HTML`, `TABLE_HTML`, `PREVIEW_HTML` and
+`DOCUMENT_HTML`. Resource URIs are stable (`ui://fiken-mcp/choice.html`,
+`ui://fiken-mcp/form.html`, `ui://fiken-mcp/table.html`,
+`ui://fiken-mcp/preview.html`, `ui://fiken-mcp/document.html`), per the
 hard rule.
 
 ## 7. Testing
