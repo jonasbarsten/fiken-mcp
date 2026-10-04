@@ -201,6 +201,8 @@ export const ledgerOperations: Operation[] = [
       const hasVat = lines.some((l) => l.debitVatCode !== undefined || l.creditVatCode !== undefined);
       for (const l of lines) {
         if (l.debitAccount === undefined && l.creditAccount === undefined) return toolText("Every line needs a debitAccount or a creditAccount.");
+        if (l.debitVatCode !== undefined && l.debitAccount === undefined) return toolText("A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.");
+        if (l.creditVatCode !== undefined && l.creditAccount === undefined) return toolText("A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.");
         if (l.creditAccount === undefined) debit += l.amount;
         else if (l.debitAccount === undefined) credit += l.amount;
       }

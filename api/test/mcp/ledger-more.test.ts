@@ -53,6 +53,19 @@ describe("manual journal entries", () => {
     expect(f.calls).toHaveLength(0);
   });
 
+  it("refuses a VAT code without its account on the same line, before any call", async () => {
+    const f = fakeFiken([]);
+    const c = await connected(f.fetchImpl);
+    const msg = "A VAT code needs its account on the same line: debitVatCode with debitAccount, creditVatCode with creditAccount.";
+    const debitVatOnCredit = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-10-05",
+      lines: [{ amount: 100, creditAccount: "1200", debitVatCode: 1 }, { amount: 100, debitAccount: "6000" }] });
+    expect(debitVatOnCredit).toMatchObject({ isError: true, text: msg });
+    const creditVatOnDebit = await callJson(c, "create_journal_entry", { companySlug: "demo", description: "x", date: "2026-10-05",
+      lines: [{ amount: 100, debitAccount: "6000", creditVatCode: 1 }, { amount: 100, creditAccount: "1200" }] });
+    expect(creditVatOnDebit).toMatchObject({ isError: true, text: msg });
+    expect(f.calls).toHaveLength(0);
+  });
+
   it("posts one entry and reads it back", async () => {
     const f = fakeFiken([
       { match: /\/generalJournalEntries$/, status: 201, headers: { location: "https://api.test/v2/companies/demo/transactions/77" } },
