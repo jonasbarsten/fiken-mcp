@@ -5,7 +5,7 @@ import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import type { Construct } from "constructs";
-import { DOMAIN, EXEC_POLICY_NAME, SITE_BUCKET_PREFIX, SITE_DOMAIN } from "./exec-policy.js";
+import { DOMAIN, EXEC_POLICY_NAME, SITE_BUCKET_PREFIX, SITE_DISTRIBUTION_DOMAIN_EXPORT, SITE_DISTRIBUTION_ID_EXPORT, SITE_DOMAIN } from "./exec-policy.js";
 
 /** Requested once by hand in us-east-1 (CloudFront requires that region) and DNS-validated; see docs/setup.md. */
 export const SITE_CERTIFICATE_ARN = "arn:aws:acm:us-east-1:209479295726:certificate/6814f406-e879-4458-9a45-739a1639ee30";
@@ -85,10 +85,10 @@ export class WebStack extends Stack {
 
     new CfnOutput(this, "SiteBucketName", { value: bucket.bucketName });
     // Exported for the iac stack, which owns the alias records.
-    new CfnOutput(this, "DistributionId", { value: distribution.distributionId, exportName: "fiken-mcp-web-distribution-id" });
+    new CfnOutput(this, "DistributionId", { value: distribution.distributionId, exportName: SITE_DISTRIBUTION_ID_EXPORT });
     new CfnOutput(this, "DistributionDomainName", {
       value: distribution.distributionDomainName,
-      exportName: "fiken-mcp-web-distribution-domain-name",
+      exportName: SITE_DISTRIBUTION_DOMAIN_EXPORT,
     });
   }
 }

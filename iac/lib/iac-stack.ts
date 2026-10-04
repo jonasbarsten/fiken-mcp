@@ -1,4 +1,4 @@
-import { Aspects, CfnOutput, CfnResource, RemovalPolicy, Stack, type IAspect, type StackProps } from "aws-cdk-lib";
+import { Aspects, CfnOutput, CfnResource, Fn, RemovalPolicy, Stack, type IAspect, type StackProps } from "aws-cdk-lib";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
@@ -6,7 +6,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as targets from "aws-cdk-lib/aws-route53-targets";
 import type { Construct, IConstruct } from "constructs";
-import { DOMAIN, EXEC_POLICY_NAME, SITE_BUCKET_PREFIX, SITE_STACK_NAME, ZONE_ID, ZONE_NAME, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
+import { DOMAIN, EXEC_POLICY_NAME, SITE_BUCKET_PREFIX, SITE_DISTRIBUTION_DOMAIN_EXPORT, SITE_DISTRIBUTION_ID_EXPORT, SITE_DOMAIN, SITE_STACK_NAME, ZONE_ID, ZONE_NAME, bootstrapRoleArns, execPolicyStatements } from "./exec-policy.js";
 
 /** Requested once by hand and DNS-validated; see docs/setup.md. Auto-renews while the validation CNAME exists. */
 export const CERTIFICATE_ARN = "arn:aws:acm:eu-west-1:209479295726:certificate/bd57a6d8-38c1-4876-bfa8-238d64d1c057";
@@ -94,8 +94,8 @@ export class IacStack extends Stack {
     deployRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"],
-        // The follow-up narrows this to the distribution id imported from the web stack.
-        resources: [`arn:aws:cloudfront::${this.account}:distribution/*`],
+        // Only the site's distribution, imported from the web stack.
+        resources: [`arn:aws:cloudfront::${this.account}:distribution/${Fn.importValue(SITE_DISTRIBUTION_ID_EXPORT)}`],
       }),
     );
     deployRole.addToPolicy(
@@ -120,6 +120,20 @@ export class IacStack extends Stack {
       recordName: DOMAIN.slice(0, -(ZONE_NAME.length + 1)),
       target: route53.RecordTarget.fromAlias(new targets.ApiGatewayv2DomainProperties(domainName.regionalDomainName, domainName.regionalHostedZoneId)),
     });
+
+    // The site's alias records live here too (resource-placement rule: domains
+    // and DNS records belong to the iac stack). They point at the CloudFront
+    // distribution the web stack exports. The web stack must therefore exist
+    // before this stack can deploy; see "Fresh setup order" in docs/setup.md.
+    const siteAlias: route53.IAliasRecordTarget = {
+      bind: () => ({
+        dnsName: Fn.importValue(SITE_DISTRIBUTION_DOMAIN_EXPORT),
+        hostedZoneId: targets.CloudFrontTarget.getHostedZoneId(this),
+      }),
+    };
+    const siteRecordName = SITE_DOMAIN.slice(0, -(ZONE_NAME.length + 1));
+    new route53.ARecord(this, "SiteAliasRecord", { zone, recordName: siteRecordName, target: route53.RecordTarget.fromAlias(siteAlias) });
+    new route53.AaaaRecord(this, "SiteAliasRecordIpv6", { zone, recordName: siteRecordName, target: route53.RecordTarget.fromAlias(siteAlias) });
 
     new CfnOutput(this, "UsageTableName", { value: table.tableName, exportName: "fiken-mcp-usage-table-name" });
     new CfnOutput(this, "UsageTableArn", { value: table.tableArn, exportName: "fiken-mcp-usage-table-arn" });

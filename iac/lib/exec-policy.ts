@@ -13,10 +13,12 @@ export const SITE_BUCKET_PREFIX = "fiken-mcp-web-";
 /** The CloudFormation stack that holds the site's bucket, distribution and headers. */
 export const SITE_STACK_NAME = "fiken-mcp-web";
 /**
- * Name of the retired BucketDeployment AWS CLI layer. Kept in this PR only so
- * CloudFormation may delete the layer; removed in the follow-up once it is gone.
+ * Export names the web stack publishes and the iac stack imports (alias
+ * records, invalidation scope). The web stack cannot remove or rename them
+ * while the iac stack imports them.
  */
-export const SITE_LAYER_NAME = "fiken-mcp-web-awscli";
+export const SITE_DISTRIBUTION_ID_EXPORT = "fiken-mcp-web-distribution-id";
+export const SITE_DISTRIBUTION_DOMAIN_EXPORT = "fiken-mcp-web-distribution-domain-name";
 
 /**
  * The only bootstrap roles a deploy needs: deploy-role to run CloudFormation
@@ -245,17 +247,6 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       sid: "StackOutputsRead",
       actions: ["cloudformation:DescribeStacks"],
       resources: [`arn:aws:cloudformation:${region}:${account}:stack/fiken-mcp-*/*`],
-    }),
-    new iam.PolicyStatement({
-      // The layer no longer exists in the template, but CloudFormation needs
-      // DeleteLayerVersion to remove it in the deploy that drops the
-      // BucketDeployment. Removed in the follow-up once the layer is gone.
-      sid: "SiteLayer",
-      actions: ["lambda:PublishLayerVersion", "lambda:GetLayerVersion", "lambda:DeleteLayerVersion"],
-      resources: [
-        `arn:aws:lambda:${region}:${account}:layer:${SITE_LAYER_NAME}`,
-        `arn:aws:lambda:${region}:${account}:layer:${SITE_LAYER_NAME}:*`,
-      ],
     }),
   ];
 }

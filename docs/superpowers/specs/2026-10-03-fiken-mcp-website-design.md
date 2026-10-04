@@ -89,8 +89,10 @@ LICENSE                   MIT, Jonas Barsten
 > **Changed 2026-10-04.** The stack no longer holds a `BucketDeployment`
 > (and so no Lambda, layer or role) or the A/AAAA records. Content ships
 > from the deploy workflow: `aws s3 sync web/ --delete`, a copy of the
-> icon and a CloudFront invalidation. The alias records move to the iac
-> stack in a follow-up change. The stack outputs the bucket name and
+> icon and a CloudFront invalidation. The alias records now live in the iac
+> stack, which imports `fiken-mcp-web-distribution-domain-name` for the A and
+> AAAA aliases and `fiken-mcp-web-distribution-id` to narrow the deploy
+> role's invalidation right to that one distribution. The stack outputs the bucket name and
 > exports the distribution id and domain name as
 > `fiken-mcp-web-distribution-id` and
 > `fiken-mcp-web-distribution-domain-name`. See "Site content deploy" in
