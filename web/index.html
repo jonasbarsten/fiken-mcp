@@ -13,7 +13,7 @@
   <header class="hero">
     <img class="logo" src="/icon.png" alt="" width="96" height="96">
     <h1>Fiken MCP</h1>
-    <p class="lead">Et verktøy jeg har laget for å bruke Fiken fra Claude og ChatGPT i mitt eget foretak. Andre kan gjerne bruke det også.</p>
+    <p class="lead">Et verktøy jeg har laget for å bruke Fiken fra Claude og ChatGPT i mine egne foretak. Tenkte jeg like så gjerne kunne gjøre det tilgjengelig for andre også.</p>
     <div class="actions">
       <a class="button" href="https://github.com/jonasbarsten/fiken-mcp">
         <svg class="mark" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/></svg>
@@ -25,42 +25,28 @@
   <main>
     <section id="tilgang">
       <h2>Vil du prøve?</h2>
-      <p>Fiken behandler foreløpig appen som en utviklingsapp. Da kan høyst fem personer bruke den, meg inkludert, og jeg må legge inn hver av dem selv. Med fem aktive brukere kan jeg søke Fiken om å åpne den for alle.</p>
-      <p>Vil du prøve, send meg en e-post med adressen du logger inn i Fiken med, så legger jeg deg til.</p>
+      <p>Appen er foreløpig i utviklingsmodus hos Fiken, så det er plass til fem brukere, og jeg legger inn hver enkelt selv. Vil du prøve, send meg e-postadressen du bruker i Fiken.</p>
       <p class="email"><button type="button" id="show-email" class="button primary">Vis e-postadressen</button></p>
       <noscript><p class="note">Slå på JavaScript for å se e-postadressen.</p></noscript>
-    </section>
-
-    <section>
-      <h2>Hva den kan</h2>
-      <p>Nesten alt Fiken lar apper gjøre: kjøp og salg, fakturaer og kreditnotaer, kunder, leverandører og produkter, prosjekter og timer, bilag og saldoer.</p>
-      <p>Den sletter aldri noe, og den reverserer eller annullerer ikke. Det gjør du selv i Fiken, så en feil fra assistenten aldri kan fjerne noe. Skal assistenten bare lese, bruker du adressen som slutter på <code>/mcp/readonly</code>.</p>
-    </section>
-
-    <section>
-      <h2>Eksempler</h2>
-      <ul class="features">
-        <li>«En kompis la ut for noen greier som firmaet skal betale for. Her er kvitteringene, kan du ordne det?»</li>
-        <li>«Lag en faktura til Hansen AS på ti timer rådgivning i september. Jeg vil se den før den sendes.»</li>
-        <li>«Hvilke kunder har forfalte fakturaer? Gi meg navn, e-post og telefon, hvor mye de skylder og hvor lenge det har gått.»</li>
-        <li>«Hvor mye står på driftskontoen nå?»</li>
-        <li>«Før tre timer på prosjektet MCP-1 i dag.»</li>
-        <li>«Krediter faktura 10521, kunden fikk feil pris.»</li>
-      </ul>
     </section>
 
     <section>
       <h2>Slik kommer du i gang</h2>
       <p>Du trenger:</p>
       <ul>
-        <li>et Fiken-foretak med tilleggstjenesten API (Foretak → Tilleggstjenester → API, 99 kr i måneden; den er alltid inkludert i testforetak)</li>
+        <li>tilleggstjenesten «API» i Fiken – 99&nbsp;kr/mnd (Fiken MCP er gratis)<br><span class="ui">Foretak</span> › <span class="ui">Tilleggstjenester</span> › <span class="ui">API</span></li>
         <li>tilgang til appen (se over)</li>
         <li>Claude eller ChatGPT</li>
       </ul>
-      <h3>Claude <span class="muted">(nettleser, Mac, PC og mobil)</span></h3>
-      <p>Gå til Customize → Connectors, trykk Add og velg Add custom connector. Gi koblingen et navn, for eksempel Fiken, og lim inn denne adressen:</p>
-      <p class="url"><code id="connector-url">https://api.fiken-mcp.byjoba.com/mcp</code> <button type="button" id="copy-url" class="button small" hidden>Kopier</button></p>
-      <p>Logg inn med Fiken når du blir bedt om det. Menyene i Claude er på engelsk.</p>
+      <h3>Claude <span class="muted">(mobil, web og desktop)</span></h3>
+      <ol class="steps">
+        <li>Gå til <span class="ui">Customize</span> › <span class="ui">Connectors</span>.</li>
+        <li>Trykk <span class="ui">Add</span> og velg <span class="ui">Add custom connector</span>.</li>
+        <li>Gi koblingen et navn, for eksempel Fiken, og lim inn denne adressen:
+          <p class="url"><code id="connector-url">https://api.fiken-mcp.byjoba.com/mcp</code> <button type="button" class="button small" data-copy="connector-url" hidden>Kopier</button></p>
+        </li>
+        <li>Logg inn med Fiken når du blir bedt om det.</li>
+      </ol>
       <h3>Claude Code</h3>
       <pre><code>claude mcp add --transport http fiken https://api.fiken-mcp.byjoba.com/mcp</code></pre>
       <h3>ChatGPT</h3>
@@ -68,10 +54,70 @@
     </section>
 
     <section>
+      <h2>Hva den kan</h2>
+      <p>Nesten alt i Fiken.</p>
+      <p>Ingenting kan slettes, reverseres eller annulleres. Det gjør du selv i Fiken, så en feil fra Claude eller ChatGPT alltid kan rettes opp i Fiken.</p>
+      <p>Skal Claude eller ChatGPT bare kunne lese, bruker du denne adressen i stedet:</p>
+      <p class="url"><code id="readonly-url">https://api.fiken-mcp.byjoba.com/mcp/readonly</code> <button type="button" class="button small" data-copy="readonly-url" hidden>Kopier</button></p>
+    </section>
+
+    <section>
+      <h2>Eksempler</h2>
+      <p class="muted">Navn og tall i svarene er oppdiktet.</p>
+
+      <div class="chat">
+        <p class="msg you">En av de ansatte la ut for noe utstyr til firmaet. Her er kvitteringene, kan du ordne det?</p>
+        <div class="msg bot">
+          <p>Jeg har lest de tre kvitteringene: Clas Ohlson 349&nbsp;kr, Biltema 1&nbsp;290&nbsp;kr og Elkjøp 2&nbsp;499&nbsp;kr, til sammen 4&nbsp;138&nbsp;kr inkludert mva.</p>
+          <p>Jeg kan føre dem som ett bilag med utgiftene og mva fra kvitteringene, og 4&nbsp;138&nbsp;kr som gjeld til Ola Nordmann på 2911 Gjeld til ansatte, med kvitteringene vedlagt. Skal jeg gjøre det?</p>
+        </div>
+      </div>
+
+      <div class="chat">
+        <p class="msg you">Lag en faktura til Hansen AS på ti timer rådgivning i september. Jeg vil se den før den sendes.</p>
+        <div class="msg bot">
+          <p>Her er utkastet til Hansen AS: 10&nbsp;timer rådgivning à 1&nbsp;200&nbsp;kr, 12&nbsp;000&nbsp;kr pluss 25&nbsp;% mva, totalt 15&nbsp;000&nbsp;kr, forfall om 14&nbsp;dager. Det er lagret som utkast i Fiken. Si fra hvis noe skal endres, eller om jeg skal gjøre den til faktura og sende den.</p>
+        </div>
+      </div>
+
+      <div class="chat">
+        <p class="msg you">Hvilke kunder har forfalte fakturaer? Gi meg navn, e-post og telefon, hvor mye de skylder og hvor lenge det har gått.</p>
+        <div class="msg bot">
+          <p>To kunder har forfalte fakturaer:</p>
+          <ul>
+            <li>Berg Snekkeri AS, post@bergsnekkeri.example, 412&nbsp;34&nbsp;567: 18&nbsp;750&nbsp;kr, 23&nbsp;dager over forfall</li>
+            <li>Lunde Design, kari@lundedesign.example, 934&nbsp;56&nbsp;789: 4&nbsp;375&nbsp;kr, 6&nbsp;dager over forfall</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="chat">
+        <p class="msg you">Hvor mye står på driftskontoen nå?</p>
+        <div class="msg bot">
+          <p>Driftskontoen (1920) står i 84&nbsp;312&nbsp;kr per i dag.</p>
+        </div>
+      </div>
+
+      <div class="chat">
+        <p class="msg you">Før tre timer på prosjektet MCP-1 i dag.</p>
+        <div class="msg bot">
+          <p>Ført: 3&nbsp;timer på MCP-1 i dag, aktivitet Utvikling.</p>
+        </div>
+      </div>
+
+      <div class="chat">
+        <p class="msg you">Krediter faktura 10521, kunden fikk feil pris.</p>
+        <div class="msg bot">
+          <p>Kreditnota 10002 er laget for hele faktura 10521 (2&nbsp;200&nbsp;kr). Vil du at jeg lager en ny faktura med riktig pris?</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
       <h2>Personvern</h2>
       <p>Tjenesten lagrer ingen av dataene dine. Filer og regnskapsdata går gjennom serveren på vei til og fra Fiken, men blir verken lagret eller logget. Det samme gjelder innloggingen din hos Fiken.</p>
       <p>Det eneste som tas vare på, er anonym bruksstatistikk: hvor mange ganger hvert verktøy er brukt per måned, og om det gikk bra. Tellingen knyttes til en kode som lages fra e-postadressen din, og koden kan ikke regnes tilbake til adressen.</p>
-      <p>Kobler du fra i Claude eller ChatGPT, glemmer bare den appen innloggingen. For å stenge tilgangen helt går du i Fiken til Rediger konto → Sikkerhet → Apper du har gitt tilgang til og fjerner tilgangen for Fiken MCP. Gjør det også hvis du tror at en enhet eller konto er på avveie.</p>
+      <p>Kobler du fra i Claude eller ChatGPT, glemmer bare den appen innloggingen. For å stenge tilgangen helt går du i Fiken til <span class="ui">Rediger konto</span> › <span class="ui">Sikkerhet</span> › <span class="ui">Apper du har gitt tilgang til</span> og fjerner tilgangen for Fiken MCP. Gjør det også hvis du tror at en enhet eller konto er på avveie.</p>
     </section>
 
     <section>
@@ -87,7 +133,7 @@
     <section>
       <h2>Ansvarsfraskrivelse</h2>
       <p>Fiken MCP er noe jeg har laget på fritiden, og det har ingen tilknytning til Fiken AS. Det leveres som det er, uten noen form for garanti.</p>
-      <p>KI-assistenter kan ta feil. Du er selv ansvarlig for alt som bokføres, faktureres eller sendes fra foretaket ditt, også når assistenten gjør det for deg. Kontroller alltid resultatet i Fiken. Jeg er ikke ansvarlig for feil i regnskapet eller for tap som følger av at du bruker tjenesten.</p>
+      <p>Claude og ChatGPT kan ta feil. Du er selv ansvarlig for alt som bokføres, faktureres eller sendes fra foretaket ditt, også når Claude eller ChatGPT gjør det for deg. Kontroller alltid resultatet i Fiken. Jeg er ikke ansvarlig for feil i regnskapet eller for tap som følger av at du bruker tjenesten.</p>
     </section>
   </main>
 

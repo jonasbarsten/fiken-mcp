@@ -18,7 +18,7 @@
 ---
 
 A remote [MCP](https://modelcontextprotocol.io) server for the
-[Fiken](https://fiken.no) accounting API, built for my own company and
+[Fiken](https://fiken.no) accounting API, built for my own companies and
 open for anyone who wants to use it. You log in with Fiken yourself and
 use it from Claude (web, desktop, mobile, Claude Code) and ChatGPT, on
 your own AI subscription. It reads and writes nearly everything Fiken's
