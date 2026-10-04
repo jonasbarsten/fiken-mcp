@@ -32,6 +32,13 @@ const WIDGETS = [
       ["/*__LOGIC__*/", new URL("../src/widget/choice.mjs", import.meta.url), "__widget"],
     ],
   },
+  {
+    name: "preview",
+    bundles: [
+      ["/*__BUNDLE__*/", "@modelcontextprotocol/ext-apps/app-with-deps", "__mcpApps"],
+      ["/*__LOGIC__*/", new URL("../src/widget/preview.mjs", import.meta.url), "__widget"],
+    ],
+  },
 ];
 
 /** Reads an ES module and rewrites its trailing `export{…}` into `globalThis.<name>={…}`. `source` is a package specifier or a file URL. */

@@ -19,5 +19,8 @@ export const WIDGET_HTML = readFileSync(new URL("./assets/upload.html", import.m
 /** The built choice widget. Produced by scripts/build-widget.mjs; gitignored. */
 export const CHOICE_HTML = readFileSync(new URL("./assets/choice.html", import.meta.url), "utf8");
 
+/** The built booking preview widget. Produced by scripts/build-widget.mjs; gitignored. */
+export const PREVIEW_HTML = readFileSync(new URL("./assets/preview.html", import.meta.url), "utf8");
+
 /** The connector icon that serverInfo.icons points at. */
 export const ICON_PNG = new Uint8Array(readFileSync(new URL("./assets/icon.png", import.meta.url)));

@@ -16,7 +16,7 @@ describe("gateway", () => {
     const c = await connected(fakeFiken([]).fetchImpl);
     expect((await c.listTools()).tools.map((t) => t.name).sort()).toEqual([
       "ask_user_choice", "create_purchase", "fiken_explore", "fiken_read", "fiken_write", "list_accounts", "list_bank_accounts",
-      "list_companies", "list_inbox", "list_projects", "search_contacts",
+      "list_companies", "list_inbox", "list_projects", "preview_booking", "search_contacts",
     ]);
   });
 

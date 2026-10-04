@@ -117,6 +117,12 @@ A short, fixed tool list instead of one tool per Fiken action:
   buttons in clients that render widgets (others get a numbered list);
   the answer comes back as the user's next chat message. Read-only, on
   every connection.
+- `preview_booking`: takes a write operation's name and args, validates
+  them as the write would (journal entries also get their balance
+  checks) and shows a summary, the lines in kroner and any problems, with
+  «Før dette» and «Endre» buttons in widget clients (others get Markdown
+  ending «Ingenting er ført ennå.»). Never calls Fiken. Only on
+  connections that may write, and only for operations visible there.
 - The gateway: `fiken_explore`, `fiken_read` and `fiken_write`. Every
   operation below, the hot-path ones included, is reachable through it.
   `fiken_explore` lists the concepts, then a concept's operations with
