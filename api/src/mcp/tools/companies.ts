@@ -19,7 +19,9 @@ export const companiesOperations: Operation[] = [
     description:
       "Lists the Fiken companies the logged-in user is a member of, with the slug every other tool needs as companySlug. " +
       "hasApiAccess false means the company has not ordered Fiken's API module (an owner orders it in Fiken under Foretak → Tilleggstjenester → API; always on for test companies); " +
-      "other tools fail for that company until it is ordered. A company the user is not a member of in Fiken is not listed at all. When there are several to choose from, let the user pick with ask_user_choice.",
+      "other tools fail for that company until it is ordered. A company the user is not a member of in Fiken is not listed at all. " +
+      "Fiken shares only the companies the user has chosen with this app: a company that is missing (not even with hasApiAccess false) is added in Fiken under " +
+      "Brukerinnstillinger → Sikkerhet → Apper du har gitt tilgang til → Endre next to Fiken MCP. Ordering the API add-on does not share it. When there are several to choose from, let the user pick with ask_user_choice.",
     input: z.object({}),
     async run(ctx) {
       try {
