@@ -72,6 +72,8 @@ jobs:
           account=$(aws sts get-caller-identity --query Account --output text)
           bucket="fiken-mcp-web-$account"
           distribution=$(aws cloudformation describe-stacks --stack-name fiken-mcp-web --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)
+          # Fail before touching the bucket if the output is missing (the CLI prints None).
+          if [ -z "$distribution" ] || [ "$distribution" = None ]; then echo "fiken-mcp-web has no DistributionId output"; exit 1; fi
           # icon.png is not in web/; it ships from the API's assets folder.
           aws s3 sync web/ "s3://$bucket" --delete --exclude icon.png
           aws s3 cp api/src/assets/icon.png "s3://$bucket/icon.png"

@@ -379,8 +379,8 @@ unless noted, and any email recipient at jonasbj.com.
 - `https://fiken-mcp.byjoba.com/nope` shows the Norwegian 404 page with
   status 404.
 - The browser console shows no CSP violations.
-- A later merge touching only `web/` runs only the `fiken-mcp-web` step,
-  and a docs-only merge asks for no approval.
+- A later merge touching only `web/` runs only the content step (sync and
+  invalidation, no stack), and a docs-only merge asks for no approval.
 - If the first `fiken-mcp-web` create fails with AccessDenied on a
   CloudFront action such as `cloudfront:CreateConnectionGroup` or
   `cloudfront:GetVpcOrigin` (listed among CreateDistribution's related
@@ -406,9 +406,10 @@ Verified 2026-10-04 (after deploying #38):
   oktober), «Vis e-postadressen» revealed the mail link with the subject
   «Tilgang til Fiken MCP», «Kopier» is shown, and the console had no CSP
   violations.
-- Not yet observed: a web-only merge deploying only `fiken-mcp-web`, and
-  a docs-only merge asking for no approval. This PR is docs-only, so its
-  merge is the second check.
+- Then observed: the docs-only merge of #39 skipped the deploy job (no
+  approval asked), and #40 (web/ and README) set only the web flag, which
+  at the time meant the `fiken-mcp-web` stack. Since the site-sync change
+  a web-only merge runs only the content step.
 
 ## Site content deploy (2026-10-04)
 

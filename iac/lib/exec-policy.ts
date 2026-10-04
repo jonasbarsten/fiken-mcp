@@ -209,16 +209,16 @@ export function execPolicyStatements(account: string, region: string): iam.Polic
       resources: bootstrapRoleArns(account, region),
     }),
     new iam.PolicyStatement({
-      // The website bucket, and (as the boundary on the BucketDeployment
-      // Lambda) the object writes that upload and prune the site.
+      // The website bucket, and (as the boundary on the GitHub deploy role)
+      // the object writes of the content step that syncs and prunes the site.
       sid: "SiteBucket",
       actions: ["s3:*"],
       resources: [`arn:aws:s3:::${SITE_BUCKET_PREFIX}*`, `arn:aws:s3:::${SITE_BUCKET_PREFIX}*/*`],
     }),
     new iam.PolicyStatement({
       // CloudFront ARNs carry generated ids, so these are pinned to the
-      // account and resource type. Also covers the deployment Lambda's
-      // CreateInvalidation and GetInvalidation on the distribution.
+      // account and resource type. Also bounds the deploy role's
+      // CreateInvalidation and GetInvalidation in the content step.
       sid: "CloudFront",
       actions: ["cloudfront:*"],
       resources: ["distribution", "origin-access-control", "cache-policy", "response-headers-policy"].map(
