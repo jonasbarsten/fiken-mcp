@@ -63,8 +63,8 @@ describe("preview_booking", () => {
     expect(p!.lines!.columns).toContain("debitAccount");
     const amountIdx = p!.lines!.columns.indexOf("amount");
     expect(p!.lines!.rows.map((row) => row[amountIdx])).toEqual([`1${NBSP}000,00${NBSP}kr`, `1${NBSP}250,00${NBSP}kr`]);
-    expect(p!.totals).toContainEqual({ label: "Mva", value: "Fiken legger til mva på sider med mva-kode" });
-    expect(p!.totals!.map((t) => t.label)).toEqual(expect.arrayContaining(["Debet (eks. mva)", "Kredit"]));
+    expect(p!.totals).toContainEqual({ label: "Mva", value: "Fiken legger mva til beløpet på sider med mva-kode; summene over er før det" });
+    expect(p!.totals!.map((t) => t.label)).toEqual(["Debet (før mva)", "Kredit (før mva)", "Mva"]);
     expect(p!.summary).toContainEqual({ label: "Foretak", value: "demo" });
     expect(text.endsWith("Ingenting er ført ennå.")).toBe(true);
     expect(f.calls).toHaveLength(0);
@@ -107,6 +107,14 @@ describe("preview_booking", () => {
     expect(p!.lines!.rows[0]).toContain(`25,00${NBSP}kr`);
     expect(text).toContain("| description |");
     expect(f.calls).toHaveLength(0);
+  });
+
+  it("orders the summary the same way whatever the args' key order", async () => {
+    const lines = [{ amount: 100, debitAccount: "6800", creditAccount: "1920:10001" }];
+    const a = await preview("create_journal_entry", { companySlug: "demo", date: "2026-10-01", description: "x", lines });
+    const b = await preview("create_journal_entry", { lines, description: "x", date: "2026-10-01", companySlug: "demo" });
+    expect(a.p!.summary.map((s) => s.label)).toEqual(["Foretak", "Dato", "Beskrivelse"]);
+    expect(b.p!.summary).toEqual(a.p!.summary);
   });
 
   it("keeps object and array args in the summary", async () => {
