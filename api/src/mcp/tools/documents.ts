@@ -12,13 +12,17 @@ import { defined } from "./common.js";
 /** Invoice-like amounts follow the document's currency, not always NOK. */
 export const LINE_MONEY = "Amounts are integers in the invoice currency's smallest unit (øre for NOK).";
 
+/** The difference models mix up: both have no VAT, but only zero-rated sales go on the VAT return. */
+export const EXEMPT_VS_OUTSIDE =
+  "EXEMPT is «fritatt» (zero-rated, still on the VAT return; income 3100-3199); OUTSIDE is «unntatt», outside the VAT Act (e.g. education, health; income 3200-3299).";
+
 /** Strict, so a mistyped key (netPrice, discunt) is refused instead of silently dropped. */
 export const invoiceLine = z.strictObject({
   productId: z.number().int().optional().describe("Product id, from list_products (via fiken_read); supplies description, price, VAT type and income account"),
   description: z.string().min(1).optional(),
   quantity: z.number().positive(),
   unitPrice: z.number().int().optional().describe("Net price per unit, in the invoice currency's smallest unit (øre for NOK)"),
-  vatType: z.string().min(1).optional().describe("Sales VAT type: HIGH (25%), MEDIUM (15%), LOW (12%), NONE, EXEMPT, OUTSIDE, EXEMPT_IMPORT_EXPORT"),
+  vatType: z.string().min(1).optional().describe(`Sales VAT type: HIGH (25%), MEDIUM (15%), LOW (12%), NONE, EXEMPT, OUTSIDE, EXEMPT_IMPORT_EXPORT. ${EXEMPT_VS_OUTSIDE}`),
   incomeAccount: z.string().min(1).optional().describe("Income account code, e.g. 3000; from list_accounts range 3000-3999"),
   discount: z.number().min(0).max(100).optional().describe("Percent"),
 });

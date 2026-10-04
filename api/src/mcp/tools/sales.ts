@@ -2,6 +2,7 @@ import { z } from "zod";
 import { defineOperation, type Operation } from "../operations.js";
 import { errorText, toolJson } from "../context.js";
 import { companySlug, CONFIRM, defined, gatewayCall, isoDate, ORE, paged, paging, toolText, withCompany } from "./common.js";
+import { EXEMPT_VS_OUTSIDE } from "./documents.js";
 
 interface FikenSaleLine {
   description: string;
@@ -61,7 +62,7 @@ const saleLine = z
     description: z.string().min(1),
     netPrice: z.number().int().describe(`Net amount. ${ORE}`),
     vat: z.number().int().describe(`VAT amount. ${ORE}`),
-    vatType: z.string().min(1).describe("Sales VAT type: HIGH (25%), MEDIUM (15%), LOW (12%), NONE, EXEMPT, OUTSIDE, EXEMPT_IMPORT_EXPORT"),
+    vatType: z.string().min(1).describe(`Sales VAT type: HIGH (25%), MEDIUM (15%), LOW (12%), NONE, EXEMPT, OUTSIDE, EXEMPT_IMPORT_EXPORT. ${EXEMPT_VS_OUTSIDE}`),
     account: z.string().min(1).optional().describe("Income account code, from list_accounts"),
     projectId: z.number().int().optional().describe("Project id, from list_projects"),
   })

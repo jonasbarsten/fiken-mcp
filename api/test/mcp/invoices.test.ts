@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getOperation } from "../../src/mcp/registry.js";
-import { callJson, connected, fakeFiken } from "./helpers.js";
+import { callJson, connected, fakeFiken, operationTexts } from "./helpers.js";
 
 const invoice77 = {
   invoiceId: 77, invoiceNumber: 10042, issueDate: "2026-09-29", dueDate: "2026-10-13", net: 100000, vat: 25000, gross: 125000,
@@ -98,6 +98,13 @@ describe("send, credit, pay", () => {
     const c = await connected(f.fetchImpl);
     expect((await callJson(c, "send_invoice", { companySlug: "demo", invoiceId: 77 })).json()).toEqual({ invoiceId: 77, sent: true, method: ["auto"] });
     expect(JSON.parse(String(f.calls[0]?.init?.body))).toEqual({ invoiceId: 77, method: ["auto"], includeDocumentAttachments: true });
+  });
+
+  it("invoice and sale lines tell «fritatt» (EXEMPT) from «unntatt» (OUTSIDE)", () => {
+    const text = "EXEMPT is «fritatt» (zero-rated, still on the VAT return; income 3100-3199); OUTSIDE is «unntatt», outside the VAT Act (e.g. education, health; income 3200-3299)";
+    for (const name of ["create_invoice", "create_invoice_draft", "create_credit_note", "create_sale"]) {
+      expect(operationTexts(getOperation(name)!).some((t) => t.includes(text)), name).toBe(true);
+    }
   });
 
   it("create_credit_note explains that a partial credit's line is the amount credited, not a discount", () => {
