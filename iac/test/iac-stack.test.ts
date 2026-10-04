@@ -75,12 +75,18 @@ describe("IacStack", () => {
   it("lets the deploy role ship the site content directly: sync the bucket, invalidate CloudFront, read the web stack's outputs", () => {
     const t = synth();
     const [policy] = Object.values(t.findResources("AWS::IAM::Policy"));
-    const statements = policy!.Properties.PolicyDocument.Statement as Array<{ Effect: string; Action: string | string[]; Resource: string | string[] }>;
+    const statements = policy!.Properties.PolicyDocument.Statement as Array<{ Effect: string; Action: string | string[]; Resource: unknown }>;
     const others = statements.filter((s) => s.Action !== "sts:AssumeRole");
     expect(others).toEqual([
       { Effect: "Allow", Action: "s3:ListBucket", Resource: "arn:aws:s3:::fiken-mcp-web-209479295726" },
       { Effect: "Allow", Action: ["s3:PutObject", "s3:DeleteObject"], Resource: "arn:aws:s3:::fiken-mcp-web-209479295726/*" },
-      { Effect: "Allow", Action: ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"], Resource: "arn:aws:cloudfront::209479295726:distribution/*" },
+      {
+        Effect: "Allow",
+        Action: ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"],
+        Resource: {
+          "Fn::Join": ["", ["arn:aws:cloudfront::209479295726:distribution/", { "Fn::ImportValue": "fiken-mcp-web-distribution-id" }]],
+        },
+      },
       { Effect: "Allow", Action: "cloudformation:DescribeStacks", Resource: "arn:aws:cloudformation:eu-west-1:209479295726:stack/fiken-mcp-web/*" },
     ]);
   });
@@ -217,6 +223,18 @@ describe("IacStack", () => {
     t.hasOutput("ApiDomainRegionalHostedZoneId", { Export: { Name: "fiken-mcp-api-domain-regional-hosted-zone-id" } });
   });
 
+  it("owns the A and AAAA alias records for the apex site, aliasing the distribution imported from the web stack", () => {
+    const t = synth();
+    for (const type of ["A", "AAAA"]) {
+      t.hasResourceProperties("AWS::Route53::RecordSet", {
+        Name: "fiken-mcp.byjoba.com.",
+        Type: type,
+        HostedZoneId: "Z04810525CNVQNP7ALNV",
+        AliasTarget: Match.objectLike({ DNSName: { "Fn::ImportValue": "fiken-mcp-web-distribution-domain-name" }, HostedZoneId: { "Fn::FindInMap": ["AWSCloudFrontPartitionHostedZoneIdMap", { Ref: "AWS::Partition" }, "zoneId"] } }),
+      });
+    }
+  });
+
   it("tags every taggable resource with Project=fiken-mcp", () => {
     const app = new App();
     const stack = new IacStack(app, "fiken-mcp-iac", {
@@ -300,7 +318,7 @@ describe("IacStack", () => {
     expect(acmActions.sort()).toEqual(["acm:DescribeCertificate", "acm:ListTagsForCertificate"]);
   }, STACK_TEST_TIMEOUT_MS);
 
-  it("lets CloudFormation manage the site bucket, CloudFront resources and the deployment layer, scoped by name", () => {
+  it("lets CloudFormation manage the site bucket, CloudFront resources, scoped by name", () => {
     const t = synth();
     const policy = Object.values(t.findResources("AWS::IAM::ManagedPolicy"))[0]!;
     const statements = policy.Properties.PolicyDocument.Statement as Array<{ Sid?: string; Action: string | string[]; Resource: string | string[] }>;
@@ -325,10 +343,6 @@ describe("IacStack", () => {
     ]);
     expect(bySid("CloudFrontCreate").Resource).toBe("*");
 
-    expect(bySid("SiteLayer").Action).toEqual(["lambda:PublishLayerVersion", "lambda:GetLayerVersion", "lambda:DeleteLayerVersion"]);
-    expect(bySid("SiteLayer").Resource).toEqual([
-      "arn:aws:lambda:eu-west-1:209479295726:layer:fiken-mcp-web-awscli",
-      "arn:aws:lambda:eu-west-1:209479295726:layer:fiken-mcp-web-awscli:*",
-    ]);
+    expect(statements.find((s) => s.Sid === "SiteLayer")).toBeUndefined();
   }, STACK_TEST_TIMEOUT_MS);
 }, STACK_TEST_TIMEOUT_MS);

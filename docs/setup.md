@@ -134,6 +134,17 @@ zone: `arn:aws:acm:us-east-1:209479295726:certificate/6814f406-e879-4458-9a45-73
 the validation CNAME exists. Before the first deploy, confirm in the ACM
 console (us-east-1) that it is Issued.
 
+## Fresh setup order
+
+The iac stack owns the site's A and AAAA records and imports the web stack's
+exports (`fiken-mcp-web-distribution-id` and
+`fiken-mcp-web-distribution-domain-name`). On a new account iac therefore
+cannot deploy until the web stack exists, and the web stack needs iac's
+execution policy. Deploy iac with the site records and the invalidation
+import temporarily commented out, then the web stack, then iac again with
+them restored. The web stack cannot remove or rename those exports while iac
+imports them.
+
 ## Before the first production deploy
 
 - `spike/` was deleted in the foundation pull request. Its code and
@@ -432,11 +443,11 @@ It ships in two PRs, because the workflow deploys iac before web and a Route
 1. PR A removes the BucketDeployment and the apex A/AAAA records from the web
    stack and adds the content step and the deploy role rights. The live
    objects stay in the bucket (the custom resource's delete retains them).
-   `SiteLayer` stays in the execution policy so CloudFormation can delete the
-   layer.
+   `SiteLayer` stayed in the execution policy so CloudFormation could delete
+   the layer.
 2. PR B moves the alias records to the iac stack (importing the exports),
    narrows the invalidation right to the imported distribution and drops
-   `SiteLayer`.
+   `SiteLayer` (the layer is gone).
 
 The site is unreachable from PR A's deploy until PR B's deploy (no DNS
 records in between). Jonas accepted that. The first content step also

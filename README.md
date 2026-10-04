@@ -343,8 +343,8 @@ counters from its own domain, and strict security headers (all CSS and JS
 in files, never inline). No access logs. The content never goes through
 CloudFormation: the deploy workflow runs `aws s3 sync web/ --delete`, copies
 the icon and invalidates CloudFront. The A/AAAA alias records on the apex
-live in the iac stack (after the follow-up change; until it deploys, the
-site has no DNS records). The early-access email address exists only as
+live in the iac stack (`iac/lib/iac-stack.ts`), which imports the
+distribution's id and domain name from the web stack's exports. The early-access email address exists only as
 char codes in `site.js` and is assembled on click; a test fails if it
 appears in plain text.
 
