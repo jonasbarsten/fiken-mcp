@@ -37,6 +37,13 @@ describe("built widget", () => {
     expect(html).toContain('"image" in contextModalities');
     // A dead ticket must name every file of the batch, not just the one that hit the 401.
     expect(html).toContain("opplastingen utløp");
-    expect(html).toContain("Bokfør den.");
+  });
+
+  it("on Ferdig tells the model through context and fills in no message", () => {
+    expect(html).toContain("The user pressed Ferdig in the upload widget");
+    expect(html).toContain("Wait for the user to say what to do with them; do not book them unasked.");
+    expect(html).toContain("Skriv i chatten hva du vil gjøre med dem.");
+    expect(html).not.toContain("app.sendMessage(");
+    expect(html).not.toContain("Bokfør den.");
   });
 });

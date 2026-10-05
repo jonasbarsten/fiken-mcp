@@ -53,6 +53,16 @@ describe("upload tools", () => {
     expect(readUploadTicket(testConfig(), sc.ticket)).toMatchObject({ fikenAccessToken: "tok", anonId: "anon", companySlug: "demo" });
   });
 
+  it("upload_receipts leaves what happens to the files to the user, not booking by default", async () => {
+    const c = await connectedWithUrl();
+    const tool = (await c.listTools()).tools.find((t) => t.name === "upload_receipts")!;
+    expect(tool.description).toContain("Then do what the user asks: book them (resolve project, supplier and accounts with the read tools, then create_purchase with inboxDocumentId per receipt), or leave them in the inbox. Do not book unasked.");
+    const r = await c.callTool({ name: "upload_receipts", arguments: { companySlug: "demo" } });
+    const text = (r.content as Array<{ text: string }>)[0]!.text;
+    expect(text).toContain("When the user presses Ferdig, wait for them to say what to do with the files.");
+    expect(text).not.toContain("then book with create_purchase");
+  });
+
   it("never issues a ticket that outlives the session it was minted from", async () => {
     const now = Math.floor(Date.now() / 1000);
     const c = await connectedWithUrl(now + 120);
