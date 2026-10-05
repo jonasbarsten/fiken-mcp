@@ -67,8 +67,12 @@ Result:
 Widget (`ui://fiken-mcp/choice.html`):
 
 - Shows the question and one button per option (label, description
-  below in smaller text). With `allowOther`, a text field and a «Send»
+  below in smaller text). With `allowOther`, a text field and a «Bruk»
   button.
+- Claude puts a widget's message in the chat composer; the user sends it
+  there. After an answer, the choice, form, preview and table widgets say
+  so: «Svaret ligger i meldingsfeltet – trykk send i chatten.» (added
+  2026-10-05; the buttons say «Bruk», not «Send», for the same reason).
 - A click sends the user message `<label>` followed by
   ` (<value>)` when value differs from label, e.g.
   «Fiken-demo – Amerikansk hytte AS (fiken-demo-amerikansk-hytte-as3)».
@@ -151,14 +155,14 @@ Input (strict): `title` (1–120), `fields` (1–12, unique `name`):
 "amount" | "date" | "select" | "checkbox", value? (suggested value),
 options? (select only: 1–20 `{ label, value }`), required? (default
 false; refused on a checkbox, which always has a value), help? (≤ 160),
-value ≤ 200 }`, `submitLabel?` (1–40, default «Send»). Number and amount
+value ≤ 200 }`, `submitLabel?` (1–40, default «Bruk»; was «Send» until 2026-10-05). Number and amount
 fields are text inputs and the answer is sent as typed (e.g. «7,5»); an
 amount field is kroner as the user typed it, not øre, and the
 description says so.
 
 - Widget: one input per field (date → date input, amount → text input
   accepting «1 250,50», select → buttons or a select, checkbox → checkbox),
-  suggested values filled in, help text under the field. «Send» is
+  suggested values filled in, help text under the field. «Bruk» is
   disabled until every required field has a value; one message per form.
 - Message: `<title>:` then one line per field `- <label>: <value>`
   (select as `<label> (<value>)` when they differ; checkbox «Ja»/«Nei»;

@@ -31,7 +31,7 @@ describe("ask_user_form", () => {
     expect(r.structuredContent).toEqual({
       title: "Ny kunde",
       fields: fields.map((x) => ({ required: false, ...x })),
-      submitLabel: "Send",
+      submitLabel: "Bruk",
     });
     expect((r.content as Block[])[0]!.text).toBe(
       "Spurte brukeren (skjema): Ny kunde\n1. Navn (text)\n2. Beløp (amount, forslag: 1 250,50)\n3. Land (select, valg: Norge / Sverige)\nVent på svaret i chatten.",

@@ -18,6 +18,18 @@ describe("built widget", () => {
     expect(html.length).toBeGreaterThan(500_000);
   });
 
+  it("keeps the build version out of sight, in a meta tag", () => {
+    expect(html).toMatch(/<meta name="widget-version" content="[0-9a-f]{8}" \/>/);
+    expect(html).toContain("<h3>Kvitteringer</h3>");
+  });
+
+  it("takes dropped files on devices with a mouse, through the same upload path", () => {
+    expect(html).toContain('id="drop"');
+    expect(html).toContain("@media (hover: hover) and (pointer: fine)");
+    expect(html).toContain('document.addEventListener("drop"');
+    expect(html).toContain("handleFiles(dropped.filter(isReceiptFile))");
+  });
+
   it("prefixes the summary block and gates image blocks on the host's declared modality", () => {
     // The summary names user-supplied file names, so it is untrusted like the rest.
     expect(html).toContain("${PREFIX}Uploaded to Fiken inbox of");
@@ -25,6 +37,13 @@ describe("built widget", () => {
     expect(html).toContain('"image" in contextModalities');
     // A dead ticket must name every file of the batch, not just the one that hit the 401.
     expect(html).toContain("opplastingen utløp");
-    expect(html).toContain("Bokfør den.");
+  });
+
+  it("on Ferdig tells the model through context and fills in no message", () => {
+    expect(html).toContain("The user pressed Ferdig in the upload widget");
+    expect(html).toContain("Wait for the user to say what to do with them; do not book them unasked.");
+    expect(html).toContain("Skriv i chatten hva du vil gjøre med dem.");
+    expect(html).not.toContain("app.sendMessage(");
+    expect(html).not.toContain("Bokfør den.");
   });
 });

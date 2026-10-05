@@ -117,15 +117,18 @@ A short, fixed tool list instead of one tool per Fiken action:
 - The upload tools: `upload_receipts` and `get_upload_url` (see below).
 - `ask_user_choice`: shows the user a question with 2-12 options as
   buttons in clients that render widgets (others get a numbered list);
-  the answer comes back as the user's next chat message. Read-only, on
-  every connection.
+  the answer comes back as the user's next chat message. Claude puts it
+  in the chat composer and the user sends it; the choice, form, preview
+  and table widgets then say «Svaret ligger i meldingsfeltet – trykk
+  send i chatten.» Read-only, on every connection.
 - `ask_user_form`: shows the user a short form (1-12 fields: text,
   number, amount, date, select, checkbox) with suggested values in
   clients that render widgets (others get a numbered list); the answers
   come back as one chat message (number and amount answers as typed,
   possibly with a decimal comma; an amount is kroner as typed, not øre).
   A suggested value is at most 200
-  characters, the button label 1-40. Read-only, on every connection.
+  characters, the button label 1-40 (default «Bruk»). Read-only, on every
+  connection.
 - `show_table`: shows rows you fetched (invoices, inbox documents,
   balances, ...) as a table in clients that render widgets (others get a
   Markdown table), 1-8 columns and 1-50 rows, with up to 3 action buttons
@@ -332,10 +335,13 @@ security boundary against whoever holds the token: the same login token
 works on `/mcp`. To stop a token, revoke access in Fiken.
 
 Receipts: `upload_receipts` opens a picker inside the chat (photos,
-camera, PDFs). Each file goes to the company's Fiken inbox and its
+camera, PDFs; on a computer with a mouse, files can also be dropped onto
+it). Each file goes to the company's Fiken inbox and its
 content (images, or the text of each PDF page) goes straight into the
-model's context, so nothing is read back from Fiken. Press "Ferdig" and
-the model books. `get_upload_url` gives shell-capable clients such as
+model's context, so nothing is read back from Fiken. "Ferdig" fills in
+no message: it tells the model through the same context that the upload
+is complete and that it should wait for the user, who then writes what
+to do with the files (book them, or not). `get_upload_url` gives shell-capable clients such as
 Claude Code a `curl` command instead.
 
 Limits: 4 MB per file (larger photos are downscaled in the widget; larger

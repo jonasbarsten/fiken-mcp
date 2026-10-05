@@ -51,7 +51,7 @@ const inputSchema = z
       .superRefine((fields, ctx) => {
         if (new Set(fields.map((f) => f.name)).size !== fields.length) ctx.addIssue({ code: "custom", message: "Field names must be unique." });
       }),
-    submitLabel: z.string().min(1).max(40).default("Send"),
+    submitLabel: z.string().min(1).max(40).default("Bruk"),
   })
   .strict();
 

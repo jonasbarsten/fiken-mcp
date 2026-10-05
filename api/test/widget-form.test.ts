@@ -67,7 +67,7 @@ describe("form widget logic", () => {
 
   it("disables Send while a required field is empty and enables it when filled", () => {
     const { input, submit } = render();
-    expect(submit.textContent).toBe("Send");
+    expect(submit.textContent).toBe("Bruk");
     expect(submit.disabled).toBe(true);
     input(0).value = "   ";
     input(0).fire("input");

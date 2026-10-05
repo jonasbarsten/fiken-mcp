@@ -23,6 +23,7 @@ function cellText(column, value) {
  * table, so a replayed tool result shows those rows disabled instead of offering the action again.
  */
 function renderTable(doc, root, data, send, acted = new Set()) {
+  let hint;
   const title = doc.createElement("p");
   title.className = "title";
   title.textContent = data.title;
@@ -64,6 +65,13 @@ function renderTable(doc, root, data, send, acted = new Set()) {
           acted.add(index);
           for (const other of buttons) other.disabled = true;
           send(action.message);
+          // Claude puts the message in the chat composer; say so once, however many rows are used.
+          if (!hint) {
+            hint = doc.createElement("p");
+            hint.className = "hint";
+            hint.textContent = "Svaret ligger i meldingsfeltet – trykk send i chatten.";
+            root.append(hint);
+          }
         });
         buttons.push(b);
         td.append(b);
