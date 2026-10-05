@@ -34,7 +34,8 @@ function renderForm(doc, root, data, send) {
   const submit = doc.createElement("button");
   submit.type = "button";
   submit.className = "send";
-  submit.textContent = data.submitLabel ?? "Send";
+  // «Bruk», not «Send»: Claude puts the answers in the chat composer, and the user sends them there.
+  submit.textContent = data.submitLabel ?? "Bruk";
 
   const values = () => {
     const out = {};
@@ -51,6 +52,10 @@ function renderForm(doc, root, data, send) {
     for (const c of controls) c.disabled = true;
     submit.disabled = true;
     send(formMessage(data, values()));
+    const hint = doc.createElement("p");
+    hint.className = "hint";
+    hint.textContent = "Svaret ligger i meldingsfeltet – trykk send i chatten.";
+    root.append(hint);
   };
 
   data.fields.forEach((field, i) => {

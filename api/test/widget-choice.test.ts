@@ -60,7 +60,7 @@ describe("choice widget logic", () => {
     const sent: string[] = [];
     renderChoice(doc as never, root as never, { ...data, allowOther: true }, (t: string) => sent.push(t));
     const input = root.all().find((e) => e.tag === "input")!;
-    const send = root.all().find((e) => e.tag === "button" && e.textContent === "Send")!;
+    const send = root.all().find((e) => e.tag === "button" && e.textContent === "Bruk")!;
     input.value = "  Et annet foretak  ";
     send.click();
     expect(sent).toEqual(["Et annet foretak"]);

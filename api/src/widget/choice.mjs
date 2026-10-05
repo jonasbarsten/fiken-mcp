@@ -6,6 +6,9 @@ function choiceMessage(option) {
   return option.value === option.label ? option.label : `${option.label} (${option.value})`;
 }
 
+// Claude puts the widget's message in the chat composer; the user still has to press send.
+const HINT = "Svaret ligger i meldingsfeltet – trykk send i chatten.";
+
 function renderChoice(doc, root, data, send) {
   let done = false;
   // Buttons and the «Annet» field: all of them are disabled once the user has answered.
@@ -16,6 +19,10 @@ function renderChoice(doc, root, data, send) {
     for (const c of controls) c.disabled = true;
     if (chosen) chosen.className = `${chosen.className} chosen`.trim();
     send(text);
+    const hint = doc.createElement("p");
+    hint.className = "hint";
+    hint.textContent = HINT;
+    root.append(hint);
   };
 
   const q = doc.createElement("p");
@@ -50,7 +57,7 @@ function renderChoice(doc, root, data, send) {
     input.placeholder = "Annet …";
     const b = doc.createElement("button");
     b.type = "button";
-    b.textContent = "Send";
+    b.textContent = "Bruk";
     const submit = () => {
       const text = String(input.value ?? "").trim();
       if (text !== "") finish(text, b);

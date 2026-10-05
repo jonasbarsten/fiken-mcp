@@ -117,15 +117,18 @@ A short, fixed tool list instead of one tool per Fiken action:
 - The upload tools: `upload_receipts` and `get_upload_url` (see below).
 - `ask_user_choice`: shows the user a question with 2-12 options as
   buttons in clients that render widgets (others get a numbered list);
-  the answer comes back as the user's next chat message. Read-only, on
-  every connection.
+  the answer comes back as the user's next chat message. Claude puts it
+  in the chat composer and the user sends it; the choice, form, preview
+  and table widgets then say «Svaret ligger i meldingsfeltet – trykk
+  send i chatten.» Read-only, on every connection.
 - `ask_user_form`: shows the user a short form (1-12 fields: text,
   number, amount, date, select, checkbox) with suggested values in
   clients that render widgets (others get a numbered list); the answers
   come back as one chat message (number and amount answers as typed,
   possibly with a decimal comma; an amount is kroner as typed, not øre).
   A suggested value is at most 200
-  characters, the button label 1-40. Read-only, on every connection.
+  characters, the button label 1-40 (default «Bruk»). Read-only, on every
+  connection.
 - `show_table`: shows rows you fetched (invoices, inbox documents,
   balances, ...) as a table in clients that render widgets (others get a
   Markdown table), 1-8 columns and 1-50 rows, with up to 3 action buttons
