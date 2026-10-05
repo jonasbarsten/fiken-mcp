@@ -3,11 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="widget-version" content="__WIDGET_VERSION__" />
   <title>Velg kvitteringer</title>
   <style>
+    /* Declared, so a dark host keeps the frame transparent instead of painting it white under light text. */
+    :root { color-scheme: light dark; }
     body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; color: #222; background: transparent; }
     h3 { margin: 0 0 8px; font-size: 16px; }
-    h3 small { font-weight: normal; color: #888; }
+    /* Only where files can be dragged in: a mouse, not a touch screen. */
+    #drop { display: none; margin: 0 0 12px; padding: 18px 12px; border: 2px dashed #999; border-radius: 8px; text-align: center; color: #555; }
+    #drop.over { border-color: #5b3df5; color: #5b3df5; }
+    @media (hover: hover) and (pointer: fine) { #drop { display: block; } }
     .btn { display: inline-block; padding: 12px 16px; border-radius: 8px; background: #5b3df5; color: #fff; font-size: 16px; border: 0; cursor: pointer; }
     .btn[disabled], .btn.off { opacity: 0.5; cursor: default; }
     .btn.off { pointer-events: none; }
@@ -20,12 +26,15 @@
       body { color: #eee; }
       #status { color: #bbb; }
       li .more { border-color: #a394ff; color: #a394ff; }
+      #drop { color: #bbb; border-color: #777; }
+      #drop.over { border-color: #a394ff; color: #a394ff; }
     }
   </style>
 </head>
 <body>
-  <h3>Kvitteringer <small>__WIDGET_VERSION__</small></h3>
+  <h3>Kvitteringer</h3>
   <p id="status">Kobler til…</p>
+  <div id="drop">Slipp kvitteringer her (bilder eller PDF)</div>
   <div class="row">
     <label class="btn" id="pick-label">Velg filer
       <input id="picker" type="file" multiple accept="image/*,application/pdf" style="display:none" />
@@ -414,6 +423,31 @@
       e.target.value = "";
       handleFiles(files);
     });
+    // Dropping anywhere on the widget works; the dashed box is only the hint.
+    const isReceiptFile = (f) => f.type.startsWith("image/") || f.type === "application/pdf" || /\.(pdf|heic|heif)$/i.test(f.name);
+    let dragDepth = 0;
+    document.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      dragDepth++;
+      $("drop").classList.add("over");
+    });
+    document.addEventListener("dragleave", () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) $("drop").classList.remove("over");
+    });
+    document.addEventListener("dragover", (e) => e.preventDefault());
+    document.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dragDepth = 0;
+      $("drop").classList.remove("over");
+      const dropped = [...(e.dataTransfer?.files ?? [])];
+      if (dropped.length > 0 && !dropped.some(isReceiptFile)) {
+        setStatus("Bare bilder og PDF kan legges i innboksen.");
+        return;
+      }
+      handleFiles(dropped.filter(isReceiptFile));
+    });
+
     $("camera-btn").addEventListener("click", () => $("camera").click());
     $("camera").addEventListener("change", (e) => {
       const files = [...e.target.files];

@@ -332,7 +332,8 @@ security boundary against whoever holds the token: the same login token
 works on `/mcp`. To stop a token, revoke access in Fiken.
 
 Receipts: `upload_receipts` opens a picker inside the chat (photos,
-camera, PDFs). Each file goes to the company's Fiken inbox and its
+camera, PDFs; on a computer with a mouse, files can also be dropped onto
+it). Each file goes to the company's Fiken inbox and its
 content (images, or the text of each PDF page) goes straight into the
 model's context, so nothing is read back from Fiken. Press "Ferdig" and
 the model books. `get_upload_url` gives shell-capable clients such as

@@ -18,6 +18,18 @@ describe("built widget", () => {
     expect(html.length).toBeGreaterThan(500_000);
   });
 
+  it("keeps the build version out of sight, in a meta tag", () => {
+    expect(html).toMatch(/<meta name="widget-version" content="[0-9a-f]{8}" \/>/);
+    expect(html).toContain("<h3>Kvitteringer</h3>");
+  });
+
+  it("takes dropped files on devices with a mouse, through the same upload path", () => {
+    expect(html).toContain('id="drop"');
+    expect(html).toContain("@media (hover: hover) and (pointer: fine)");
+    expect(html).toContain('document.addEventListener("drop"');
+    expect(html).toContain("handleFiles(dropped.filter(isReceiptFile))");
+  });
+
   it("prefixes the summary block and gates image blocks on the host's declared modality", () => {
     // The summary names user-supplied file names, so it is untrusted like the rest.
     expect(html).toContain("${PREFIX}Uploaded to Fiken inbox of");
