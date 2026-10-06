@@ -128,6 +128,42 @@ In the "Fiken MCP" app under Rediger konto, API: add redirect URI
 `https://api.fiken-mcp.byjoba.com/callback`. Add each tester's Fiken login
 under "Godkjente brukere" while the app is in development status.
 
+## Adding a new client
+
+A new MCP client (or a new app of one we support, like ChatGPT Desktop next
+to ChatGPT web) may be refused by two allowlists. The hosts do not document
+their values, so read them from what actually arrives:
+
+1. **Login (OAuth redirect URI).** If `/authorize` answers «redirect_uri is
+   not a known MCP client» or «redirect_uri not registered for this client»,
+   read the `redirect_uri` (and `client_id`) from the browser's address bar.
+   Add the host and path to `KNOWN` in `api/src/auth/clients.ts`; for a client
+   id that is a URL (a metadata document), check that its host is in the CIMD
+   host list there too. Loopback redirects already match on any port
+   (RFC 8252 §7.3).
+2. **Widget origin (CORS for `/upload` and `/document`).** If the upload
+   widget says «feilet: fikk ikke kontakt med serveren (<origin>)» or the
+   document view says «Kunne ikke hente dokumentet», the origin is not
+   allowed. Read it from the widget's message, or from the `widget_preflight`
+   log line (`allowed:false`) in `/aws/lambda/fiken-mcp-api`:
+
+       aws logs filter-log-events --profile byjoba --region eu-west-1 \
+         --log-group-name /aws/lambda/fiken-mcp-api \
+         --start-time <ms> --filter-pattern '"widget_preflight"'
+
+   Add it to `WIDGET_ORIGIN` in `api/src/upload/routes.ts` as narrowly as
+   possible (the host's own domain, never a wildcard over unrelated hosts),
+   with a test that uses the exact origin and refuses look-alikes.
+
+Known values (2026-10-06):
+
+| Client | Redirect URI | Widget origin |
+|---|---|---|
+| Claude (web, Desktop, iOS) | `https://claude.ai/api/mcp/auth_callback` | `https://<id>.claudemcpcontent.com` |
+| Claude Code | a `http://localhost:<port>/…` loopback address | (no widgets) |
+| ChatGPT web and iOS | `https://chatgpt.com/connector_platform_oauth_redirect` or `https://chatgpt.com/connector/oauth/<id>` (both allowed) | `https://<label>.web-sandbox.oaiusercontent.com` (labels may contain `_`) |
+| ChatGPT Desktop (Codex) | `http://127.0.0.1:<port>/callback/<id>` | `codex-sandbox://<label>.web-sandbox.oaiusercontent.com` |
+
 ## Website certificate
 
 CloudFront needs its certificate in us-east-1. Requested by hand on

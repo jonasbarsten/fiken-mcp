@@ -34,6 +34,24 @@ Repo: `jonasbarsten/fiken-mcp` (public). AWS: byjoba account
   pushes to main.
 - Keep the README up to date.
 
+## New clients need allowlist entries
+
+Every new MCP client (or a new app of an existing one) may need entries in
+two allowlists before it works. Neither is documented by the hosts; find the
+real values from logs, never by guessing. See "Adding a new client" in
+`docs/setup.md`.
+
+- OAuth redirect URIs: `KNOWN` in `api/src/auth/clients.ts` (and the CIMD
+  hosts there). Symptom: «redirect_uri is not a known MCP client» or
+  «redirect_uri not registered for this client» at `/authorize`.
+- Widget origins: `WIDGET_ORIGIN` in `api/src/upload/routes.ts` (used by
+  `/upload` and `/document`). Symptom: upload «feilet: fikk ikke kontakt med
+  serveren (<origin>)» or «Kunne ikke hente dokumentet»; the
+  `widget_preflight` log line shows the origin and `allowed:false`.
+  Known so far: Claude `https://<id>.claudemcpcontent.com`; ChatGPT web and
+  iOS `https://<label>.web-sandbox.oaiusercontent.com` (labels may contain
+  underscores); ChatGPT Desktop `codex-sandbox://<label>.web-sandbox.oaiusercontent.com`.
+
 ## Process
 
 Foundation plan executed 2026-09-22 (see
