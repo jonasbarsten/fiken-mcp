@@ -1,10 +1,9 @@
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import type { Config } from "../config.js";
 import { BlobError } from "../crypto/blob.js";
 import { createFikenClient, FikenError } from "../fiken/client.js";
 import { detectType } from "../upload/detect.js";
-import { WIDGET_ORIGIN } from "../upload/routes.js";
+import { widgetCors } from "../upload/routes.js";
 import { readViewTicket } from "./ticket.js";
 
 // A binary Lambda response goes out base64-encoded under a 6 MB payload limit,
@@ -21,15 +20,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
 export function documentRoutes(cfg: Config): Hono {
   const app = new Hono();
 
-  app.use(
-    "/document",
-    cors({
-      origin: (origin) => (WIDGET_ORIGIN.test(origin) ? origin : ""),
-      allowMethods: ["GET", "OPTIONS"],
-      allowHeaders: ["x-ticket"],
-      maxAge: 600,
-    }),
-  );
+  app.use("/document", widgetCors(["GET", "OPTIONS"], ["x-ticket"]));
 
   app.get("/document", async (c) => {
     // Header only, as for /upload: a ticket in the query string would be copied

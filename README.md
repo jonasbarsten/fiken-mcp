@@ -354,7 +354,9 @@ and named as skipped when it cannot. Amounts everywhere are integers in
 
 Only the widget sandbox origins of Claude (`*.claudemcpcontent.com`) and
 ChatGPT (`*.web-sandbox.oaiusercontent.com`) may call the upload and
-document endpoints cross-origin. `GET /document` fetches only the file URL sealed in its ticket
+document endpoints cross-origin. Each preflight to them is logged as
+`widget_preflight` with its origin, requested headers and whether it was
+allowed, since a refused preflight leaves no other trace. `GET /document` fetches only the file URL sealed in its ticket
 (never one from the request), only from Fiken's hosts, answers only PDF,
 PNG, JPEG and GIF (by magic bytes, at most 4 MB) with
 `Cache-Control: no-store`, and refuses a missing, expired or upload
