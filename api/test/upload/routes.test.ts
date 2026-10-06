@@ -75,6 +75,17 @@ describe("POST /upload", () => {
     expect(bad.headers.get("access-control-allow-origin")).toBeNull();
   });
 
+  it("answers the CORS preflight for ChatGPT's widget sandbox too, and not for look-alikes", async () => {
+    const { app } = setup();
+    const preflight = (origin: string) =>
+      app.request("/upload", { method: "OPTIONS", headers: { origin, "access-control-request-method": "POST", "access-control-request-headers": "x-ticket" } });
+    const chatgpt = "https://fiken-mcp-abc.web-sandbox.oaiusercontent.com";
+    expect((await preflight(chatgpt)).headers.get("access-control-allow-origin")).toBe(chatgpt);
+    for (const bad of ["https://web-sandbox.oaiusercontent.com.evil.example", "https://evil.example/x.web-sandbox.oaiusercontent.com", "http://a.web-sandbox.oaiusercontent.com"]) {
+      expect((await preflight(bad)).headers.get("access-control-allow-origin"), bad).toBeNull();
+    }
+  });
+
   it("refuses a missing, wrong or expired ticket before reading the body, and ignores a ticket in the query", async () => {
     const { app, cfg, calls } = setup();
     expect((await upload(app, PNG, { "content-type": "image/png" })).status).toBe(401);

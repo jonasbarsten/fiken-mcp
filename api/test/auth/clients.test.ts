@@ -1,5 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { clientLabel, isAllowedCimdHost, isAllowedRedirectUri } from "../../src/auth/clients.js";
+import { clientLabel, isAllowedCimdHost, isAllowedRedirectUri, isRegisteredRedirectUri } from "../../src/auth/clients.js";
+
+describe("registered redirect URI match", () => {
+  // ChatGPT Desktop (Codex) registers loopback URIs without a port and logs in on a random one.
+  const codex = ["http://127.0.0.1/callback/2hAaKVHhj9ha", "http://localhost/callback/2hAaKVHhj9ha"];
+
+  it("matches exactly", () => {
+    expect(isRegisteredRedirectUri(["https://claude.ai/api/mcp/auth_callback"], "https://claude.ai/api/mcp/auth_callback")).toBe(true);
+  });
+
+  it("ignores the port on a loopback address (RFC 8252 7.3)", () => {
+    expect(isRegisteredRedirectUri(codex, "http://127.0.0.1:61234/callback/2hAaKVHhj9ha")).toBe(true);
+    expect(isRegisteredRedirectUri(codex, "http://localhost:5000/callback/2hAaKVHhj9ha")).toBe(true);
+  });
+
+  it("still requires the same host, path and query on loopback", () => {
+    expect(isRegisteredRedirectUri(codex, "http://127.0.0.1:61234/callback/other")).toBe(false);
+    expect(isRegisteredRedirectUri(["http://127.0.0.1/callback"], "http://localhost:5000/callback")).toBe(false);
+    expect(isRegisteredRedirectUri(["http://127.0.0.1/callback"], "http://127.0.0.1:5000/callback?x=1")).toBe(false);
+  });
+
+  it("never ignores the port on other hosts", () => {
+    expect(isRegisteredRedirectUri(["https://claude.ai/api/mcp/auth_callback"], "https://claude.ai:8443/api/mcp/auth_callback")).toBe(false);
+  });
+});
 
 describe("redirect allowlist", () => {
   it("accepts known clients and loopback", () => {

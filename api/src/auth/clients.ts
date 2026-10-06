@@ -44,6 +44,29 @@ export function isAllowedRedirectUri(uri: string): boolean {
   return url !== undefined && KNOWN.some((c) => c.matches(url));
 }
 
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+/**
+ * Whether the redirect URI a client sends is one it registered. Exact match, except that a loopback address may come
+ * on any port (RFC 8252 7.3): native apps such as ChatGPT Desktop register http://127.0.0.1/callback/… and listen on
+ * a random port. Host, path and query must still match.
+ */
+export function isRegisteredRedirectUri(registered: readonly string[], uri: string): boolean {
+  if (registered.includes(uri)) return true;
+  const url = parse(uri);
+  if (!url || url.protocol !== "http:" || !LOOPBACK_HOSTS.has(url.hostname)) return false;
+  return registered.some((r) => {
+    const reg = parse(r);
+    return (
+      reg !== undefined &&
+      reg.protocol === "http:" &&
+      reg.hostname === url.hostname &&
+      reg.pathname === url.pathname &&
+      reg.search === url.search
+    );
+  });
+}
+
 export function clientLabel(uri: string): string {
   const url = parse(uri);
   return (url && KNOWN.find((c) => c.matches(url))?.label) ?? "an unknown client";
