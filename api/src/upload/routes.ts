@@ -1,6 +1,7 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import type { Config } from "../config.js";
+import { log } from "../log.js";
 import { BlobError } from "../crypto/blob.js";
 import { createFikenClient, FikenError } from "../fiken/client.js";
 import { detectType, safeFilename } from "./detect.js";
@@ -14,6 +15,27 @@ const MAX_BYTES = 4 * 1024 * 1024;
  * the only origins allowed to call the widget routes cross-origin.
  */
 export const WIDGET_ORIGIN = /^https:\/\/(?:[a-z0-9-]+\.claudemcpcontent\.com|(?:[a-z0-9-]+\.)+web-sandbox\.oaiusercontent\.com)$/;
+
+/**
+ * CORS for a widget route, logging every preflight's origin, requested headers and whether it was allowed. A refused
+ * preflight leaves no other trace (the browser then never sends the request), and hosts render widgets from origins
+ * they do not document. An origin is a domain, not user data.
+ */
+export function widgetCors(allowMethods: string[], allowHeaders: string[]): MiddlewareHandler {
+  const handler = cors({ origin: (origin) => (WIDGET_ORIGIN.test(origin) ? origin : ""), allowMethods, allowHeaders, maxAge: 600 });
+  return async (c, next) => {
+    if (c.req.method === "OPTIONS") {
+      const origin = (c.req.header("origin") ?? "").slice(0, 200);
+      log("widget_preflight", {
+        route: c.req.path,
+        origin,
+        allowed: WIDGET_ORIGIN.test(origin),
+        requestedHeaders: (c.req.header("access-control-request-headers") ?? "").slice(0, 200),
+      });
+    }
+    return handler(c, next);
+  };
+}
 
 /**
  * The widget percent-encodes the name, because a header value may not carry the
@@ -38,15 +60,7 @@ function decodeFilename(value: string): string {
 export function uploadRoutes(cfg: Config): Hono {
   const app = new Hono();
 
-  app.use(
-    "/upload",
-    cors({
-      origin: (origin) => (WIDGET_ORIGIN.test(origin) ? origin : ""),
-      allowMethods: ["POST", "OPTIONS"],
-      allowHeaders: ["content-type", "x-filename", "x-ticket"],
-      maxAge: 600,
-    }),
-  );
+  app.use("/upload", widgetCors(["POST", "OPTIONS"], ["content-type", "x-filename", "x-ticket"]));
 
   app.post("/upload", async (c) => {
     // Header only: a ticket in the query string would be copied into access

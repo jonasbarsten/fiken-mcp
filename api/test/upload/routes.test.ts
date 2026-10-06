@@ -86,6 +86,19 @@ describe("POST /upload", () => {
     }
   });
 
+  it("logs each widget preflight's origin, requested headers and whether it was allowed", async () => {
+    const { app } = setup();
+    const { lines } = captureStdout();
+    await app.request("/upload", { method: "OPTIONS", headers: { origin: "https://x.web-sandbox.oaiusercontent.com", "access-control-request-method": "POST", "access-control-request-headers": "x-ticket,x-filename" } });
+    await app.request("/document", { method: "OPTIONS", headers: { origin: "null", "access-control-request-method": "GET" } });
+    const preflights = lines.map((l) => { try { return JSON.parse(l); } catch { return {}; } }).filter((e) => e.event === "widget_preflight");
+    expect(preflights).toEqual([
+      expect.objectContaining({ route: "/upload", origin: "https://x.web-sandbox.oaiusercontent.com", allowed: true, requestedHeaders: "x-ticket,x-filename" }),
+      expect.objectContaining({ route: "/document", origin: "null", allowed: false, requestedHeaders: "" }),
+    ]);
+    vi.restoreAllMocks();
+  });
+
   it("refuses a missing, wrong or expired ticket before reading the body, and ignores a ticket in the query", async () => {
     const { app, cfg, calls } = setup();
     expect((await upload(app, PNG, { "content-type": "image/png" })).status).toBe(401);
