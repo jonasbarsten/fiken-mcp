@@ -104,6 +104,17 @@ describe("GET /authorize (consent)", () => {
     expect((await get(params(await register(), { code_challenge_method: "plain" }))).status).toBe(400);
   });
 
+  it("accepts a loopback redirect on any port when the client registered it without one (ChatGPT Desktop)", async () => {
+    const res = await app.request("/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ client_name: "Codex", redirect_uris: ["http://127.0.0.1/callback/abc"] }),
+    });
+    const clientId = (await res.json()).client_id as string;
+    expect((await get(params(clientId, { redirect_uri: "http://127.0.0.1:61234/callback/abc" }))).status).toBe(200);
+    expect((await get(params(clientId, { redirect_uri: "http://127.0.0.1:61234/callback/other" }))).status).toBe(400);
+  });
+
   it("re-checks the allowlist, so a client id signed for a redirect uri that is no longer allowed is refused", async () => {
     const evil = "https://evil.example/cb";
     const clientId = signBlob({ k: "c", ru: [evil], n: "Evil" }, cfg.keys);

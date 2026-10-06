@@ -9,7 +9,7 @@ import { log } from "../log.js";
 import { parseConnectorOptions } from "../mcp/options.js";
 import { anonymousId } from "./anon.js";
 import { resolveClient } from "./cimd.js";
-import { type ClientWire, clientLabel, isAllowedRedirectUri } from "./clients.js";
+import { type ClientWire, clientLabel, isAllowedRedirectUri, isRegisteredRedirectUri } from "./clients.js";
 import { consentPage, continuePage } from "./consent.js";
 import { issueTokens, renewTokens } from "./tokens.js";
 
@@ -50,7 +50,7 @@ async function validateAuthorize(cfg: Config, q: Record<string, string | undefin
     return { error: "invalid client_id" };
   }
   const redirectUri = q.redirect_uri ?? "";
-  if (!client.redirectUris.includes(redirectUri)) return { error: "redirect_uri not registered for this client" };
+  if (!isRegisteredRedirectUri(client.redirectUris, redirectUri)) return { error: "redirect_uri not registered for this client" };
   // Re-checked on every use so removing a client from clients.ts takes effect at once.
   if (!isAllowedRedirectUri(redirectUri)) return { error: "redirect_uri is not a known MCP client" };
   if (q.code_challenge_method !== "S256" || !q.code_challenge) return { error: "PKCE S256 required" };
@@ -227,7 +227,7 @@ export function authRoutes(cfg: Config): Hono {
         } catch {
           return oauthError("invalid_client", "unknown client_id");
         }
-        if (fields.redirect_uri !== code.ru || !client.redirectUris.includes(code.ru) || !isAllowedRedirectUri(code.ru)) {
+        if (fields.redirect_uri !== code.ru || !isRegisteredRedirectUri(client.redirectUris, code.ru) || !isAllowedRedirectUri(code.ru)) {
           return oauthError("invalid_grant", "redirect_uri mismatch");
         }
         if (!fields.code_verifier || !verifyPkce(fields.code_verifier, code.cc)) {
