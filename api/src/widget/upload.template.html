@@ -375,8 +375,11 @@
           uploaded = await uploadOne(file, row);
         } catch (e) {
           console.error("upload failed", e);
-          row.set("feilet");
-          skipped.push({ name: file.name, reason: "opplasting feilet" });
+          // fetch throws a TypeError when no answer gets through (network, CORS or the host's CSP). Naming the
+          // widget's origin tells whoever reads the screenshot which origin the server must allow.
+          const reason = e instanceof TypeError ? `fikk ikke kontakt med serveren (${location.origin})` : String(e?.message ?? e);
+          row.set(`feilet: ${reason}`);
+          skipped.push({ name: file.name, reason: `opplasting feilet: ${reason}` });
         }
         if (uploaded === "expired") {
           // The ticket is dead for the whole batch, not just this file. Name every

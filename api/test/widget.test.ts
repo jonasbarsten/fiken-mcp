@@ -18,6 +18,11 @@ describe("built widget", () => {
     expect(html.length).toBeGreaterThan(500_000);
   });
 
+  it("says why an upload failed when the request never got an answer, with the widget's own origin", () => {
+    expect(html).toContain("fikk ikke kontakt med serveren (${location.origin})");
+    expect(html).toContain("row.set(`feilet: ${reason}`)");
+  });
+
   it("keeps the build version out of sight, in a meta tag", () => {
     expect(html).toMatch(/<meta name="widget-version" content="[0-9a-f]{8}" \/>/);
     expect(html).toContain("<h3>Kvitteringer</h3>");
