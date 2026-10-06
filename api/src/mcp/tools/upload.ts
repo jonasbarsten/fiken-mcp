@@ -42,7 +42,7 @@ export function registerUploadTools(server: McpServer, ctx: ToolContext, publicU
           type: "text",
           text:
             `Upload widget opened for ${slug}. The user picks their receipts there; each file lands in the Fiken inbox and its ` +
-            `contents arrive in your context with an inboxDocumentId. When the user presses Ferdig, wait for them to say what to do with the files.`,
+            `contents arrive in your context with an inboxDocumentId. Wait until the user says in the chat that they are done and what to do with the files.`,
         },
       ],
       structuredContent: {

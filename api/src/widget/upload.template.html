@@ -43,7 +43,6 @@
     <input id="camera" type="file" accept="image/*" capture="environment" style="display:none" />
   </div>
   <ul id="list"></ul>
-  <button id="done" class="btn" type="button" disabled>Ferdig</button>
 
   <!-- Each inlined bundle gets its own module scope; module scripts run in order. -->
   <script type="module">/*__PDFJS_WORKER__*/</script>
@@ -70,7 +69,6 @@
     let ticket = null;
     let companySlug = "";
     let busy = false;
-    let finished = false;
     // Hosts declare which block types they accept in ui/update-model-context.
     // Without an explicit `image` we send text only, so a host that would drop
     // or reject image blocks still gets a usable record of what was uploaded.
@@ -102,7 +100,6 @@
       $("camera").disabled = value;
       $("camera-btn").disabled = value;
       $("pick-label").classList.toggle("off", value);
-      $("done").disabled = value || entries.length === 0;
     }
 
     function syncSize() {
@@ -261,14 +258,9 @@
       return { type: "text", text };
     }
 
-    /** Written by the widget itself, not taken from a document, so it carries no untrusted prefix. */
-    const DONE_TEXT =
-      "The user pressed Ferdig in the upload widget: the files above are in the Fiken inbox. " +
-      "Wait for the user to say what to do with them; do not book them unasked.";
-
     /** A context update replaces the widget's previous one, so always send everything so far. */
     async function sendContext() {
-      const content = finished ? [{ type: "text", text: DONE_TEXT }, summaryBlock()] : [summaryBlock()];
+      const content = [summaryBlock()];
       for (const e of entries) content.push(...e.blocks);
       try {
         await app.updateModelContext({ content });
@@ -421,7 +413,8 @@
       await sendContext();
       setBusy(false);
       if (!expired) {
-        setStatus(entries.length > 0 ? `${entries.length} fil(er) i innboksen. Velg flere, eller trykk Ferdig.` : "Ingen filer ble lastet opp.");
+        // No done button: the model already has every file's content and id; the user's next message says what next.
+        setStatus(entries.length > 0 ? `${entries.length} fil(er) ligger i innboksen. Si fra i chatten når du er ferdig, og hva som skal skje med dem.` : "Ingen filer ble lastet opp.");
       }
     }
 
@@ -462,14 +455,6 @@
       const files = [...e.target.files];
       e.target.value = "";
       handleFiles(files);
-    });
-    // Ferdig fills in no message: what happens to the files is the user's next message.
-    // The model learns that the upload is complete from the context it reads with that message.
-    $("done").addEventListener("click", async () => {
-      finished = true;
-      $("done").disabled = true;
-      await sendContext();
-      setStatus(`Ferdig: ${entries.length} fil(er) ligger i innboksen. Skriv i chatten hva du vil gjøre med dem.`);
     });
   </script>
 </body>

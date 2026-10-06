@@ -59,7 +59,8 @@ describe("upload tools", () => {
     expect(tool.description).toContain("Then do what the user asks: book them (resolve project, supplier and accounts with the read tools, then create_purchase with inboxDocumentId per receipt), or leave them in the inbox. Do not book unasked.");
     const r = await c.callTool({ name: "upload_receipts", arguments: { companySlug: "demo" } });
     const text = (r.content as Array<{ text: string }>)[0]!.text;
-    expect(text).toContain("When the user presses Ferdig, wait for them to say what to do with the files.");
+    expect(text).toContain("Wait until the user says in the chat that they are done and what to do with the files.");
+    expect(text).not.toContain("Ferdig");
     expect(text).not.toContain("then book with create_purchase");
   });
 
