@@ -118,10 +118,11 @@ A short, fixed tool list instead of one tool per Fiken action:
 - The upload tools: `upload_receipts` and `get_upload_url` (see below).
 - `ask_user_choice`: shows the user a question with 2-12 options as
   buttons in clients that render widgets (others get a numbered list);
-  the answer comes back as the user's next chat message. Claude puts it
-  in the chat composer and the user sends it; the choice, form, preview
-  and table widgets then say «Svaret ligger i meldingsfeltet – trykk
-  send i chatten.» Read-only, on every connection.
+  the answer comes back as the user's next chat message. ChatGPT sends
+  it at once; Claude puts it in the chat composer for the user to send.
+  The choice, form, preview and table widgets then say «Svaret er sendt
+  til chatten. Står det i meldingsfeltet, trykk send.» Read-only, on
+  every connection.
 - `ask_user_form`: shows the user a short form (1-12 fields: text,
   number, amount, date, select, checkbox) with suggested values in
   clients that render widgets (others get a numbered list); the answers

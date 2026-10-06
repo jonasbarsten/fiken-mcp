@@ -65,11 +65,11 @@ function renderTable(doc, root, data, send, acted = new Set()) {
           acted.add(index);
           for (const other of buttons) other.disabled = true;
           send(action.message);
-          // Claude puts the message in the chat composer; say so once, however many rows are used.
+          // ChatGPT sends the message at once, Claude puts it in the composer; say so once, however many rows are used.
           if (!hint) {
             hint = doc.createElement("p");
             hint.className = "hint";
-            hint.textContent = "Svaret ligger i meldingsfeltet – trykk send i chatten.";
+            hint.textContent = "Svaret er sendt til chatten. Står det i meldingsfeltet, trykk send.";
             root.append(hint);
           }
         });

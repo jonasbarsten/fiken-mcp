@@ -69,10 +69,12 @@ Widget (`ui://fiken-mcp/choice.html`):
 - Shows the question and one button per option (label, description
   below in smaller text). With `allowOther`, a text field and a «Bruk»
   button.
-- Claude puts a widget's message in the chat composer; the user sends it
-  there. After an answer, the choice, form, preview and table widgets say
-  so: «Svaret ligger i meldingsfeltet – trykk send i chatten.» (added
-  2026-10-05; the buttons say «Bruk», not «Send», for the same reason).
+- Claude puts a widget's message in the chat composer for the user to
+  send; ChatGPT sends it at once (seen 2026-10-06). After an answer, the
+  choice, form, preview and table widgets say «Svaret er sendt til
+  chatten. Står det i meldingsfeltet, trykk send.», which holds in both
+  (added 2026-10-05, worded for both hosts 2026-10-06; the buttons say
+  «Bruk», not «Send»).
 - A click sends the user message `<label>` followed by
   ` (<value>)` when value differs from label, e.g.
   «Fiken-demo – Amerikansk hytte AS (fiken-demo-amerikansk-hytte-as3)».

@@ -32,8 +32,8 @@ function renderPreview(doc, root, preview, send) {
     for (const b of buttons) b.disabled = true;
     chosen.className = `${chosen.className} chosen`.trim();
     send(text);
-    // Claude puts the message in the chat composer; the user still has to press send.
-    root.append(el(doc, "p", "hint", "Svaret ligger i meldingsfeltet – trykk send i chatten."));
+    // ChatGPT sends the message at once; Claude puts it in the composer for the user to send.
+    root.append(el(doc, "p", "hint", "Svaret er sendt til chatten. Står det i meldingsfeltet, trykk send."));
   };
   const button = (label, className, text) => {
     const b = el(doc, "button", className, label);

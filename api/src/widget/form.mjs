@@ -54,7 +54,7 @@ function renderForm(doc, root, data, send) {
     send(formMessage(data, values()));
     const hint = doc.createElement("p");
     hint.className = "hint";
-    hint.textContent = "Svaret ligger i meldingsfeltet – trykk send i chatten.";
+    hint.textContent = "Svaret er sendt til chatten. Står det i meldingsfeltet, trykk send.";
     root.append(hint);
   };
 
