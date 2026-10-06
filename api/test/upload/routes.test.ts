@@ -81,6 +81,9 @@ describe("POST /upload", () => {
       app.request("/upload", { method: "OPTIONS", headers: { origin, "access-control-request-method": "POST", "access-control-request-headers": "x-ticket" } });
     const chatgpt = "https://fiken-mcp-abc.web-sandbox.oaiusercontent.com";
     expect((await preflight(chatgpt)).headers.get("access-control-allow-origin")).toBe(chatgpt);
+    // The origin the ChatGPT iOS app actually sent (widget_preflight log, 2026-10-06): underscores in the label.
+    const ios = "https://asdk_app_6ac4c41e132c8191912628e6f9358fb3.web-sandbox.oaiusercontent.com";
+    expect((await preflight(ios)).headers.get("access-control-allow-origin")).toBe(ios);
     for (const bad of ["https://web-sandbox.oaiusercontent.com.evil.example", "https://evil.example/x.web-sandbox.oaiusercontent.com", "http://a.web-sandbox.oaiusercontent.com"]) {
       expect((await preflight(bad)).headers.get("access-control-allow-origin"), bad).toBeNull();
     }

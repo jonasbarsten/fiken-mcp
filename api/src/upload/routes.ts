@@ -12,9 +12,10 @@ import { readUploadTicket } from "./ticket.js";
 const MAX_BYTES = 4 * 1024 * 1024;
 /**
  * Where Claude (<id>.claudemcpcontent.com) and ChatGPT (<id>.web-sandbox.oaiusercontent.com) serve MCP App widgets;
- * the only origins allowed to call the widget routes cross-origin.
+ * the only origins allowed to call the widget routes cross-origin. ChatGPT's labels can carry underscores
+ * (asdk_app_<hex>, seen from the iOS app 2026-10-06).
  */
-export const WIDGET_ORIGIN = /^https:\/\/(?:[a-z0-9-]+\.claudemcpcontent\.com|(?:[a-z0-9-]+\.)+web-sandbox\.oaiusercontent\.com)$/;
+export const WIDGET_ORIGIN = /^https:\/\/(?:[a-z0-9-]+\.claudemcpcontent\.com|(?:[a-z0-9_-]+\.)+web-sandbox\.oaiusercontent\.com)$/;
 
 /**
  * CORS for a widget route, logging every preflight's origin, requested headers and whether it was allowed. A refused
