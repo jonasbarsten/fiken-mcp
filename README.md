@@ -340,10 +340,10 @@ Receipts: `upload_receipts` opens a picker inside the chat (photos,
 camera, PDFs; on a computer with a mouse, files can also be dropped onto
 it). Each file goes to the company's Fiken inbox and its
 content (images, or the text of each PDF page) goes straight into the
-model's context, so nothing is read back from Fiken. "Ferdig" fills in
-no message: it tells the model through the same context that the upload
-is complete and that it should wait for the user, who then writes what
-to do with the files (book them, or not). `get_upload_url` gives shell-capable clients such as
+model's context, so nothing is read back from Fiken. There is no done
+button: the widget asks the user to say in the chat when they are done
+and what to do with the files (book them, or not), and the model waits
+for that message. `get_upload_url` gives shell-capable clients such as
 Claude Code a `curl` command instead.
 
 Limits: 4 MB per file (larger photos are downscaled in the widget; larger

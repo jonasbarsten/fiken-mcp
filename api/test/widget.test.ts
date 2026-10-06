@@ -13,7 +13,6 @@ describe("built widget", () => {
     expect(html).toContain("UNTRUSTED DOCUMENT CONTENT");
     // The widget's limit must stay the route's limit (MAX_BYTES in src/upload/routes.ts).
     expect(html).toContain("MAX_UPLOAD_BYTES = 4 * 1024 * 1024");
-    expect(html).toContain("Ferdig");
     expect(html).not.toContain("innerHTML");
     expect(html.length).toBeGreaterThan(500_000);
   });
@@ -44,11 +43,10 @@ describe("built widget", () => {
     expect(html).toContain("opplastingen utløp");
   });
 
-  it("on Ferdig tells the model through context and fills in no message", () => {
-    expect(html).toContain("The user pressed Ferdig in the upload widget");
-    expect(html).toContain("Wait for the user to say what to do with them; do not book them unasked.");
-    expect(html).toContain("Skriv i chatten hva du vil gjøre med dem.");
+  it("has no done button: the user tells the chat when they are done, and the widget sends no message", () => {
+    expect(html).not.toContain('id="done"');
+    expect(html).not.toContain("Ferdig");
+    expect(html).toContain("Si fra i chatten når du er ferdig, og hva som skal skje med dem.");
     expect(html).not.toContain("app.sendMessage(");
-    expect(html).not.toContain("Bokfør den.");
   });
 });
