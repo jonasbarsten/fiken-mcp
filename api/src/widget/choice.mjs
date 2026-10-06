@@ -6,8 +6,8 @@ function choiceMessage(option) {
   return option.value === option.label ? option.label : `${option.label} (${option.value})`;
 }
 
-// Claude puts the widget's message in the chat composer; the user still has to press send.
-const HINT = "Svaret ligger i meldingsfeltet – trykk send i chatten.";
+// ChatGPT sends the widget's message at once; Claude puts it in the composer for the user to send. True in both:
+const HINT = "Svaret er sendt til chatten. Står det i meldingsfeltet, trykk send.";
 
 function renderChoice(doc, root, data, send) {
   let done = false;

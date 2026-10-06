@@ -5,8 +5,8 @@ import { renderPreview } from "../src/widget/preview.mjs";
 import { renderTable } from "../src/widget/table.mjs";
 import { FakeEl } from "./fake-dom.js";
 
-// Claude puts a widget's message in the chat composer; the user still has to press send.
-const HINT = "Svaret ligger i meldingsfeltet – trykk send i chatten.";
+// ChatGPT sends a widget's message at once; Claude puts it in the composer for the user to send. True in both:
+const HINT = "Svaret er sendt til chatten. Står det i meldingsfeltet, trykk send.";
 const doc = { createElement: (tag: string) => new FakeEl(tag) };
 const hints = (root: FakeEl) => root.all().filter((e) => e.className === "hint");
 const noop = () => {};
