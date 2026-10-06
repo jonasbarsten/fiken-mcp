@@ -353,7 +353,8 @@ and named as skipped when it cannot. Amounts everywhere are integers in
 øre.
 
 Only the widget sandbox origins of Claude (`*.claudemcpcontent.com`) and
-ChatGPT (`*.web-sandbox.oaiusercontent.com`) may call the upload and
+ChatGPT (`*.web-sandbox.oaiusercontent.com`, over `https://`, or
+`codex-sandbox://` in ChatGPT Desktop) may call the upload and
 document endpoints cross-origin. Each preflight to them is logged as
 `widget_preflight` with its origin, requested headers and whether it was
 allowed, since a refused preflight leaves no other trace. `GET /document` fetches only the file URL sealed in its ticket
