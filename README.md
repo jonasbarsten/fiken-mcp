@@ -54,8 +54,9 @@ You need:
 claude mcp add --transport http fiken https://api.fiken-mcp.byjoba.com/mcp
 ```
 
-**ChatGPT:** on chatgpt.com, Plugins → Add → Create custom MCP server,
-with the same address and OAuth. It then shows up in the iOS app too.
+**ChatGPT** (mobile, web and desktop): set it up once on chatgpt.com in
+the browser, Plugins → Add → Create custom MCP server, with the same
+address and OAuth. It then works in the mobile and desktop apps too.
 
 More options (read-only and narrower connections): [Adding the connector](#adding-the-connector).
 
@@ -428,15 +429,16 @@ After an update, open the connector under Customize, Connectors and
 choose "Refresh tools list" in its menu. In Claude Code, remove and
 re-add it (`claude mcp remove fiken`, then the add command above).
 
-ChatGPT (web, then also on iOS): Plugins, Add, Create custom MCP server.
-Any name, server URL `https://api.fiken-mcp.byjoba.com/mcp`,
-authentication OAuth, tick «I understand and want to continue», «Create
-as a plugin», then «Continue to Fiken MCP» and log in with Fiken. Added
-on chatgpt.com, it shows up in the iOS app too (verified 2026-10-06 on
+ChatGPT (mobile, web and desktop): on chatgpt.com in the browser,
+Plugins, Add, Create custom MCP server. Any name, server URL
+`https://api.fiken-mcp.byjoba.com/mcp`, authentication OAuth, tick «I
+understand and want to continue», «Create as a plugin», then «Continue to
+Fiken MCP» and log in with Fiken. Added once on chatgpt.com, it works in
+the iOS and desktop apps too, widgets included (verified 2026-10-06 on
 Plus). ChatGPT Desktop's own settings (Plugins, MCPs, Add MCP server,
-Streamable HTTP) add the server to its Codex agent instead; Codex logs in
-on a loopback redirect with a random port, which the server accepts for
-loopback addresses only (RFC 8252 7.3).
+Streamable HTTP) add the server to its Codex agent instead, a separate
+setup; Codex logs in on a loopback redirect with a random port, which the
+server accepts for loopback addresses only (RFC 8252 7.3).
 
 ## Website
 
