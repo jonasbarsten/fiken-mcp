@@ -84,6 +84,11 @@ describe("POST /upload", () => {
     // The origin the ChatGPT iOS app actually sent (widget_preflight log, 2026-10-06): underscores in the label.
     const ios = "https://asdk_app_6ac4c41e132c8191912628e6f9358fb3.web-sandbox.oaiusercontent.com";
     expect((await preflight(ios)).headers.get("access-control-allow-origin")).toBe(ios);
+    // ChatGPT Desktop (Codex) serves widgets under its own scheme (seen 2026-10-06).
+    const desktop = "codex-sandbox://mcp-app-1ed63ebba3400405c23afd4ee64b09e29c9b5340deda6ef5.web-sandbox.oaiusercontent.com";
+    expect((await preflight(desktop)).headers.get("access-control-allow-origin")).toBe(desktop);
+    expect((await preflight("codex-sandbox://evil.example")).headers.get("access-control-allow-origin")).toBeNull();
+    expect((await preflight("codex-sandbox://x.claudemcpcontent.com")).headers.get("access-control-allow-origin")).toBeNull();
     for (const bad of ["https://web-sandbox.oaiusercontent.com.evil.example", "https://evil.example/x.web-sandbox.oaiusercontent.com", "http://a.web-sandbox.oaiusercontent.com"]) {
       expect((await preflight(bad)).headers.get("access-control-allow-origin"), bad).toBeNull();
     }
