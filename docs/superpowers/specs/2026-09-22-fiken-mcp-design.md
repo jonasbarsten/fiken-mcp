@@ -97,7 +97,7 @@ Claude / ChatGPT client ──HTTPS──▶ API Gateway HTTP API
                                     api.fiken-mcp.byjoba.com (Route 53 zone byjoba.com)
                                         │
                                         ▼
-                                  Lambda (Node 24, arm64, reserved concurrency 1)
+                                  Lambda (Node 24, arm64, reserved concurrency 10)
                                     /.well-known/*   OAuth discovery
                                     /register        dynamic client registration
                                     /authorize       → redirects to fiken.no/oauth/authorize
@@ -299,24 +299,25 @@ content.
 
 ## 7. Fiken concurrency and abuse limits
 
-Lambda reserved concurrency 1 plus an in-process promise queue with a
-300 ms gap in `fikenFetch`; retry once on 429. Reserved concurrency
+Lambda reserved concurrency 10 (1 until 2026-10-07) plus an in-process
+promise queue with a 300 ms gap in `fikenFetch`; retry once on 429. The
+queue serialises within one container only, so up to 10 Fiken requests
+can overlap, from one user's parallel tool calls or from several users.
+Accepted on 2026-10-07 to stop parallel tool calls failing with 503; the
+single 429 retry is the only guard, and the cross-container lock below
+is the fix if Fiken starts answering 429 or complains. Reserved concurrency
 needs the account's Lambda concurrency quota above the default 10; the
-byjoba account's was raised to 1000 on 2026-09-27. A second user's call
-during another's in-flight call is throttled by Lambda and surfaces to
-the client as a tool error the model can retry. Acceptable under the
-5-user dev cap. When applying for production status, ask Fiken whether
-the limit is per user; if so, raise concurrency and queue per token.
-A single user hits this too: clients fire independent tool calls in
-parallel (Claude Code sent six at once on 2026-09-29 and five
-succeeded), and the throttled one surfaces as a 503 the model has to
-retry. If that proves annoying in practice, the fix is a small
-reserved concurrency (say 3) with a cross-container lock on Fiken calls
-(a DynamoDB conditional write on an expiry timestamp checked in the
-condition itself; DynamoDB's TTL deletes items up to about 48 hours late
-and cannot expire a lock), not a bigger queue in one container.
+byjoba account's was raised to 1000 on 2026-09-27. Under concurrency 1,
+clients firing independent tool calls in parallel lost all but one to a
+503 (Claude Code sent six at once on 2026-09-29 and five succeeded);
+that is why it was raised. When applying for production status, ask
+Fiken whether the limit is per user; if so, queue per token. The lock to
+add if overlapping requests cause trouble is a cross-container lock on
+Fiken calls (a DynamoDB conditional write on an expiry timestamp checked
+in the condition itself; DynamoDB's TTL deletes items up to about 48
+hours late and cannot expire a lock), not a bigger queue in one container.
 
-Concurrency 1 also means anyone can starve the service by hammering it.
+A low concurrency ceiling also means anyone can starve the service by hammering it.
 Controls: API Gateway stage throttling (20 requests per second, burst
 40) on all routes, the bearer check runs before any other work on
 `/mcp`, and unauthenticated routes do no upstream calls except `/token`,
@@ -612,9 +613,10 @@ too if you suspect a device or account was compromised.
 - Lambda throttled (concurrency): API Gateway answers 503 "Service
   Unavailable" (observed 2026-09-29 when Claude Code fired six tool calls
   at once), not 429. The call never reaches the Lambda and is not
-  counted. Clients show the error instead of retrying, so a client that
-  parallelises tool calls loses all but one of them; see section 7 for
-  the trade-off.
+  counted. Clients show the error instead of retrying. Under reserved
+  concurrency 1 a client that parallelised tool calls lost all but one of
+  them; since 2026-10-07 it takes more than 10 calls at once to hit this
+  (section 7).
 
 ## 13. Testing
 

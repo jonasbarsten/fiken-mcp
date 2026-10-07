@@ -169,6 +169,13 @@ not say whether the one-request rule is per user or per app; a third
 party's README claims per user without a source. Ask Fiken at
 production-status time.
 
+Changed 2026-10-07 to reserved concurrency 10, with the queue still
+per container and no cross-container lock. Concurrency 1 refused parallel
+tool calls with 503. Accepted risk: Fiken can see up to 10 overlapping
+requests, which may 429 or get the app banned; the single 429 retry is
+the only guard. Rejected for now: 10 with a DynamoDB lock (more work,
+not needed yet) and waiting for Fiken's answer on per-user limits.
+
 ## Security review (2026-09-22) and what changed
 
 A review of the design from the standpoint of a bank's security lead

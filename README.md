@@ -103,7 +103,9 @@ Claude / ChatGPT ──MCP over HTTPS──▶ API Gateway ──▶ Lambda (Hon
 One stateless Lambda serves MCP (`/mcp`), OAuth, receipt uploads
 (`POST /upload`) and the document viewer's downloads (`GET /document`),
 plus `/stats` and the connector icon. Fiken allows one
-concurrent request, so every call goes through one queue.
+concurrent request, so every call goes through one queue per Lambda
+container. Up to 10 containers run at once, so parallel tool calls are not
+refused; Fiken may then see more than one request at a time.
 
 Status: live at `https://api.fiken-mcp.byjoba.com` for a handful of
 test users. The receipts flow works end to end, and invoices, credit
