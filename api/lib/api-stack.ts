@@ -49,10 +49,11 @@ export class ApiStack extends Stack {
       architecture: lambda.Architecture.ARM_64,
       memorySize: 512,
       timeout: Duration.seconds(30),
-      // One container at a time: Fiken allows one concurrent request, and this
-      // is the abuse ceiling (spec section 7). Needs the account's Lambda
-      // concurrency quota above the default 10.
-      reservedConcurrentExecutions: 1,
+      // Up to 10 containers, so parallel tool calls are not refused with 503.
+      // The in-process queue only serialises within one container, so Fiken may
+      // see up to 10 concurrent requests (spec section 7). Also the abuse
+      // ceiling. Needs the account's Lambda concurrency quota above the default 10.
+      reservedConcurrentExecutions: 10,
       logGroup,
       environment: { PUBLIC_URL: `https://${DOMAIN}`, PARAM_PREFIX, USAGE_TABLE_NAME: table.tableName },
       bundling: {

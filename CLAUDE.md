@@ -23,7 +23,9 @@ Repo: `jonasbarsten/fiken-mcp` (public). AWS: byjoba account
   through Lambda memory only. Only anonymous usage counters in DynamoDB.
 - One stable MCP App resource URI. Never version it per build.
 - All Fiken API calls through one `fikenFetch` wrapper with the queue (Fiken's public help pages at hjelp.fiken.no are fetched separately, without a token).
-  Fiken allows one concurrent request.
+  Fiken allows one concurrent request. The queue is per container; Lambda
+  reserved concurrency is 10 since 2026-10-07, so requests from different
+  containers can overlap (accepted risk, see the decision record).
 - Secrets in Parameter Store (`/fiken_mcp/*`), read at cold start. Never
   in code, env vars or the CloudFormation template. Load the
   `aws-secrets-manager` skill before any secret handling and never fetch
