@@ -11,26 +11,26 @@
     "gen:fiken-types": "openapi-typescript https://api.fiken.no/api/v2/docs/swagger.yaml -o src/fiken/types.d.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "3.1146.0",
-    "@aws-sdk/client-ssm": "3.1146.0",
-    "@aws-sdk/lib-dynamodb": "3.1146.0",
+    "@aws-sdk/client-dynamodb": "3.1156.0",
+    "@aws-sdk/client-ssm": "3.1156.0",
+    "@aws-sdk/lib-dynamodb": "3.1156.0",
     "@modelcontextprotocol/ext-apps": "2.0.3",
-    "@modelcontextprotocol/server": "2.3.0",
+    "@modelcontextprotocol/server": "2.4.0",
     "hono": "4.13.13",
     "pdfjs-dist": "6.4.299",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.3.0",
+    "@modelcontextprotocol/client": "2.4.0",
     "@types/aws-lambda": "8.10.164",
-    "@types/node": "24.19.1",
-    "aws-cdk": "2.1144.0",
-    "aws-cdk-lib": "2.272.0",
+    "@types/node": "24.19.2",
+    "aws-cdk": "2.1146.1",
+    "aws-cdk-lib": "2.274.0",
     "constructs": "10.8.1",
     "esbuild": "0.28.2",
     "openapi-typescript": "7.13.0",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
-    "vitest": "5.0.3"
+    "vitest": "5.0.5"
   }
 }
